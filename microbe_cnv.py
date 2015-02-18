@@ -1,9 +1,15 @@
 #!/usr/bin/python
 
+# MicrobeCNV - estimation of gene-copy-number from shotgun sequence data
+# Copyright (C) 2015 Stephen Nayfach
+# Freely distributed under the GNU General Public License (GPLv3
+
 __version__ = '0.0.1'
 
 # TO DO
 # import microbe_species module
+# print cluster name, size, and relative abundance when read-mapping
+# add option to 'pick-up' at different points in pipeline (use existing bam files)
 
 # Libraries
 # ---------
@@ -23,57 +29,82 @@ import Bio.SeqIO
 def parse_arguments():
 	""" Parse command line arguments """
 	
-	parser = argparse.ArgumentParser(
-		description='Estimate the copy-number of genes in reference genomes from metagenomic data',
-		formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+	parser = argparse.ArgumentParser(usage='%s [options]' % os.path.basename(__file__))
 	
 	parser.add_argument('--version', action='version', version='MicrobeCNV %s' % __version__)
+	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	
 	input = parser.add_argument_group('Input')
 	input.add_argument('-1', type=str, dest='m1', help='FASTQ file containing 1st mate')
 	input.add_argument('-2', type=str, dest='m2', help='FASTQ file containing 2nd mate')
 	input.add_argument('-U', type=str, dest='r', help='FASTQ file containing unpaired reads')
-	input.add_argument('-p', type=str, dest='profile', help='Estimated species abundance profile')
-	input.add_argument('--db-dir', type=str, dest='db_dir', help='Directory of bt2 indexes for each species')
+	input.add_argument('-D', type=str, dest='db_dir', help='Directory of bt2 indexes for genome clusters')
 	
-	input = parser.add_argument_group('Output')
-	input.add_argument('-o', type=str, dest='out_bn', help='Base name for output files')
-	
-	input = parser.add_argument_group('Alignment')
-	input.add_argument('--max-reads', type=int, dest='max_reads', help='Maximum number of reads to use from seqeunce file')
-	
-	input = parser.add_argument_group('Genome-clusters')
-	input.add_argument('--min-abun', type=float, dest='min_abun', default=0.05,
-		help='Abundance threshold for inclusion of genome cluster')
+	output = parser.add_argument_group('Output')
+	output.add_argument('-o', type=str, dest='out', help='Base name for output files')
+
+	pipe = parser.add_argument_group('Pipeline')
+	pipe.add_argument('--all', action='store_true', dest='all',
+		default=False, help='Run entire pipeline')
+	pipe.add_argument('--profile', action='store_true', dest='profile',
+		default=False, help='Fast estimation of genome-cluster abundance')
+	pipe.add_argument('--align', action='store_true', dest='align',
+		default=False, help='Align reads to genome-clusters')
+	pipe.add_argument('--map', action='store_true', dest='map',
+		default=False, help='Assign reads to mapping locations')
+
+	aln = parser.add_argument_group('Alignment')
+	aln.add_argument('--reads', type=int, dest='reads', help='Number of reads to use from sequence file (use all)')
+	aln.add_argument('--abun', type=float, dest='abun', default=0.05,
+			help='Abundance threshold for aligning to genome cluster (0.05)')
+			
+	map = parser.add_argument_group('Mapping')
+	map.add_argument('--pid', type=float, dest='pid', default=90,
+			help='Minimum percent identity between read and reference (90.0)')
 	
 	return vars(parser.parse_args())
 
 def check_arguments(args):
 	""" Check validity of command line arguments """
-	if not args['out_bn']:
-		sys.exit('Specify output basename with -o')
+	
+	# Pipeline options
+	if not any([args['all'], args['profile'], args['align'], args['map']]):
+		sys.exit('Specify pipeline option(s): --all, --profile, --align, --map')
+	if args['all']:
+		args['profile'] = True
+		args['align'] = True
+		args['map'] = True
+
+	# Input options
 	if (args['m1'] or args['m2']) and args['r']:
 		sys.exit('Cannot use both -1/-2 and -U')
 	if (args['m1'] and not args['m2']) or (args['m2'] and not args['m1']):
 		sys.exit('Must specify both -1 and -2 for paired-end reads')
 	if not (args['m1'] or args['r']):
 		sys.exit('Specify reads using either -1 and -2 or -U')
-	if not args['profile']:
-		sys.exit('Specify species profile file with -p')
 	if args['m1'] and not os.path.isfile(args['m1']):
 		sys.exit('Input file specified with -1 does not exist')
 	if args['m2'] and not os.path.isfile(args['m2']):
 		sys.exit('Input file specified with -2 does not exist')
 	if args['r'] and not os.path.isfile(args['r']):
 		sys.exit('Input file specified with -U does not exist')
-	if args['profile'] and not os.path.isfile(args['profile']):
-		sys.exit('Input file specified with -p does not exist')
 	if args['db_dir'] and not os.path.isdir(args['db_dir']):
 		sys.exit('Input directory specified with --db-dir does not exist')
 
-def parse_profile(args):
+	# Output options
+	if not args['out']:
+		sys.exit('Specify output basename with -o')
+
+def print_copyright():
+	# print out copyright information
+	print ("\nMicrobeCNV - estimation of gene-copy-number from shotgun sequence data")
+	print ("version %s; github.com/snayfach/MicrobeCNV" % __version__)
+	print ("Copyright (C) 2015 Stephen Nayfach")
+	print ("Freely distributed under the GNU General Public License (GPLv3)\n")
+
+def parse_profile(inpath):
 	""" Parse output from MicrobeSpecies """
-	infile = open(args['profile'])
+	infile = open(inpath)
 	next(infile)
 	for line in infile:
 		fields = [
@@ -84,36 +115,122 @@ def parse_profile(args):
 
 def select_genome_clusters(args):
 	""" Select genome clusters to map to """
-	cluster_ids = []
-	for rec in parse_profile(args):
-		if rec['prop_cells'] >= args['min_abun']:
-			cluster_ids.append(rec['cluster_id'])
-	return cluster_ids
+	cluster_to_abun = {}
+	inpath = '%s.species' % args['out']
+	if not os.path.isfile(inpath):
+		sys.exit("Could not locate species profile: %s" % inpath)
+	for rec in parse_profile(inpath):
+		if rec['prop_cells'] >= args['abun']:
+			cluster_to_abun[rec['cluster_id']] = rec['prop_cells']
+	return cluster_to_abun
 
-def map_reads(cluster_id, index_bn):
-	""" Use bowtie2 to map reads to reference genome cluster """
-	# Build command
-	command = 'bowtie2 --no-unal --very-sensitive -x %s ' % index_bn
-	#   max reads to search
-	if args['max_reads']: command += '-u %s ' % args['max_reads']
-	#   input files
-	if args['m1']: command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
-	else: command += '-U %(r)s ' % args['r']
-	#   output
-	command += '| samtools view -b - > %s' % '.'.join([args['out_bn'], cluster_id, 'bam'])
-	# Run command
-	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = process.communicate()
-
-def maps_reads_all_clusters(genome_clusters)
+def align_reads(genome_clusters):
 	""" Use Bowtie2 to map reads to all specified genome clusters """
+	if args['verbose']: print("Aligning reads to reference genomes")
 	for cluster_id in genome_clusters:
-		index_dir = os.path.join(args['db_dir'], cluster_id)
-		index_bn = os.path.join(index_dir, cluster_id)
-		if not os.path.isdir(index_dir):
-			print("Warning: Bowtie2 index for %s was not found. Skipping." % cluster_id)
+		index_bn = '/'.join([args['db_dir'], cluster_id, cluster_id])
+		# Build command
+		command = 'bowtie2 --no-unal --very-sensitive -x %s ' % index_bn
+		#   max reads to search
+		if args['reads']: command += '-u %s ' % args['reads']
+		#   input files
+		if args['m1']: command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
+		else: command += '-U %(r)s ' % args['r']
+		#   output
+		command += '| samtools view -b - > %s' % '.'.join([args['out'], cluster_id, 'bam'])
+		# Run command
+		if args['verbose']: print("  running: %s") % command
+		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		out, err = process.communicate()
+
+def fetch_paired_reads(bam_path):
+	""" Use pysam to yield paired end reads from bam file """
+	pe_read = []
+	aln_file = pysam.AlignmentFile(bam_path, "rb")
+	for aln in aln_file.fetch(until_eof = True):
+		if aln.mate_is_unmapped and aln.is_read1:
+			yield [aln]
+		elif aln.mate_is_unmapped and aln.is_read2:
+			yield [aln]
 		else:
-			map_reads(cluster_id, index_bn)
+			pe_read.append(aln)
+			if len(pe_read) == 2:
+				yield pe_read
+				pe_read = []
+
+def compute_aln_score(pe_read):
+	""" Compute alignment score for paired-end read """
+	if pe_read[0].mate_is_unmapped:
+		score = pe_read[0].query_length - dict(pe_read[0].tags)['NM']
+		return score
+	else:
+		score1 = pe_read[0].query_length - dict(pe_read[0].tags)['NM']
+		score2 = pe_read[1].query_length - dict(pe_read[1].tags)['NM']
+		return score1 + score2
+
+def compute_perc_id(pe_read):
+	""" Compute percent identity for paired-end read """
+	if pe_read[0].mate_is_unmapped:
+		length = pe_read[0].query_length
+		edit = dict(pe_read[0].tags)['NM']
+	else:
+		length = pe_read[0].query_length + pe_read[1].query_length
+		edit = dict(pe_read[0].tags)['NM'] + dict(pe_read[1].tags)['NM']
+	return 100 * (length - edit)/float(length)
+
+def find_best_hits(genome_clusters):
+	""" Find top scoring alignment for each read """
+	if args['verbose']: print("Mapping reads best genomic positions")
+	best_hits = {}
+	
+	# map reads across genome clusters
+	for cluster_id in genome_clusters:
+		bam_path = '.'.join([args['out'], cluster_id, 'bam'])
+		if not os.path.isfile(bam_path): # check that bam file exists
+			sys.stderr.write("  bam file not found for genome-cluster %s. skipping\n" % cluster_id)
+			continue
+		if args['verbose']: print("  parsing: %s") % bam_path
+		for pe_read in fetch_paired_reads(bam_path):
+			# parse pe_read
+			query = pe_read[0].query_name
+			score = compute_aln_score(pe_read)
+			pid = compute_perc_id(pe_read)
+			if pid < args['pid']: # filter aln
+				continue
+			elif query not in best_hits: # store aln
+				best_hits[query] = {'score':score, 'aln':{cluster_id:pe_read} }
+			elif score > best_hits[query]['score']: # update aln
+				best_hits[query] = {'score':score, 'aln':{cluster_id:pe_read} }
+			elif score == best_hits[query]['score']: # append aln
+				best_hits[query]['aln'][cluster_id] = pe_read
+	return best_hits
+
+def report_mapping_summary(best_hits):
+	""" Summarize hits to genome-clusters """
+	hit1, hit2, hit3 = 0, 0, 0
+	for value in best_hits.values():
+		if len(value['aln']) == 1: hit1 += 1
+		elif len(value['aln']) == 2: hit2 += 1
+		else: hit3 += 1
+	print("\n  summary:")
+	print("    %s reads assigned to any GC (%s)" % (hit1+hit2+hit3, round(float(hit1+hit2+hit3)/args['reads'], 2)) )
+	print("    %s reads assigned to 1 GC (%s)" % (hit1, round(float(hit1)/args['reads'], 2)) )
+	print("    %s reads assigned to 2 GCs (%s)" % (hit2, round(float(hit2)/args['reads'], 2)) )
+	print("    %s reads assigned to 3 or more GCs (%s)" % (hit3, round(float(hit3)/args['reads'], 2)) )
+
+	
+def resolve_ties(best_hits, cluster_to_abun):
+	""" Reassign reads that map equally well to >1 genome cluster """
+	for query, rec in best_hits.items():
+		if len(rec['aln']) == 1:
+			best_hits[query] = rec['aln'].items()[0]
+		if len(rec['aln']) > 1:
+			target_gcs = rec['aln'].keys()
+			abunds = [cluster_to_abun[gc] for gc in target_gcs]
+			probs = [abund/sum(abunds) for abund in abunds]
+			selected_gc = np.random.choice(target_gcs, 1, p=probs)[0]
+			best_hits[query] = (selected_gc, rec['aln'][selected_gc])
+	return best_hits
 
 # Main
 # ------
@@ -121,64 +238,26 @@ def maps_reads_all_clusters(genome_clusters)
 args = parse_arguments()
 check_arguments(args)
 
-genome_clusters = select_genome_clusters(args)
-maps_reads_all_clusters(genome_clusters)
+if args['verbose']: print_copyright()
 
-#
-#def map_reads_cushaw(args, paths):
-#	""" Use cushaw3 to map reads in fastq file to marker database """
-#	command = "%(c3)s align -r %(db)s -f %(m1)s | %(st)s view -b - > %(out)s.bam 2> %(out)s.log"
-#	arguments = {'c3':paths['cushaw3'],'db':paths['cushaw3db'],'m1':args['m1,'m2':args['m2,'st':paths['samtools'],'out':args['out}
-#	process = subprocess.Popen(command % arguments, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#	out, err = process.communicate()
-#
-#def fastq_to_fasta(args, paths):
-#	""" Use cushaw3 to map reads in fastq file to marker database """
-#	infile = gzip.open(args['m1) if args['m1.split('.')[-1] == 'gz' else open(args['m1)
-#	outfile = open('%s.fa' % args['out, 'w')
-#	for rec in Bio.SeqIO.parse(infile, 'fastq'):
-#		outfile.write('>'+rec.id+'\n'+str(rec.seq)+'\n')
-#
-#def map_reads_blast(args, paths):
-#	""" Use blastn to map reads in fasta file to marker database """
-#	command = "%(blastn)s -query %(query)s -db %(db)s -out %(out)s -outfmt 6"
-#	arguments = {'blastn':paths['blastn'], 'query':'%s.fa' % args['out, 'db':paths['blastdb'], 'out':'%s.m8' % args['out}
-#	process = subprocess.Popen(command % arguments, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#	out, err = process.communicate()
-#
-#def parse_blast(inpath):
-#	""" Yield formatted record from BLAST m8 file """
-#	formats = [str,str,float,int,float,float,float,float,float,float,float,float]
-#	fields = ['query','target','pid','aln','mis','gaps','qstart','qend','tstart','tend','evalue','score']
-#	infile = open(inpath)
-#	for line in infile:
-#		values = line.rstrip().split()
-#		yield dict([(field, format(value)) for field, format, value in zip(fields, formats, values)])
-#
-#def find_best_hits(args, paths):
-#	""" Find top scoring alignment for each read """
-#	best_hits = {}
-#	if args['bam:
-#		aln_file = pysam.AlignmentFile(args['bam if args['bam else '%s.bam' % args['out, "rb")
-#		for aln in aln_file.fetch(until_eof = True):
-#			if aln.is_unmapped:
-#				continue
-#			elif aln.query_name not in best_hits:
-#				best_hits[aln.query_name] = aln
-#			elif dict(aln.tags)['AS'] > dict(best_hits[aln.query_name].tags)['AS']:
-#				best_hits[aln.query_name] = aln
-#	elif args['m8:
-#		min_pid = 0.80
-#		max_evalue = 1e-5
-#		for aln in parse_blast(args['m8):
-#			if aln['evalue'] > max_evalue or aln['pid'] < min_pid:
-#				continue
-#			elif aln['query'] not in best_hits:
-#				best_hits[aln['query']] = aln
-#			elif best_hits[aln['query']]['score'] < aln['score']:
-#				best_hits[aln['query']] = aln
-#	return best_hits.values()
-#
+if args['profile']:
+	pass
+cluster_to_abun = select_genome_clusters(args)
+selected_clusters = cluster_to_abun.keys()
+
+if args['align']:
+	align_reads(selected_clusters)
+
+if args['map']:
+	best_hits = find_best_hits(selected_clusters)
+	if args['verbose']: report_mapping_summary(best_hits)
+	best_hits = resolve_ties(best_hits, cluster_to_abun)
+
+
+
+
+
+
 #def aggregate_alignments(args, paths, alns):
 #	""" Group all alignments to each genome cluster """
 #	cluster_to_aln = dict([(x.rstrip(),[]) for x in open(paths['clusters']).readlines()])
