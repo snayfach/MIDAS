@@ -22,8 +22,9 @@ import Bio.SeqIO
 # ---------
 def parse_arguments():
 	""" Parse command line arguments """
+	
 	parser = argparse.ArgumentParser(
-		description='Map metagenomic reads to reference genomes from species-clusters',
+		description='Estimate the copy-number of genes in reference genomes from metagenomic data',
 		formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	
 	parser.add_argument('--version', action='version', version='MicrobeCNV %s' % __version__)
@@ -33,7 +34,13 @@ def parse_arguments():
 	input.add_argument('-2', type=str, dest='m2', help='FASTQ file containing 2nd mate')
 	input.add_argument('-U', type=str, dest='r', help='FASTQ file containing unpaired reads')
 	input.add_argument('-p', type=str, dest='profile', help='Estimated species abundance profile')
-	input.add_argument('-d', type=str, dest='db', help='Directory of bt2 indexes for each species')
+	input.add_argument('--db-dir', type=str, dest='db_dir', help='Directory of bt2 indexes for each species')
+	
+	input = parser.add_argument_group('Output')
+	input.add_argument('-o', type=str, dest='out_bn', help='Base name for output files')
+	
+	input = parser.add_argument_group('Alignment')
+	input.add_argument('--max-reads', type=int, dest='max_reads', help='Maximum number of reads to use from seqeunce file')
 	
 	input = parser.add_argument_group('Genome-clusters')
 	input.add_argument('--min-abun', type=float, dest='min_abun', default=0.05,
@@ -43,6 +50,8 @@ def parse_arguments():
 
 def check_arguments(args):
 	""" Check validity of command line arguments """
+	if not args['out_bn']:
+		sys.exit('Specify output basename with -o')
 	if (args['m1'] or args['m2']) and args['r']:
 		sys.exit('Cannot use both -1/-2 and -U')
 	if (args['m1'] and not args['m2']) or (args['m2'] and not args['m1']):
@@ -59,20 +68,62 @@ def check_arguments(args):
 		sys.exit('Input file specified with -U does not exist')
 	if args['profile'] and not os.path.isfile(args['profile']):
 		sys.exit('Input file specified with -p does not exist')
-	if args['db'] and not os.path.isdir(args['db']):
-		sys.exit('Input directory specified with -d does not exist')
+	if args['db_dir'] and not os.path.isdir(args['db_dir']):
+		sys.exit('Input directory specified with --db-dir does not exist')
 
+def parse_profile(args):
+	""" Parse output from MicrobeSpecies """
+	infile = open(args['profile'])
+	next(infile)
+	for line in infile:
+		fields = [
+			('cluster_id', str), ('mapped_reads', int), ('prop_mapped', float),
+			('cell_count', float), ('prop_cells', float), ('avg_pid', float)]
+		values = line.rstrip().split()
+		yield dict( [ (f[0], f[1](v)) for f, v in zip(fields, values)] )
 
-#def map_reads(args, paths):
-#	""" Use bowtie2 to map reads in fastq file to marker database """
-#	if args['m1:
-#		command = "%(bt2)s --no-unal --very-sensitive -x %(db)s -1 %(m1)s -2 %(m1)s | %(st)s view -b - > %(out)s.bam"
-#		arguments = {'bt2':paths['bowtie2'],'db':paths['btdb'],'m1':args['m1,'m2':args['m2,'st':paths['samtools'],'out':args['out}
-#	else:
-#		command = "%(bt2)s --no-unal --very-sensitive -x %(db)s -U %(r)s | %(st)s view -b - > %(out)s"
-#		arguments = {'bt2':paths['bowtie2'],'db':paths['btdb'],'r':args['r,'st':paths['samtools'],'out':args['out}
-#	process = subprocess.Popen(command % arguments, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#	out, err = process.communicate()
+def select_genome_clusters(args):
+	""" Select genome clusters to map to """
+	cluster_ids = []
+	for rec in parse_profile(args):
+		if rec['prop_cells'] >= args['min_abun']:
+			cluster_ids.append(rec['cluster_id'])
+	return cluster_ids
+
+def map_reads(cluster_id, index_bn):
+	""" Use bowtie2 to map reads to reference genome cluster """
+	# Build command
+	command = 'bowtie2 --no-unal --very-sensitive -x %s ' % index_bn
+	#   max reads to search
+	if args['max_reads']: command += '-u %s ' % args['max_reads']
+	#   input files
+	if args['m1']: command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
+	else: command += '-U %(r)s ' % args['r']
+	#   output
+	command += '| samtools view -b - > %s' % '.'.join([args['out_bn'], cluster_id, 'bam'])
+	# Run command
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = process.communicate()
+
+def maps_reads_all_clusters(genome_clusters)
+	""" Use Bowtie2 to map reads to all specified genome clusters """
+	for cluster_id in genome_clusters:
+		index_dir = os.path.join(args['db_dir'], cluster_id)
+		index_bn = os.path.join(index_dir, cluster_id)
+		if not os.path.isdir(index_dir):
+			print("Warning: Bowtie2 index for %s was not found. Skipping." % cluster_id)
+		else:
+			map_reads(cluster_id, index_bn)
+
+# Main
+# ------
+
+args = parse_arguments()
+check_arguments(args)
+
+genome_clusters = select_genome_clusters(args)
+maps_reads_all_clusters(genome_clusters)
+
 #
 #def map_reads_cushaw(args, paths):
 #	""" Use cushaw3 to map reads in fastq file to marker database """
@@ -173,37 +224,4 @@ def check_arguments(args):
 #		avg_mapq = compute_avg_mapq(args, alns)
 #		record = [str(x) for x in [cluster_id, mapped_reads, relabun, avg_pid, avg_mapq]]
 #		outfile.write('\t'.join(record)+'\n')
-
-def parse_profile(args):
-	""" Takes arguments and returns species profile as sorted list of tuples (cluster_id, relative_abundance) """
-	infile = open(args['profile'])
-	next(infile)
-	for line in infile:
-		fields = [
-			('cluster_id', str), ('mapped_reads', int), ('prop_mapped', float),
-			('cell_count', float), ('prop_cells', float), ('avg_pid', float)]
-		values = line.rstrip().split()
-		yield dict( [ (f[0], f[1](v)) for f, v in zip(fields, values)] )
-	
-#	species_profile = [ (x.split()[0], float(x.split()[2])) for x in open(args['profile']).readlines()[1:] ]
-#	return sorted(species_profile, key=operator.itemgetter(1), reverse=True)
-
-
-
-# Main
-# ------
-
-args = parse_arguments()
-check_arguments(args)
-
-# 1. identify genome clusters to map to
-for rec in parse_profile(args):
-	print rec
-	quit()
-	
-print profile[0]
-
-# map reads to each genome cluster
-
-
 
