@@ -52,7 +52,9 @@ def parse_arguments():
 		default=False, help='Align reads to genome-clusters')
 	pipe.add_argument('--map', action='store_true', dest='map',
 		default=False, help='Assign reads to mapping locations')
-
+	pipe.add_argument('--cov', action='store_true', dest='cov',
+		default=False, help='Compute coverage of pangenomes')
+		
 	aln = parser.add_argument_group('Alignment')
 	aln.add_argument('--reads', type=int, dest='reads', help='Number of reads to use from sequence file (use all)')
 	aln.add_argument('--abun', type=float, dest='abun', default=0.05,
@@ -68,12 +70,13 @@ def check_arguments(args):
 	""" Check validity of command line arguments """
 	
 	# Pipeline options
-	if not any([args['all'], args['profile'], args['align'], args['map']]):
-		sys.exit('Specify pipeline option(s): --all, --profile, --align, --map')
+	if not any([args['all'], args['profile'], args['align'], args['map'], args['cov']]):
+		sys.exit('Specify pipeline option(s): --all, --profile, --align, --map, --cov')
 	if args['all']:
 		args['profile'] = True
 		args['align'] = True
 		args['map'] = True
+		args['cov'] = True
 
 	# Input options
 	if (args['m1'] or args['m2']) and args['r']:
@@ -97,10 +100,12 @@ def check_arguments(args):
 
 def print_copyright():
 	# print out copyright information
-	print ("\nMicrobeCNV - estimation of gene-copy-number from shotgun sequence data")
+	print ("-------------------------------------------------------------------------")
+	print ("MicrobeCNV - estimation of gene-copy-number from shotgun sequence data")
 	print ("version %s; github.com/snayfach/MicrobeCNV" % __version__)
 	print ("Copyright (C) 2015 Stephen Nayfach")
-	print ("Freely distributed under the GNU General Public License (GPLv3)\n")
+	print ("Freely distributed under the GNU General Public License (GPLv3)")
+	print ("-------------------------------------------------------------------------\n")
 
 def parse_profile(inpath):
 	""" Parse output from MicrobeSpecies """
@@ -126,7 +131,6 @@ def select_genome_clusters(args):
 
 def align_reads(genome_clusters):
 	""" Use Bowtie2 to map reads to all specified genome clusters """
-	if args['verbose']: print("Aligning reads to reference genomes")
 	for cluster_id in genome_clusters:
 		index_bn = '/'.join([args['db_dir'], cluster_id, cluster_id])
 		# Build command
@@ -180,16 +184,16 @@ def compute_perc_id(pe_read):
 
 def find_best_hits(genome_clusters):
 	""" Find top scoring alignment for each read """
-	if args['verbose']: print("Mapping reads best genomic positions")
+	if args['verbose']: print("  finding best alignments across GCs...")
 	best_hits = {}
 	
 	# map reads across genome clusters
 	for cluster_id in genome_clusters:
 		bam_path = '.'.join([args['out'], cluster_id, 'bam'])
 		if not os.path.isfile(bam_path): # check that bam file exists
-			sys.stderr.write("  bam file not found for genome-cluster %s. skipping\n" % cluster_id)
+			sys.stderr.write("    bam file not found for genome-cluster %s. skipping\n" % cluster_id)
 			continue
-		if args['verbose']: print("  parsing: %s") % bam_path
+		if args['verbose']: print("    parsing: %s") % bam_path
 		for pe_read in fetch_paired_reads(bam_path):
 			# parse pe_read
 			query = pe_read[0].query_name
@@ -212,7 +216,7 @@ def report_mapping_summary(best_hits):
 		if len(value['aln']) == 1: hit1 += 1
 		elif len(value['aln']) == 2: hit2 += 1
 		else: hit3 += 1
-	print("\n  summary:")
+	print("  summary:")
 	print("    %s reads assigned to any GC (%s)" % (hit1+hit2+hit3, round(float(hit1+hit2+hit3)/args['reads'], 2)) )
 	print("    %s reads assigned to 1 GC (%s)" % (hit1, round(float(hit1)/args['reads'], 2)) )
 	print("    %s reads assigned to 2 GCs (%s)" % (hit2, round(float(hit2)/args['reads'], 2)) )
@@ -221,6 +225,7 @@ def report_mapping_summary(best_hits):
 	
 def resolve_ties(best_hits, cluster_to_abun):
 	""" Reassign reads that map equally well to >1 genome cluster """
+	if args['verbose']: print("  reassigning reads mapped to >1 GC...")
 	for query, rec in best_hits.items():
 		if len(rec['aln']) == 1:
 			best_hits[query] = rec['aln'].items()[0]
@@ -232,6 +237,41 @@ def resolve_ties(best_hits, cluster_to_abun):
 			best_hits[query] = (selected_gc, rec['aln'][selected_gc])
 	return best_hits
 
+def write_best_hits(selected_clusters, best_hits, out):
+	""" Write reassigned PE reads to disk """
+	if args['verbose']: print("  writing mapped reads to disk...")
+	# open filehandles
+	aln_files = {}
+	for cluster_id in selected_clusters:
+		inpath = '.'.join([out, cluster_id, 'bam'])
+		if not os.path.isfile(inpath): continue
+		infile = pysam.AlignmentFile(inpath, 'rb')
+		outpath = '.'.join([out, cluster_id, 'reassigned', 'bam'])
+		aln_files[cluster_id] = pysam.AlignmentFile(outpath, 'wb', template=infile)
+	# write reads to disk
+	for cluster_id, pe_read in best_hits.values():
+		for aln in pe_read:
+			if aln is not None:
+				aln_files[cluster_id].write(aln)
+
+def compute_bed_cov(p_cov, p_bed):
+    """ Compute coverage of features """
+    # Read in coverage
+    si_pos_to_cov = {}
+    for line in open(p_cov):
+        si, pos, cov = line.rstrip().split()
+        si_pos_to_cov[si, int(pos)] = float(cov)
+    # Compute coverage of features
+    gene_to_cov = {}
+    f_in = gzip.open(p_bed)
+    for line in f_in:
+        cov = 0
+        si, start, stop, gene_oid = line.rstrip().split()
+        for pos in range(int(start), int(stop)+1):
+            cov += si_pos_to_cov[si, pos]
+        gene_to_cov[gene_oid] = cov
+    return gene_to_cov
+
 # Main
 # ------
 
@@ -241,21 +281,24 @@ check_arguments(args)
 if args['verbose']: print_copyright()
 
 if args['profile']:
+	if args['verbose']: print("Estimating the abundance of genome-clusters")
 	pass
 cluster_to_abun = select_genome_clusters(args)
 selected_clusters = cluster_to_abun.keys()
 
 if args['align']:
+	if args['verbose']: print("Aligning reads to reference genomes")
 	align_reads(selected_clusters)
 
 if args['map']:
+	if args['verbose']: print("Mapping reads to most likely genomic positions")
 	best_hits = find_best_hits(selected_clusters)
 	if args['verbose']: report_mapping_summary(best_hits)
 	best_hits = resolve_ties(best_hits, cluster_to_abun)
+	write_best_hits(selected_clusters, best_hits, args['out'])
 
-
-
-
+if args['cov']:
+	if args['verbose']: print("Computing coverage of pangenomes")
 
 
 #def aggregate_alignments(args, paths, alns):
