@@ -9,7 +9,7 @@ __version__ = '0.0.1'
 # TO DO
 # import microbe_species module
 # print cluster name, size, and relative abundance when read-mapping
-# add option to 'pick-up' at different points in pipeline (use existing bam files)
+# compute coverage, %id of pangenes
 
 # Libraries
 # ---------
@@ -96,7 +96,7 @@ def check_arguments(args):
 
 	# Output options
 	if not args['out']:
-		sys.exit('Specify output basename with -o')
+		sys.exit('Specify output directory with -o')
 
 def print_copyright():
 	# print out copyright information
@@ -121,7 +121,7 @@ def parse_profile(inpath):
 def select_genome_clusters(args):
 	""" Select genome clusters to map to """
 	cluster_to_abun = {}
-	inpath = '%s.species' % args['out']
+	inpath = os.path.join(args['out'], 'species')
 	if not os.path.isfile(inpath):
 		sys.exit("Could not locate species profile: %s" % inpath)
 	for rec in parse_profile(inpath):
@@ -141,7 +141,7 @@ def align_reads(genome_clusters):
 		if args['m1']: command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
 		else: command += '-U %(r)s ' % args['r']
 		#   output
-		command += '| samtools view -b - > %s' % '.'.join([args['out'], cluster_id, 'bam'])
+		command += '| samtools view -b - > %s' % os.path.join(args['out'], '%s.bam' % cluster_id)
 		# Run command
 		if args['verbose']: print("  running: %s") % command
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -152,6 +152,8 @@ def fetch_paired_reads(bam_path):
 	pe_read = []
 	aln_file = pysam.AlignmentFile(bam_path, "rb")
 	for aln in aln_file.fetch(until_eof = True):
+		reference_id = aln_file.getrname(aln.reference_id).split('|')[1]
+		aln.reference_id = reference_id
 		if aln.mate_is_unmapped and aln.is_read1:
 			yield [aln]
 		elif aln.mate_is_unmapped and aln.is_read2:
@@ -189,7 +191,7 @@ def find_best_hits(genome_clusters):
 	
 	# map reads across genome clusters
 	for cluster_id in genome_clusters:
-		bam_path = '.'.join([args['out'], cluster_id, 'bam'])
+		bam_path = os.path.join(args['out'], '%s.bam' % cluster_id)
 		if not os.path.isfile(bam_path): # check that bam file exists
 			sys.stderr.write("    bam file not found for genome-cluster %s. skipping\n" % cluster_id)
 			continue
@@ -237,40 +239,123 @@ def resolve_ties(best_hits, cluster_to_abun):
 			best_hits[query] = (selected_gc, rec['aln'][selected_gc])
 	return best_hits
 
-def write_best_hits(selected_clusters, best_hits, out):
+#def write_best_hits(selected_clusters, best_hits, out):
+#	""" Write reassigned PE reads to disk """
+#	if args['verbose']: print("  writing mapped reads to disk...")
+#	# open filehandles
+#	aln_files = {}
+#	for cluster_id in selected_clusters:
+#		inpath = '.'.join([out, cluster_id, 'bam'])
+#		if not os.path.isfile(inpath): continue
+#		infile = pysam.AlignmentFile(inpath, 'rb')
+#		outpath = '.'.join([out, cluster_id, 'reassigned', 'bam'])
+#		aln_files[cluster_id] = pysam.AlignmentFile(outpath, 'wb', template=infile)
+#	# write reads to disk
+#	for cluster_id, pe_read in best_hits.values():
+#		for aln in pe_read:
+#			if aln is not None:
+#				aln_files[cluster_id].write(aln)
+
+def write_best_hits(selected_clusters, best_hits):
 	""" Write reassigned PE reads to disk """
 	if args['verbose']: print("  writing mapped reads to disk...")
+	
 	# open filehandles
 	aln_files = {}
+	scaffold_to_genome = {}
 	for cluster_id in selected_clusters:
-		inpath = '.'.join([out, cluster_id, 'bam'])
-		if not os.path.isfile(inpath): continue
-		infile = pysam.AlignmentFile(inpath, 'rb')
-		outpath = '.'.join([out, cluster_id, 'reassigned', 'bam'])
-		aln_files[cluster_id] = pysam.AlignmentFile(outpath, 'wb', template=infile)
+	
+		try: os.makedirs('/'.join([args['out'], 'reassigned', cluster_id]))
+		except: pass
+		
+		# template bamfile
+		inpath = os.path.join(args['out'], '%s.bam' % cluster_id)
+		if not os.path.isfile(inpath): continue # why am i continuing here...I should make --abun depend on alignment step...or somtehing
+		template = pysam.AlignmentFile(inpath, 'rb')
+		
+		# get genomes from cluster
+		infile = gzip.open('/'.join([args['db_dir'], cluster_id, '%s.genome_to_scaffold.gz' % cluster_id]))
+		next(infile)
+		for line in infile:
+		
+			# map scaffold to genome
+			genome_id, scaffold_id = line.rstrip().split()
+			scaffold_to_genome[scaffold_id] = genome_id
+			
+			# store filehandle
+			outpath = '/'.join([args['out'], 'reassigned', cluster_id, '%s.bam' % genome_id])
+			aln_files[genome_id] = pysam.AlignmentFile(outpath, 'wb', template=template)
+
 	# write reads to disk
 	for cluster_id, pe_read in best_hits.values():
 		for aln in pe_read:
-			if aln is not None:
-				aln_files[cluster_id].write(aln)
+			genome_id = scaffold_to_genome[aln.reference_id]
+			aln_files[genome_id].write(aln)
 
-def compute_bed_cov(p_cov, p_bed):
-    """ Compute coverage of features """
-    # Read in coverage
-    si_pos_to_cov = {}
-    for line in open(p_cov):
-        si, pos, cov = line.rstrip().split()
-        si_pos_to_cov[si, int(pos)] = float(cov)
-    # Compute coverage of features
-    gene_to_cov = {}
-    f_in = gzip.open(p_bed)
-    for line in f_in:
-        cov = 0
-        si, start, stop, gene_oid = line.rstrip().split()
-        for pos in range(int(start), int(stop)+1):
-            cov += si_pos_to_cov[si, pos]
-        gene_to_cov[gene_oid] = cov
-    return gene_to_cov
+#def compute_bed_cov(p_cov, p_bed):
+#    """ Compute coverage of features """
+#    # Read in coverage
+#    si_pos_to_cov = {}
+#    for line in open(p_cov):
+#        si, pos, cov = line.rstrip().split()
+#        si_pos_to_cov[si, int(pos)] = float(cov)
+#    # Compute coverage of features
+#    gene_to_cov = {}
+#    f_in = gzip.open(p_bed)
+#    for line in f_in:
+#        cov = 0
+#        si, start, stop, gene_oid = line.rstrip().split()
+#        for pos in range(int(start), int(stop)+1):
+#            cov += si_pos_to_cov[si, pos]
+#        gene_to_cov[gene_oid] = cov
+#    return gene_to_cov
+
+
+def parse_bedfile(inpath):
+	""" Parse records from bedfile; start/end coordinates are 1-based """
+	fields = [('genome_id', str), ('pangene_id', str), ('type', str),
+		      ('gene_id', str), ('scaffold_id', str), ('start', int), ('end', int)]
+	infile = gzip.open(inpath)
+	next(infile)
+	for line in infile:
+		values = line.rstrip().split()
+		yield dict( [(f[0], f[1](v)) for f, v in zip(fields, values)] )
+
+def map_pangene_locations(inpath):
+	""" Parse bedfile and return dictionary mapping a scaffold and position to a set of pangenes """
+	pos_to_pangenes = {} # 0-based coordinates
+	
+	for r in parse_bedfile(inpath):
+		for pos in range(r['start']-1, r['end']):
+			pangene_id = '_'.join([r['pangene_id'], r['type']])
+			try: pos_to_pangenes[r['scaffold_id'], pos].add(pangene_id)
+			except: pos_to_pangenes[r['scaffold_id'], pos] = set([pangene_id])
+	return pos_to_pangenes
+
+def init_pangene_to_bp(inpath):
+	""" Initiate dictionary mapping a pangenes to its coverage in bp """
+	pangene_to_bp = {}
+	for r in parse_bedfile(inpath):
+		pangene_id = '_'.join([r['pangene_id'], r['type']])
+		pangene_to_bp[pangene_id] = 0
+	return pangene_to_bp
+
+def compute_pangenome_coverage():
+
+	for cluster_id in selected_clusters:
+	
+		inpath = '/'.join([args['db_dir'], cluster_id, '%s.bed.gz' % cluster_id])
+		pos_to_pangenes = map_pangene_locations(inpath)
+		pangene_to_bp = init_pangene_to_bp(inpath)
+		print len(pangene_to_bp)
+		quit()
+	
+		inpath = '.'.join([args['out'], cluster_id, 'reassigned', 'bam'])
+		if not os.path.isfile(inpath): continue
+		
+		for aln in pysam.AlignmentFile(inpath, 'rb'):
+			print aln
+			quit()
 
 # Main
 # ------
@@ -295,11 +380,11 @@ if args['map']:
 	best_hits = find_best_hits(selected_clusters)
 	if args['verbose']: report_mapping_summary(best_hits)
 	best_hits = resolve_ties(best_hits, cluster_to_abun)
-	write_best_hits(selected_clusters, best_hits, args['out'])
+	write_best_hits(selected_clusters, best_hits)
 
 if args['cov']:
 	if args['verbose']: print("Computing coverage of pangenomes")
-
+	compute_pangenome_coverage()
 
 #def aggregate_alignments(args, paths, alns):
 #	""" Group all alignments to each genome cluster """
