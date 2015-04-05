@@ -7,6 +7,8 @@
 __version__ = '0.0.1'
 
 # TO DO
+# time each section of code
+# compare counting speed to samtools
 # import microbe_species module
 # print cluster name, size, and relative abundance when read-mapping
 # compute coverage, %id of pangenes
@@ -188,7 +190,7 @@ def compute_perc_id(pe_read):
 
 def find_best_hits(genome_clusters):
 	""" Find top scoring alignment for each read """
-	if args['verbose']: print("  finding best alignments across GCs...")
+	if args['verbose']: print("  finding best alignments across GCs:")
 	best_hits = {}
 	reference_map = {}
 	
@@ -198,7 +200,7 @@ def find_best_hits(genome_clusters):
 		if not os.path.isfile(bam_path): # check that bam file exists
 			sys.stderr.write("    bam file not found for genome-cluster %s. skipping\n" % cluster_id)
 			continue
-		if args['verbose']: print("    parsing: %s") % bam_path
+		if args['verbose']: print("     %s") % os.path.basename(bam_path)
 		aln_file = pysam.AlignmentFile(bam_path, "rb")
 		for pe_read in fetch_paired_reads(aln_file):
 			# map reference ids
@@ -236,7 +238,7 @@ def report_mapping_summary(best_hits):
 	
 def resolve_ties(best_hits, cluster_to_abun):
 	""" Reassign reads that map equally well to >1 genome cluster """
-	if args['verbose']: print("  reassigning reads mapped to >1 GC...")
+	if args['verbose']: print("  reassigning reads mapped to >1 GC")
 	for query, rec in best_hits.items():
 		if len(rec['aln']) == 1:
 			best_hits[query] = rec['aln'].items()[0]
@@ -250,7 +252,7 @@ def resolve_ties(best_hits, cluster_to_abun):
 
 def write_best_hits(selected_clusters, best_hits, reference_map):
 	""" Write reassigned PE reads to disk """
-	if args['verbose']: print("  writing mapped reads to disk...")
+	if args['verbose']: print("  writing mapped reads to disk")
 	
 	# open filehandles
 	aln_files = {}
@@ -286,25 +288,6 @@ def write_best_hits(selected_clusters, best_hits, reference_map):
 			genome_id = scaffold_to_genome[scaffold_id]
 			aln_files[genome_id].write(aln)
 
-#def compute_bed_cov(p_cov, p_bed):
-#    """ Compute coverage of features """
-#    # Read in coverage
-#    si_pos_to_cov = {}
-#    for line in open(p_cov):
-#        si, pos, cov = line.rstrip().split()
-#        si_pos_to_cov[si, int(pos)] = float(cov)
-#    # Compute coverage of features
-#    gene_to_cov = {}
-#    f_in = gzip.open(p_bed)
-#    for line in f_in:
-#        cov = 0
-#        si, start, stop, gene_oid = line.rstrip().split()
-#        for pos in range(int(start), int(stop)+1):
-#            cov += si_pos_to_cov[si, pos]
-#        gene_to_cov[gene_oid] = cov
-#    return gene_to_cov
-
-
 def parse_bedfile(inpath):
 	""" Parse records from bedfile; start/end coordinates are 1-based """
 	fields = [('genome_id', str), ('pangene_id', str), ('type', str),
@@ -333,32 +316,55 @@ def init_pangene_to_bp(coords_to_pangene):
 		pangene_to_bp[pangene_id] = 0
 	return pangene_to_bp
 
-def compute_pangenome_coverage():
+def write_pangene_coverage(pangene_to_cov, cluster_id):
+	""" Write coverage of pangenes for genome cluster to disk """
+	outdir = '/'.join([args['out'], 'coverage'])
+	try: os.mkdir(outdir)
+	except: pass
+	outfile = gzip.open('/'.join([outdir, '%s.cov.gz' % cluster_id]), 'w')
+	for pangene in sorted(pangene_to_cov.keys()):
+		cov = str(pangene_to_cov[pangene])
+		outfile.write('\t'.join([pangene, cov])+'\n')
 
-	for cluster_id in os.listdir('/'.join([args['out'], 'reassigned'])):
-		
-		# read in bedfile using 0-based coordinates
-		coords_to_pangene = {}
-		inpath = '/'.join([args['db_dir'], cluster_id, '%s.bed.gz' % cluster_id])
-		for r in parse_bedfile(inpath):
-			coords_to_pangene[r['genome_id'], r['scaffold_id'], r['start']-1, r['end']-1] = ('_'.join([r['pangene_id'], r['type']]))
-
-		# compute pangene coverage for each genome
-		for bam_file in os.listdir('/'.join([args['out'], 'reassigned', cluster_id])):
-			genome_id = bam_file.split('.')[0]
-	
-			pos_to_pangenes = map_pangene_locations(coords_to_pangene, genome_id)
-			
-			pangene_to_bp = init_pangene_to_bp(coords_to_pangene)
-			
-			continue
-
-			inpath = '/'.join([args['out'], 'reassigned', cluster_id, bam_file])
-			aln_file = pysam.AlignmentFile(inpath, 'rb')
-			for aln in aln_file:
-				
-				print aln
-				quit()
+def compute_pangenome_coverage(cluster_id):
+	""" Count the number of bp mapped to each pangene """
+	# read in bedfile using 0-based coordinates; fix start/end coordinates
+	coords_to_pangene = {}
+	pangene_to_length = {}
+	inpath = '/'.join([args['db_dir'], cluster_id, '%s.bed.gz' % cluster_id])
+	for r in parse_bedfile(inpath):
+		start = min(r['start']-1, r['end']-1)
+		end = max(r['start']-1, r['end']-1)
+		length = (end - start + 1)
+		coords = (r['genome_id'], r['scaffold_id'], start, end)
+		pangene = '_'.join([r['pangene_id'], r['type']])
+		coords_to_pangene[coords] = pangene
+		pangene_to_length[pangene] = length
+	# init count of bp per pangene
+	pangene_to_bp = init_pangene_to_bp(coords_to_pangene)
+	# compute pangene coverage for each genome
+	for bam_file in os.listdir('/'.join([args['out'], 'reassigned', cluster_id])):
+		# map each genomic position (scaffold, pos) to a pangene id
+		genome_id = bam_file.split('.')[0]
+		pos_to_pangenes = map_pangene_locations(coords_to_pangene, genome_id)
+		# count bp
+		inpath = '/'.join([args['out'], 'reassigned', cluster_id, bam_file])
+		aln_file = pysam.AlignmentFile(inpath, 'rb')
+		for aln in aln_file:
+			scaffold_id = aln_file.getrname(aln.reference_id).split('|')[1]
+			for pos in range(aln.reference_start, aln.reference_end):
+				try:
+					pangenes = pos_to_pangenes[scaffold_id, pos]
+					for pangene_id in pangenes:
+						pangene_to_bp[pangene_id] += 1
+				except:
+					pass
+	# compute coverage
+	pangene_to_cov = {}
+	for pangene, bp in pangene_to_bp.items():
+		cov = float(bp)/pangene_to_length[pangene]
+		pangene_to_cov[pangene] = cov
+	return pangene_to_cov
 
 # Main
 # ------
@@ -375,63 +381,26 @@ cluster_to_abun = select_genome_clusters(args)
 selected_clusters = cluster_to_abun.keys()
 
 if args['align']:
+	start = time.time()
 	if args['verbose']: print("Aligning reads to reference genomes")
 	align_reads(selected_clusters)
+	if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
 
 if args['map']:
-	if args['verbose']: print("Mapping reads to most likely genomic positions")
+	start = time.time()
+	if args['verbose']: print("Mapping reads to genome clusters")
 	best_hits, reference_map = find_best_hits(selected_clusters)
 	if args['verbose']: report_mapping_summary(best_hits)
 	best_hits = resolve_ties(best_hits, cluster_to_abun)
 	write_best_hits(selected_clusters, best_hits, reference_map)
+	if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
 
 if args['cov']:
+	start = time.time()
 	if args['verbose']: print("Computing coverage of pangenomes")
-	compute_pangenome_coverage()
+	for cluster_id in os.listdir('/'.join([args['out'], 'reassigned'])):
+		pangene_to_cov = compute_pangenome_coverage(cluster_id)
+		write_pangene_coverage(pangene_to_cov, cluster_id)
+	if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
 
-#def aggregate_alignments(args, paths, alns):
-#	""" Group all alignments to each genome cluster """
-#	cluster_to_aln = dict([(x.rstrip(),[]) for x in open(paths['clusters']).readlines()])
-#	if args['bam:
-#		aln_file = pysam.AlignmentFile(args['bam if args['bam else '%s.bam' % args['out, "rb")
-#		for aln in alns:
-#			cluster_id, genome_id, gene_id, marker_id = aln_file.getrname(aln.reference_id).split('_')
-#			cluster_to_aln[cluster_id].append(aln)
-#	elif args['m8:
-#		for aln in alns:
-#			cluster_id, genome_id, gene_id, marker_id = aln['target'].split('_')
-#			cluster_to_aln[cluster_id].append(aln)
-#	return cluster_to_aln
-#
-#def compute_avg_mapq(args, alns):
-#	""" Compute average map quality for list of alignments """
-#	if len(alns) == 0:
-#		return 'NA'
-#	elif args['bam:
-#		return np.mean([1 - dict(aln.tags)['NM']/float(aln.query_length) for aln in alns])
-#	elif args['m8:
-#		return 'NA'
-#
-#def compute_avg_pid(args, alns):
-#	""" Compute average percent identity for list of alignments """
-#	if len(alns) == 0:
-#		return 'NA'
-#	elif args['bam:
-#		return np.mean([1 - dict(aln.tags)['NM']/float(aln.query_length) for aln in alns])
-#	elif args['m8:
-#		return np.mean([aln['pid']/float(100) for aln in alns])
-#
-#def alignment_summary(cluster_to_aln, args):
-#	""" Write summary to outfile """
-#	outfile = open(args['out+'.summary', 'w')
-#	fields = ['cluster_id', 'mapped_reads', 'relabun', 'avg_pid', 'avg_mapq']
-#	outfile.write('\t'.join(fields)+'\n')
-#	total_mapped = sum([len(aln) for aln in cluster_to_aln.values()])
-#	for cluster_id, alns in cluster_to_aln.items():
-#		mapped_reads = len(alns)
-#		relabun = len(alns)/float(total_mapped)
-#		avg_pid = compute_avg_pid(args, alns)
-#		avg_mapq = compute_avg_mapq(args, alns)
-#		record = [str(x) for x in [cluster_id, mapped_reads, relabun, avg_pid, avg_mapq]]
-#		outfile.write('\t'.join(record)+'\n')
 
