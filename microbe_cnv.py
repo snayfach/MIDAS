@@ -25,6 +25,7 @@ import time
 import subprocess
 import operator
 import Bio.SeqIO
+import microbe_species
 
 # Functions
 # ---------
@@ -43,7 +44,7 @@ def parse_arguments():
 	input.add_argument('-D', type=str, dest='db_dir', help='Directory of bt2 indexes for genome clusters')
 	
 	output = parser.add_argument_group('Output')
-	output.add_argument('-o', type=str, dest='out', help='Base name for output files')
+	output.add_argument('-o', type=str, dest='out', help='Directory for output files')
 
 	pipe = parser.add_argument_group('Pipeline')
 	pipe.add_argument('--all', action='store_true', dest='all',
@@ -109,36 +110,37 @@ def print_copyright():
 	print ("Freely distributed under the GNU General Public License (GPLv3)")
 	print ("-------------------------------------------------------------------------\n")
 
-def parse_profile(inpath):
+def read_microbe_species(inpath):
 	""" Parse output from MicrobeSpecies """
+	if not os.path.isfile(inpath):
+		sys.exit("Could not locate species profile: %s" % inpath)
+	dict = {}
+	fields = [
+		('cluster_id', str), ('mapped_reads', int), ('prop_mapped', float),
+		('cell_count', float), ('prop_cells', float), ('avg_pid', float)]
 	infile = open(inpath)
 	next(infile)
 	for line in infile:
-		fields = [
-			('cluster_id', str), ('mapped_reads', int), ('prop_mapped', float),
-			('cell_count', float), ('prop_cells', float), ('avg_pid', float)]
 		values = line.rstrip().split()
-		yield dict( [ (f[0], f[1](v)) for f, v in zip(fields, values)] )
+		dict[values[0]] = {}
+		for field, value in zip(fields[1:], values[1:]):
+			dict[values[0]][field[0]] = field[1](value)
+	return dict
 
-def select_genome_clusters(args):
+def select_genome_clusters(cluster_abundance):
 	""" Select genome clusters to map to """
-	cluster_to_abun = {}
-	inpath = os.path.join(args['out'], 'species')
-	if not os.path.isfile(inpath):
-		sys.exit("Could not locate species profile: %s" % inpath)
-	for rec in parse_profile(inpath):
-		if rec['prop_cells'] >= args['abun']:
-			cluster_to_abun[rec['cluster_id']] = rec['prop_cells']
-	return cluster_to_abun
+	my_clusters = {}
+	for cluster_id, values in cluster_abundance.items():
+		if values['cell_count'] >= args['abun']:
+			my_clusters[cluster_id] = values['cell_count']
+	return my_clusters
 
 def align_reads(genome_clusters):
 	""" Use Bowtie2 to map reads to all specified genome clusters """
+	# Create output directory
+	try: os.mkdir(os.path.join(args['out'], 'bam'))
+	except: pass
 	for cluster_id in genome_clusters:
-	
-		# create output directory
-		try: os.mkdir(os.path.join(args['out'], 'bam'))
-		except: pass
-		
 		# Build command
 		index_bn = '/'.join([args['db_dir'], cluster_id, cluster_id])
 		command = 'bowtie2 --no-unal --very-sensitive -x %s ' % index_bn
@@ -193,7 +195,6 @@ def find_best_hits(genome_clusters):
 	if args['verbose']: print("  finding best alignments across GCs:")
 	best_hits = {}
 	reference_map = {}
-	
 	# map reads across genome clusters
 	for cluster_id in genome_clusters:
 		bam_path = '/'.join([args['out'], 'bam', '%s.bam' % cluster_id])
@@ -235,7 +236,6 @@ def report_mapping_summary(best_hits):
 	print("    %s reads assigned to 2 GCs (%s)" % (hit2, round(float(hit2)/args['reads'], 2)) )
 	print("    %s reads assigned to 3 or more GCs (%s)" % (hit3, round(float(hit3)/args['reads'], 2)) )
 
-	
 def resolve_ties(best_hits, cluster_to_abun):
 	""" Reassign reads that map equally well to >1 genome cluster """
 	if args['verbose']: print("  reassigning reads mapped to >1 GC")
@@ -316,15 +316,16 @@ def init_pangene_to_bp(coords_to_pangene):
 		pangene_to_bp[pangene_id] = 0
 	return pangene_to_bp
 
-def write_pangene_coverage(pangene_to_cov, cluster_id):
+def write_pangene_coverage(pangene_to_cov, phyeco_cov, cluster_id):
 	""" Write coverage of pangenes for genome cluster to disk """
 	outdir = '/'.join([args['out'], 'coverage'])
 	try: os.mkdir(outdir)
 	except: pass
 	outfile = gzip.open('/'.join([outdir, '%s.cov.gz' % cluster_id]), 'w')
 	for pangene in sorted(pangene_to_cov.keys()):
-		cov = str(pangene_to_cov[pangene])
-		outfile.write('\t'.join([pangene, cov])+'\n')
+		cov = pangene_to_cov[pangene]
+		cn = cov/phyeco_cov if phyeco_cov > 0 else 0
+		outfile.write('\t'.join([pangene, str(cov), str(cn)])+'\n')
 
 def compute_pangenome_coverage(cluster_id):
 	""" Count the number of bp mapped to each pangene """
@@ -366,41 +367,66 @@ def compute_pangenome_coverage(cluster_id):
 		pangene_to_cov[pangene] = cov
 	return pangene_to_cov
 
+
+def compute_phyeco_cov(pangene_to_cov, cluster_id):
+	""" Compute coverage of phyeco markers for genome cluster """
+	phyeco_covs = []
+	inpath = '/'.join([args['db_dir'], cluster_id, '%s.phyeco.gz' % cluster_id])
+	infile = gzip.open(inpath)
+	next(infile)
+	for line in infile:
+		pangene_id, type, phyeco_id = line.rstrip().split()
+		pangene = '_'.join([pangene_id, type])
+		phyeco_covs.append(pangene_to_cov[pangene])
+	return np.median(phyeco_covs)
+
 # Main
 # ------
 
-args = parse_arguments()
-check_arguments(args)
+if __name__ == "__main__":
 
-if args['verbose']: print_copyright()
+	args = parse_arguments()
+	check_arguments(args)
 
-if args['profile']:
-	if args['verbose']: print("Estimating the abundance of genome-clusters")
-	pass
-cluster_to_abun = select_genome_clusters(args)
-selected_clusters = cluster_to_abun.keys()
+	if args['verbose']: print_copyright()
 
-if args['align']:
-	start = time.time()
-	if args['verbose']: print("Aligning reads to reference genomes")
-	align_reads(selected_clusters)
-	if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+	if args['profile']:
+		start = time.time()
+		if args['verbose']: print("Estimating the abundance of genome-clusters")
+		cluster_abundance = microbe_species.estimate_species_abundance(
+			{'inpaths': [args['m1']], 'nreads': args['reads']})
+		microbe_species.write_results(os.path.join(args['out'], 'cluster_abundance.txt'), cluster_abundance)
+		selected_clusters = select_genome_clusters(cluster_abundance)
+		if args['verbose']:
+			for cluster, abundance in sorted(selected_clusters.items(), key=operator.itemgetter(1), reverse=True):
+				print("  cluster_id: %s abundance: %s" % (cluster, round(abundance,2)))
+			print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+	else:
+		cluster_abundance = read_microbe_species(os.path.join(args['out'], 'cluster_abundance.txt'))
+		selected_clusters = select_genome_clusters(cluster_abundance)
 
-if args['map']:
-	start = time.time()
-	if args['verbose']: print("Mapping reads to genome clusters")
-	best_hits, reference_map = find_best_hits(selected_clusters)
-	if args['verbose']: report_mapping_summary(best_hits)
-	best_hits = resolve_ties(best_hits, cluster_to_abun)
-	write_best_hits(selected_clusters, best_hits, reference_map)
-	if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+	if args['align']:
+		start = time.time()
+		if args['verbose']: print("Aligning reads to reference genomes")
+		align_reads(selected_clusters.keys())
+		if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
 
-if args['cov']:
-	start = time.time()
-	if args['verbose']: print("Computing coverage of pangenomes")
-	for cluster_id in os.listdir('/'.join([args['out'], 'reassigned'])):
-		pangene_to_cov = compute_pangenome_coverage(cluster_id)
-		write_pangene_coverage(pangene_to_cov, cluster_id)
-	if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+	if args['map']:
+		start = time.time()
+		if args['verbose']: print("Mapping reads to genome clusters")
+		best_hits, reference_map = find_best_hits(selected_clusters.keys())
+		if args['verbose']: report_mapping_summary(best_hits)
+		best_hits = resolve_ties(best_hits, selected_clusters)
+		write_best_hits(selected_clusters.keys(), best_hits, reference_map)
+		if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+
+	if args['cov']:
+		start = time.time()
+		if args['verbose']: print("Computing coverage of pangenomes")
+		for cluster_id in os.listdir('/'.join([args['out'], 'reassigned'])):
+			pangene_to_cov = compute_pangenome_coverage(cluster_id)
+			phyeco_cov = compute_phyeco_cov(pangene_to_cov, cluster_id)
+			write_pangene_coverage(pangene_to_cov, phyeco_cov, cluster_id)
+		if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
 
 
