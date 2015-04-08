@@ -143,14 +143,14 @@ def align_reads(genome_clusters):
 	for cluster_id in genome_clusters:
 		# Build command
 		index_bn = '/'.join([args['db_dir'], cluster_id, cluster_id])
-		command = 'bowtie2 --no-unal --very-sensitive -x %s ' % index_bn
+		command = '%s --no-unal --very-sensitive -x %s ' % (args['bowtie2'], index_bn)
 		#   max reads to search
 		if args['reads']: command += '-u %s ' % args['reads']
 		#   input files
 		if args['m1']: command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
 		else: command += '-U %(r)s ' % args['r']
 		#   output
-		command += '| samtools view -b - > %s' % '/'.join([args['out'], 'bam', '%s.bam' % cluster_id])
+		command += '| %s view -b - > %s' % (args['samtools'], '/'.join([args['out'], 'bam', '%s.bam' % cluster_id]))
 		# Run command
 		if args['verbose']: print("  running: %s") % command
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -194,7 +194,7 @@ def find_best_hits(genome_clusters):
 	""" Find top scoring alignment for each read """
 	if args['verbose']: print("  finding best alignments across GCs:")
 	best_hits = {}
-	reference_map = {}
+	reference_map = {} # (cluster_id, ref_index) = ref_id (i think ref_id is the scaffold id)
 	# map reads across genome clusters
 	for cluster_id in genome_clusters:
 		bam_path = '/'.join([args['out'], 'bam', '%s.bam' % cluster_id])
@@ -265,12 +265,11 @@ def write_best_hits(selected_clusters, best_hits, reference_map):
 		
 		# template bamfile
 		inpath = '/'.join([args['out'], 'bam', bam_file])
-		if not os.path.isfile(inpath): continue # why am i continuing here...I should make --abun depend on alignment step...or somtehing
 		template = pysam.AlignmentFile(inpath, 'rb')
 		
 		# get genomes from cluster
-		infile = gzip.open('/'.join([args['db_dir'], cluster_id, '%s.genome_to_scaffold.gz' % cluster_id]))
-		next(infile)
+		inpath = '/'.join([args['db_dir'], cluster_id, '%s.genome_to_scaffold.gz' % cluster_id])
+		infile = gzip.open(inpath)
 		for line in infile:
 		
 			# map scaffold to genome
@@ -387,6 +386,10 @@ if __name__ == "__main__":
 
 	args = parse_arguments()
 	check_arguments(args)
+	
+	src_dir = os.path.dirname(os.path.abspath(__file__))
+	args['bowtie2'] = '/'.join([src_dir, 'lib', 'bowtie2-2.2.4', 'bowtie2'])
+	args['samtools'] = '/'.join([src_dir, 'lib', 'samtools-1.1', 'samtools'])
 
 	if args['verbose']: print_copyright()
 
@@ -404,6 +407,8 @@ if __name__ == "__main__":
 	else:
 		cluster_abundance = read_microbe_species(os.path.join(args['out'], 'cluster_abundance.txt'))
 		selected_clusters = select_genome_clusters(cluster_abundance)
+	if len(selected_clusters) == 0:
+		sys.exit("No genome-clusters were detected that exceeded the minimum abundance threshold of %s" % args['abun'])
 
 	if args['align']:
 		start = time.time()
