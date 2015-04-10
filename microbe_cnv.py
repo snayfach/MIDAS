@@ -26,6 +26,8 @@ import subprocess
 import operator
 import Bio.SeqIO
 import microbe_species
+import resource
+from collections import defaultdict
 
 # Functions
 # ---------
@@ -50,7 +52,7 @@ def parse_arguments():
 	pipe.add_argument('--all', action='store_true', dest='all',
 		default=False, help='Run entire pipeline')
 	pipe.add_argument('--profile', action='store_true', dest='profile',
-		default=False, help='Fast estimation of genome-cluster abundance')
+		default=False, help='Estimate genome-cluster abundance using MicrobeSpecies')
 	pipe.add_argument('--align', action='store_true', dest='align',
 		default=False, help='Align reads to genome-clusters')
 	pipe.add_argument('--map', action='store_true', dest='map',
@@ -58,14 +60,19 @@ def parse_arguments():
 	pipe.add_argument('--cov', action='store_true', dest='cov',
 		default=False, help='Compute coverage of pangenomes')
 		
+	ms = parser.add_argument_group('Profiling Genome-Clusters')
+	ms.add_argument('--reads_ms', type=int, dest='reads_ms',
+		default=5000000, help='Number of reads to use for MicrobeSpecies (5,000,000)')
+	
 	aln = parser.add_argument_group('Alignment')
-	aln.add_argument('--reads', type=int, dest='reads', help='Number of reads to use from sequence file (use all)')
-	aln.add_argument('--abun', type=float, dest='abun', default=0.05,
-			help='Abundance threshold for aligning to genome cluster (0.05)')
+	aln.add_argument('--reads_bt', type=int, dest='reads_bt',
+		help='Number of reads to use for genome alignment (use all)')
+	aln.add_argument('--abun', type=float, dest='abun',
+		default=1, help='Coverage threshold for aligning to genome cluster (1)')
 			
 	map = parser.add_argument_group('Mapping')
-	map.add_argument('--pid', type=float, dest='pid', default=90,
-			help='Minimum percent identity between read and reference (90.0)')
+	map.add_argument('--pid', type=float, dest='pid',
+		default=90, help='Minimum percent identity between read and reference (90.0)')
 	
 	return vars(parser.parse_args())
 
@@ -145,7 +152,7 @@ def align_reads(genome_clusters):
 		index_bn = '/'.join([args['db_dir'], cluster_id, cluster_id])
 		command = '%s --no-unal --very-sensitive -x %s ' % (args['bowtie2'], index_bn)
 		#   max reads to search
-		if args['reads']: command += '-u %s ' % args['reads']
+		if args['reads_bt']: command += '-u %s ' % args['reads_bt']
 		#   input files
 		if args['m1']: command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
 		else: command += '-U %(r)s ' % args['r']
@@ -230,11 +237,18 @@ def report_mapping_summary(best_hits):
 		if len(value['aln']) == 1: hit1 += 1
 		elif len(value['aln']) == 2: hit2 += 1
 		else: hit3 += 1
-	print("  summary:")
-	print("    %s reads assigned to any GC (%s)" % (hit1+hit2+hit3, round(float(hit1+hit2+hit3)/args['reads'], 2)) )
-	print("    %s reads assigned to 1 GC (%s)" % (hit1, round(float(hit1)/args['reads'], 2)) )
-	print("    %s reads assigned to 2 GCs (%s)" % (hit2, round(float(hit2)/args['reads'], 2)) )
-	print("    %s reads assigned to 3 or more GCs (%s)" % (hit3, round(float(hit3)/args['reads'], 2)) )
+	if args['reads_bt']:
+		print("  summary:")
+		print("    %s reads assigned to any GC (%s)" % (hit1+hit2+hit3, round(float(hit1+hit2+hit3)/args['reads_bt'], 2)) )
+		print("    %s reads assigned to 1 GC (%s)" % (hit1, round(float(hit1)/args['reads_bt'], 2)) )
+		print("    %s reads assigned to 2 GCs (%s)" % (hit2, round(float(hit2)/args['reads_bt'], 2)) )
+		print("    %s reads assigned to 3 or more GCs (%s)" % (hit3, round(float(hit3)/args['reads_bt'], 2)) )
+	else:
+		print("  summary:")
+		print("    %s reads assigned to any GC" % (hit1+hit2+hit3))
+		print("    %s reads assigned to 1 GC" % (hit1))
+		print("    %s reads assigned to 2 GCs" % (hit2))
+		print("    %s reads assigned to 3 or more GCs" % (hit3))
 
 def resolve_ties(best_hits, cluster_to_abun):
 	""" Reassign reads that map equally well to >1 genome cluster """
@@ -253,67 +267,23 @@ def resolve_ties(best_hits, cluster_to_abun):
 def write_best_hits(selected_clusters, best_hits, reference_map):
 	""" Write reassigned PE reads to disk """
 	if args['verbose']: print("  writing mapped reads to disk")
-	
+	try: os.makedirs('/'.join([args['out'], 'reassigned']))
+	except: pass
 	# open filehandles
 	aln_files = {}
 	scaffold_to_genome = {}
 	for bam_file in os.listdir('/'.join([args['out'], 'bam'])):
-	
-		cluster_id = bam_file.split('.')[0]
-		try: os.makedirs('/'.join([args['out'], 'reassigned', cluster_id]))
-		except: pass
-		
 		# template bamfile
+		cluster_id = bam_file.split('.')[0]
 		inpath = '/'.join([args['out'], 'bam', bam_file])
 		template = pysam.AlignmentFile(inpath, 'rb')
-		
-		# get genomes from cluster
-		inpath = '/'.join([args['db_dir'], cluster_id, '%s.genome_to_scaffold.gz' % cluster_id])
-		infile = gzip.open(inpath)
-		for line in infile:
-		
-			# map scaffold to genome
-			genome_id, scaffold_id = line.rstrip().split()
-			scaffold_to_genome[scaffold_id] = genome_id
-			
-			# store filehandle
-			outpath = '/'.join([args['out'], 'reassigned', cluster_id, '%s.bam' % genome_id])
-			aln_files[genome_id] = pysam.AlignmentFile(outpath, 'wb', template=template)
-
+		# store filehandle
+		outpath = '/'.join([args['out'], 'reassigned', '%s.bam' % cluster_id])
+		aln_files[cluster_id] = pysam.AlignmentFile(outpath, 'wb', template=template)
 	# write reads to disk
 	for cluster_id, pe_read in best_hits.values():
 		for aln in pe_read:
-			scaffold_id = reference_map[cluster_id, aln.reference_id]
-			genome_id = scaffold_to_genome[scaffold_id]
-			aln_files[genome_id].write(aln)
-
-def parse_bedfile(inpath):
-	""" Parse records from bedfile; start/end coordinates are 1-based """
-	fields = [('genome_id', str), ('pangene_id', str), ('type', str),
-		      ('gene_id', str), ('scaffold_id', str), ('start', int), ('end', int)]
-	infile = gzip.open(inpath)
-	next(infile)
-	for line in infile:
-		values = line.rstrip().split()
-		yield dict( [(f[0], f[1](v)) for f, v in zip(fields, values)] )
-
-def map_pangene_locations(coords_to_pangene, my_genome_id):
-	""" Parse bedfile and return dictionary mapping a scaffold and position to a set of pangenes """
-	pos_to_pangenes = {} # 0-based coordinates
-	for genome_id, scaffold_id, start, end in coords_to_pangene:
-		if genome_id == my_genome_id:
-			pangene_id = coords_to_pangene[genome_id, scaffold_id, start, end]
-			for pos in range(start, end+1):
-				try: pos_to_pangenes[scaffold_id, pos].add(pangene_id)
-				except: pos_to_pangenes[scaffold_id, pos] = set([pangene_id])
-	return pos_to_pangenes
-
-def init_pangene_to_bp(coords_to_pangene):
-	""" Initiate dictionary mapping a pangenes to its coverage in bp """
-	pangene_to_bp = {}
-	for pangene_id in coords_to_pangene.values():
-		pangene_to_bp[pangene_id] = 0
-	return pangene_to_bp
+			aln_files[cluster_id].write(aln)
 
 def write_pangene_coverage(pangene_to_cov, phyeco_cov, cluster_id):
 	""" Write coverage of pangenes for genome cluster to disk """
@@ -326,46 +296,33 @@ def write_pangene_coverage(pangene_to_cov, phyeco_cov, cluster_id):
 		cn = cov/phyeco_cov if phyeco_cov > 0 else 0
 		outfile.write('\t'.join([pangene, str(cov), str(cn)])+'\n')
 
-def compute_pangenome_coverage(cluster_id):
-	""" Count the number of bp mapped to each pangene """
-	# read in bedfile using 0-based coordinates; fix start/end coordinates
-	coords_to_pangene = {}
-	pangene_to_length = {}
-	inpath = '/'.join([args['db_dir'], cluster_id, '%s.bed.gz' % cluster_id])
-	for r in parse_bedfile(inpath):
-		start = min(r['start']-1, r['end']-1)
-		end = max(r['start']-1, r['end']-1)
-		length = (end - start + 1)
-		coords = (r['genome_id'], r['scaffold_id'], start, end)
-		pangene = '_'.join([r['pangene_id'], r['type']])
-		coords_to_pangene[coords] = pangene
-		pangene_to_length[pangene] = length
-	# init count of bp per pangene
-	pangene_to_bp = init_pangene_to_bp(coords_to_pangene)
-	# compute pangene coverage for each genome
-	for bam_file in os.listdir('/'.join([args['out'], 'reassigned', cluster_id])):
-		# map each genomic position (scaffold, pos) to a pangene id
-		genome_id = bam_file.split('.')[0]
-		pos_to_pangenes = map_pangene_locations(coords_to_pangene, genome_id)
-		# count bp
-		inpath = '/'.join([args['out'], 'reassigned', cluster_id, bam_file])
-		aln_file = pysam.AlignmentFile(inpath, 'rb')
-		for aln in aln_file:
-			scaffold_id = aln_file.getrname(aln.reference_id).split('|')[1]
-			for pos in range(aln.reference_start, aln.reference_end):
-				try:
-					pangenes = pos_to_pangenes[scaffold_id, pos]
-					for pangene_id in pangenes:
-						pangene_to_bp[pangene_id] += 1
-				except:
-					pass
-	# compute coverage
-	pangene_to_cov = {}
-	for pangene, bp in pangene_to_bp.items():
-		cov = float(bp)/pangene_to_length[pangene]
-		pangene_to_cov[pangene] = cov
+def parse_bed_cov(bedcov_out):
+	""" Yield dictionary of formatted values from bed coverage output """
+	fields =  ['sid', 'start', 'end', 'gene_id', 'pangene_id', 'reads', 'pos_cov', 'gene_length', 'fract_cov']
+	formats = [str, int, int, str, str, int, int, int, float]
+	for line in bedcov_out.rstrip().split('\n'):
+		rec = line.split()
+		yield dict([(fields[i],formats[i](j)) for i,j in enumerate(rec)])
+
+def compute_pangenome_coverage(cluster_id, read_length):
+	""" Use bedtools to compute coverage of pangenome """
+	bedcov_out = run_bed_coverage(cluster_id) # run bedtools
+	pangene_to_cov = defaultdict(float) # init dict
+	for r in parse_bed_cov(bedcov_out): # aggregate coverage by pangene_id
+		pangene_id = r['pangene_id']
+		coverage = r['reads'] * read_length / r['gene_length']
+		pangene_to_cov[pangene_id] += coverage
 	return pangene_to_cov
 
+def run_bed_coverage(cluster_id):
+	""" Run bedCoverage for cluster_id """
+	bampath = '/'.join([args['out'], 'bam', '%s.bam' % cluster_id])
+	bedpath = '/'.join([args['db_dir'], cluster_id, '%s.bed' % cluster_id])
+	cmdargs = {'bedcov':args['bedcov'], 'bam':bampath, 'bed':bedpath}
+	command = '%(bedcov)s -abam %(bam)s -b %(bed)s' % cmdargs
+	process = subprocess.Popen(command % cmdargs, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = process.communicate()
+	return out
 
 def compute_phyeco_cov(pangene_to_cov, cluster_id):
 	""" Compute coverage of phyeco markers for genome cluster """
@@ -379,6 +336,26 @@ def compute_phyeco_cov(pangene_to_cov, cluster_id):
 		phyeco_covs.append(pangene_to_cov[pangene])
 	return np.median(phyeco_covs)
 
+def max_mem_usage():
+	""" Return max mem usage (Gb) of self and child processes """
+	max_mem_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+	max_mem_child = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+	return round((max_mem_self + max_mem_child)/float(1e6), 2)
+
+def get_read_length():
+	""" Estimate the average read length of fastq file from bam file """
+	max_reads = 50000
+	read_lengths = []
+	bam_dir = '/'.join([args['out'], 'bam'])
+	for file in os.listdir(bam_dir):
+		bam_path = '/'.join([bam_dir, file])
+		aln_file = pysam.AlignmentFile(bam_path, "rb")
+		for index, aln in enumerate(aln_file.fetch(until_eof = True)):
+			if index == max_reads: break
+			else: read_lengths.append(aln.query_length)
+	return np.median(read_lengths)
+
+
 # Main
 # ------
 
@@ -390,20 +367,22 @@ if __name__ == "__main__":
 	src_dir = os.path.dirname(os.path.abspath(__file__))
 	args['bowtie2'] = '/'.join([src_dir, 'lib', 'bowtie2-2.2.4', 'bowtie2'])
 	args['samtools'] = '/'.join([src_dir, 'lib', 'samtools-1.1', 'samtools'])
-
+	args['bedcov'] = '/'.join([src_dir, 'lib', 'bedtools2', 'bin', 'coverageBed'])
+	
 	if args['verbose']: print_copyright()
 
 	if args['profile']:
 		start = time.time()
 		if args['verbose']: print("Estimating the abundance of genome-clusters")
 		cluster_abundance = microbe_species.estimate_species_abundance(
-			{'inpaths': [args['m1']], 'nreads': args['reads']})
+			{'inpaths': [args['m1']], 'nreads': args['reads_ms']})
 		microbe_species.write_results(os.path.join(args['out'], 'cluster_abundance.txt'), cluster_abundance)
 		selected_clusters = select_genome_clusters(cluster_abundance)
 		if args['verbose']:
 			for cluster, abundance in sorted(selected_clusters.items(), key=operator.itemgetter(1), reverse=True):
 				print("  cluster_id: %s abundance: %s" % (cluster, round(abundance,2)))
-			print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s Gb maximum memory\n") % max_mem_usage()
 	else:
 		cluster_abundance = read_microbe_species(os.path.join(args['out'], 'cluster_abundance.txt'))
 		selected_clusters = select_genome_clusters(cluster_abundance)
@@ -414,7 +393,9 @@ if __name__ == "__main__":
 		start = time.time()
 		if args['verbose']: print("Aligning reads to reference genomes")
 		align_reads(selected_clusters.keys())
-		if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+		if args['verbose']:
+			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s Gb maximum memory\n") % max_mem_usage()
 
 	if args['map']:
 		start = time.time()
@@ -423,15 +404,22 @@ if __name__ == "__main__":
 		if args['verbose']: report_mapping_summary(best_hits)
 		best_hits = resolve_ties(best_hits, selected_clusters)
 		write_best_hits(selected_clusters.keys(), best_hits, reference_map)
-		if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+		if args['verbose']:
+			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s Gb maximum memory\n") % max_mem_usage()
 
 	if args['cov']:
 		start = time.time()
 		if args['verbose']: print("Computing coverage of pangenomes")
-		for cluster_id in os.listdir('/'.join([args['out'], 'reassigned'])):
-			pangene_to_cov = compute_pangenome_coverage(cluster_id)
+		read_length = get_read_length()
+		for file in os.listdir('/'.join([args['out'], 'reassigned'])):
+			cluster_id = file.split('.')[0]
+			if args['verbose']: print("  %s") % cluster_id
+			pangene_to_cov = compute_pangenome_coverage(cluster_id, read_length)
 			phyeco_cov = compute_phyeco_cov(pangene_to_cov, cluster_id)
 			write_pangene_coverage(pangene_to_cov, phyeco_cov, cluster_id)
-		if args['verbose']: print("  %s minutes\n" % round((time.time() - start)/60, 2) )
+		if args['verbose']:
+			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s Gb maximum memory\n") % max_mem_usage()
 
 
