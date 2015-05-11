@@ -9,40 +9,59 @@
 #$ -o /dev/null
 #$ -e /dev/null
 #$ -r y
-#$ -tc 200
-#$ -t 1-4202
+#$ -t 1-60
 
 # create tempdir on scratch
-TMPDIR=/scratch
+export TMPDIR=/scratch
 SCRATCH_DIR=`mktemp -d`
 cd $SCRATCH_DIR
 
-# select genome cluster
+# get reference paths
 PROJECT=/pollard/shattuck0/snayfach/projects/strain_variation
-CLUSTERS=${PROJECT}/genome_clustering/clusters/top_20/0.035/genome_clusters.txt
-CLUSTER_ID=`sed -n ${SGE_TASK_ID}p ${CLUSTERS} | cut -f1`
+BOWTIE2_BUILD=${PROJECT}/cnv_detection2/microbe_cnv/lib/bowtie2-2.2.4/bowtie2-build
+PATRIC=/pollard/shattuck0/snayfach/genomes/PATRIC3/ftp.patricbrc.org/patric2/patric3/genomes
 
-# check if output already exists
-if [ -d ${PROJECT}/read_mapping/bt2dbs/${CLUSTER_ID} ]; then exit; fi
+# loop over indexes
+BATCH_SIZE=100
+START=$(($(($BATCH_SIZE * $SGE_TASK_ID)) - $BATCH_SIZE))
+for SUB_ID in `seq $BATCH_SIZE`; do
 
-# copy genomes locally
-GENOMES=`cut -f2 ${PROJECT}/pan_genomics/nr_genomes/0.05/${CLUSTER_ID}/representatives.txt`
-PATRIC=/pollard/shattuck0/snayfach/genomes/PATRIC/ftp.patricbrc.org/patric2/genomes
-ID_TO_DIR=${PROJECT}/genome_clustering/db/dir_to_genome_id.txt
+# get index
+INDEX=$(($START + $SUB_ID))
+
+# select genome cluster
+CLUSTERS=${PROJECT}/genome_clustering2/clusters_combined/top_30/0.035/genome_clusters.txt
+CLUSTER_ID=`sed -n ${INDEX}p ${CLUSTERS} | cut -f1`
+
+# check whether output already exists
+if [ -d ${PROJECT}/cnv_detection2/microbe_cnv/genome_clusters/${CLUSTER_ID} ]; then continue; fi
+
+# cat genome sequences
+GENOMES=`cut -f2 ${PROJECT}/pan_genomics2/nr_genomes/${CLUSTER_ID}/representatives.txt`
 for GENOME in $GENOMES; do
-DIR=`grep $'\t'${GENOME}$ $ID_TO_DIR | cut -f1`
-FNA=${PATRIC}/${DIR}/${DIR}.fna
-concurrent cat $FNA >> ${CLUSTER_ID}.fna
+FNA=${PATRIC}/${GENOME}/${GENOME}.fna
+cat $FNA >> ${CLUSTER_ID}.fna
 done
 
-# build btdb
-mkdir ${CLUSTER_ID}
-BOWTIE2_BUILD=${PROJECT}/shotgun_isolates/lib/bowtie2-2.2.4/bowtie2-build
-$BOWTIE2_BUILD ${CLUSTER_ID}.fna ${CLUSTER_ID}/${CLUSTER_ID} >& /dev/null
+# build btdb for population of genomes
+mkdir -p ${CLUSTER_ID}/btdb
+$BOWTIE2_BUILD ${CLUSTER_ID}.fna ${CLUSTER_ID}/btdb/${CLUSTER_ID} >& /dev/null
+
+# get path to representative genome
+CENTROIDS=${PROJECT}/genome_clustering2/clusters_combined/top_30/0.035/cluster_to_centroid.txt
+GENOME=`grep ^$CLUSTER_ID$'\t' $CENTROIDS | cut -f2`
+PATRIC=/pollard/shattuck0/snayfach/genomes/PATRIC3/ftp.patricbrc.org/patric2/patric3/genomes
+
+# build btdb for representative genome
+mkdir -p ${CLUSTER_ID}/btdb_rep
+$BOWTIE2_BUILD ${PATRIC}/${GENOME}/${GENOME}.fna ${CLUSTER_ID}/btdb_rep/${CLUSTER_ID} >& /dev/null
 
 # manage out
-DEST=${PROJECT}/read_mapping/bt2dbs
+DEST=${PROJECT}/cnv_detection2/microbe_cnv/genome_clusters
 concurrent cp -r ${CLUSTER_ID} ${DEST}
+rm -r ${CLUSTER_ID} ${CLUSTER_ID}.fna
+
+done
 
 # cleanup
 rm -r $SCRATCH_DIR
