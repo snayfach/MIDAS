@@ -38,8 +38,8 @@ def parse_arguments():
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	
 	io = parser.add_argument_group('Input/Output')
-	io.add_argument('-1', type=str, dest='m1', help='FASTQ file containing 1st mate')
-	io.add_argument('-2', type=str, dest='m2', help='FASTQ file containing 2nd mate')
+	io.add_argument('-1', type=str, dest='m1', help='FASTQ file containing 1st mate if paired or unpaired reads')
+	io.add_argument('-2', type=str, dest='m2', help='FASTQ file containing 2nd mate if paired')
 	io.add_argument('-D', type=str, dest='db_dir', help='Directory of bt2 indexes for genome clusters')
 	io.add_argument('-o', type=str, dest='out', help='Directory for output files')
 
@@ -54,8 +54,12 @@ def parse_arguments():
 		default=False, help='Assign reads to mapping locations')
 	pipe.add_argument('--cov', action='store_true', dest='cov',
 		default=False, help='Compute coverage of pangenomes')
+	pipe.add_argument('--extract', action='store_true', dest='extract',
+		default=False, help='Extract mapped reads from bam file & write to FASTQ')
+	pipe.add_argument('--remap', action='store_true', dest='remap',
+		default=False, help='Re-map reads to representative genomes')
 	pipe.add_argument('--snps', action='store_true', dest='snps',
-		default=False, help='Re-map reads to representative genome & estimate allele frequencies')
+		default=False, help='Run samtools mpileup & estimate SNP frequencies')
 				
 	gc = parser.add_argument_group('Genome-cluster inclusion (choose one)')
 	gc.add_argument('--gc_topn', type=int, dest='gc_topn', default=5, help='Top N most abundant (5)')
@@ -73,9 +77,15 @@ def parse_arguments():
 		help='Batch size in # reads. Smaller batch sizes requires less memory, but can take longer to run (5,000,000)')
 
 	map = parser.add_argument_group('Mapping')
-	map.add_argument('--pid', type=float, dest='pid',
+	map.add_argument('--map_pid', type=float, dest='pid',
 		default=90, help='Minimum percent identity between read and reference (90.0)')
 		
+	snps = parser.add_argument_group('SNP detection')
+	snps.add_argument('--snps_mapq', type=str, dest='snps_mapq',
+		default='0', help='Minimum map quality (0)')
+	snps.add_argument('--snps_baseq', type=str, dest='snps_baseq',
+		default='0', help='Minimum base quality (0)')
+				
 	mask = parser.add_argument_group('Leave-One-Out (for simulated data only)')
 	mask.add_argument('--tax_mask', action='store_true', dest='tax_mask',
 		default=False, help='Discard alignments for reads and ref seqs from the same genome')
@@ -88,19 +98,23 @@ def check_arguments(args):
 	""" Check validity of command line arguments """
 	
 	# Pipeline options
-	if not any([args['all'], args['profile'], args['align'], args['map'], args['cov'], args['snps']]):
-		sys.exit('Specify pipeline option(s): --all, --profile, --align, --map, --cov, --snps')
+	if not any([args['all'], args['profile'], args['align'], args['map'],
+	            args['cov'], args['extract'], args['remap'], args['snps']]):
+		sys.exit('Specify one or more pipeline option(s): --all, --profile, --align, --map, --cov, --extract, --remap, --snps')
 	if args['all']:
 		args['profile'] = True
 		args['align'] = True
 		args['map'] = True
 		args['cov'] = True
+		args['extract'] = True
+		args['remap'] = True
+		args['snps'] = True
 	if args['tax_mask'] and not args['tax_map']:
 		sys.exit('Specify file mapping read ids in FASTQ file to genome ids in reference database')
 
 	# Input options
-	if not (args['m1'] and args['m2']):
-		sys.exit('Specify -1 and -2 for paired-end input files in FASTQ format')
+	if not args['m1']:
+		sys.exit('Specify input FASTQ file(s) with -1 -2 or -U')
 	if args['m1'] and not os.path.isfile(args['m1']):
 		sys.exit('Input file specified with -1 does not exist')
 	if args['m2'] and not os.path.isfile(args['m2']):
@@ -190,7 +204,8 @@ def align_reads(genome_clusters, batch_index, reads_start, batch_size, tax_mask)
 		#	report up to 20 hits/read if masking hits
 		if tax_mask: command += '-k 20 '
 		#   input
-		command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
+		if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
+		else: command += '-U %s' % args['m1']
 		#   output
 		bampath = '/'.join([args['out'], 'bam', '%s.%s.bam' % (cluster_id, batch_index)])
 		command += '| %s view -b - > %s' % (args['samtools'], bampath)
@@ -199,32 +214,58 @@ def align_reads(genome_clusters, batch_index, reads_start, batch_size, tax_mask)
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		out, err = process.communicate()
 
-def align_reads2(genome_clusters):
-	""" Use Bowtie2 to map reads to all specified genome clusters """
+def align_to_rep(genome_clusters):
+	""" Use Bowtie2 to map reads to representative genomes from each genome cluster
+	"""
 	# Create output directory
-	outdir = os.path.join(args['out'], 'bam2')
+	outdir = os.path.join(args['out'], 'bam_rep')
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	for cluster_id in genome_clusters:
 		# Build command
+		#	bowtie2
 		command = '%s --no-unal --very-sensitive ' % args['bowtie2']
-		#   index
+		#   bt2 index
 		command += '-x %s ' % '/'.join([args['db_dir'], cluster_id, 'btdb_rep', cluster_id])
-		#   input
+		#   input fastq
 		command += '-U %s ' % '/'.join([args['out'], 'fastq', '%s.fastq.gz' % cluster_id])
 		#   convert to bam
 		command += '| %s view -b - ' % args['samtools']
-		#   sort
-		command += '| %s sort - %s' % (args['samtools'], '/'.join([outdir, cluster_id]))
+		#   sort bam
+		command += '| %s sort -f - %s ' % (args['samtools'], '/'.join([outdir, '%s.bam' % cluster_id]))
 		# Run command
 		if args['verbose']: print("    running: %s") % command
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		out, err = process.communicate()
 
-def fetch_paired_reads(aln_file):
+def pileup_on_rep(genome_clusters):
+	""" Use Samtools to create pileup, filter low quality bases, and write results to VCF file """
+	# Create output directory
+	outdir = os.path.join(args['out'], 'vcf')
+	if not os.path.isdir(outdir): os.mkdir(outdir)
+	for cluster_id in genome_clusters:
+		# Build command
+		#   mpileup
+		command = '%s mpileup -uv -A -d 10000 --skip-indels -B ' % args['samtools']
+		#   quality filtering
+		command += '-q %s -Q %s ' % (args['snps_mapq'], args['snps_baseq'])
+		#   reference fna file
+		command += '-f %s ' % '/'.join([args['db_dir'], cluster_id, 'representative.fna'])
+		#   input bam file
+		command += '%s ' % '/'.join([args['out'], 'bam_rep', '%s.bam' % cluster_id])
+		#   output vcf file
+		command += '> %s ' % '/'.join([outdir, '%s.vcf' % cluster_id])
+		# Run command
+		if args['verbose']: print("    running: %s") % command
+		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		out, err = process.communicate()
+
+def fetch_reads(aln_file):
 	""" Use pysam to yield paired end reads from bam file """
 	pe_read = []
 	for aln in aln_file.fetch(until_eof = True):
-		if aln.mate_is_unmapped and aln.is_read1:
+		if not aln.is_paired:
+			yield [aln]
+		elif aln.mate_is_unmapped and aln.is_read1:
 			yield [aln]
 		elif aln.mate_is_unmapped and aln.is_read2:
 			yield [aln]
@@ -235,8 +276,11 @@ def fetch_paired_reads(aln_file):
 				pe_read = []
 
 def compute_aln_score(pe_read):
-	""" Compute alignment score for paired-end read """
-	if pe_read[0].mate_is_unmapped:
+	""" Compute alignment score for single or paired-end read """
+	if not pe_read[0].is_paired:
+		score = pe_read[0].query_length - dict(pe_read[0].tags)['NM']
+		return score
+	elif pe_read[0].mate_is_unmapped:
 		score = pe_read[0].query_length - dict(pe_read[0].tags)['NM']
 		return score
 	else:
@@ -246,7 +290,10 @@ def compute_aln_score(pe_read):
 
 def compute_perc_id(pe_read):
 	""" Compute percent identity for paired-end read """
-	if pe_read[0].mate_is_unmapped:
+	if not pe_read[0].is_paired:
+		length = pe_read[0].query_length
+		edit = dict(pe_read[0].tags)['NM']
+	elif pe_read[0].mate_is_unmapped:
 		length = pe_read[0].query_length
 		edit = dict(pe_read[0].tags)['NM']
 	else:
@@ -284,7 +331,7 @@ def find_best_hits(genome_clusters, batch_index, tax_mask, tax_map):
 			
 		# loop over PE reads
 		aln_file = pysam.AlignmentFile(bam_path, "rb")
-		for pe_read in fetch_paired_reads(aln_file):
+		for pe_read in fetch_reads(aln_file):
 		
 			# map reference ids
 			for aln in pe_read:
@@ -468,7 +515,13 @@ def convert_to_ascii_quality(scores):
 	""" Convert quality scores to Sanger encoded (Phred+33) ascii values """
 	ascii = """!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQR"""
 	score_to_ascii = dict((x,y) for x,y in zip(range(0,50),list(ascii)))
-	return ''.join([score_to_ascii[score] for score in scores])
+	return ''.join([score_to_ascii[x] for x in scores])
+
+def convert_from_ascii_quality(asciis):
+	""" Convert quality scores to Sanger encoded (Phred+33) ascii values """
+	ascii = """!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQR"""
+	ascii_to_score = dict((y,x) for x,y in zip(range(0,50),list(ascii)))
+	return [ascii_to_score[x] for x in asciis]
 
 def write_fastq_record(aln, index, outfile):
 	""" Write pysam alignment record to outfile in FASTQ format """
@@ -476,6 +529,158 @@ def write_fastq_record(aln, index, outfile):
 	outfile.write('%s\n' % (aln.query_sequence))
 	outfile.write('+%s.%s length=%s\n' % (aln.query_name,str(index),str(aln.query_length)))
 	outfile.write('%s\n' % convert_to_ascii_quality(aln.query_qualities))
+
+def pileup_to_bases(pileup, ref_base):
+	""" Takes pileup string from mpileup output. Returns the aligned bases """
+	bases = []
+	index = 0
+	while True:
+		# parse pileup
+		pileup_char = pileup[index]
+		if pileup_char == '^': # skip '^' (start of a read segment) and ASCII character following '^'
+			index += 2
+		elif pileup_char == '$': # skip '$' (end of a read segment)
+			index += 1
+		elif pileup_char in ['+', '-']: # skip insertions and deletions (max 999 bp)
+			for ndigits in [3,2,1]:
+				indel_length = pileup[index+1:index+1+ndigits]
+				if indel_length.isdigit(): break
+			index += 1 + ndigits + int(indel_length)
+		else: # keep positions for aligned bases
+			if pileup_char in ['.',',']:
+				bases.append(ref_base.upper())
+			else:
+				bases.append(pileup_char.upper())
+			index += 1
+		# stop when end of pileup reached
+		if index == len(pileup):
+			break
+	return bases
+
+def parse_pileup(inpath):
+	""" Yields formatted records from mpileup output file """
+	infile = gzip.open(inpath)
+	for line in infile:
+		r = line.rstrip().split()
+		ref_id = r[0]
+		ref_pos = int(r[1])
+		ref_base = r[2].upper()
+		depth = int(r[3])
+		if depth == 0:
+			bases = []
+			phred_qualities = []
+			map_qualities = []
+		else:
+			bases = pileup_to_bases(r[4], ref_base)
+			phred_qualities = convert_from_ascii_quality(r[5])
+			map_qualities = convert_from_ascii_quality(r[6])
+		yield {'ref_id':ref_id, 'ref_pos':ref_pos,
+		       'ref_base':ref_base, 'depth':depth,
+			   'bases':bases, 'phred_qualities':phred_qualities,
+			   'map_qualities':map_qualities}
+
+def bam_to_fastq(genome_clusters, args):
+	""" Converts bam to fastq for reads assigned to each genome cluster """
+	bam_dir = '/'.join([args['out'], 'reassigned'])
+	batch_indexes = set([_.split('.')[1] for _ in os.listdir(bam_dir)])
+	fastq_dir = '/'.join([args['out'], 'fastq'])
+	try: os.mkdir(fastq_dir)
+	except: pass
+	for genome_cluster in genome_clusters:
+		outfile = gzip.open(os.path.join(fastq_dir, genome_cluster+'.fastq.gz'), 'w')
+		for batch_index in batch_indexes:
+			bam_name = '.'.join([genome_cluster, batch_index, 'bam'])
+			bam_path = '/'.join([bam_dir, bam_name])
+			aln_file = pysam.AlignmentFile(bam_path, "rb")
+			for index, aln in enumerate(aln_file.fetch(until_eof = True)):
+				write_fastq_record(aln, index, outfile)
+
+def pileup_to_snps(genome_clusters, args):
+	""" Parse pileups in order to call consensus alleles and reference allele frequencies """
+	# create outdir
+	outdir = '/'.join([args['out'], 'snps'])
+	if not os.path.isdir(outdir): os.mkdir(outdir)
+	for cluster_id in genome_clusters:
+		# open outfile
+		outfile = gzip.open('/'.join([args['out'], 'snps', '%s.snps.gz' % cluster_id]), 'w')
+		header = ['ref_id', 'ref_pos', 'ref_base', 'coverage', 'counts',
+				  'cons_base', 'cons_freq', 'mean_mapq', 'mean_baseq']
+		outfile.write('\t'.join(header)+'\n')
+		# parse pileup
+		inpath = '/'.join([args['out'], 'pileup', '%s.pileup.gz' % cluster_id])
+		for r in parse_pileup(inpath):
+			if r['depth'] == 0:
+				counts = [0, 0, 0, 0]
+				cons_freq, cons_base, mean_mapq, mean_baseq = 'NA', 'NA', 'NA', 'NA'
+			else:
+				counts = [r['bases'].count(x) for x in ['A','T','C','G']]
+				cons_freq = max(counts)/float(r['depth'])
+				cons_base = ['A','T','C','G'][counts.index(max(counts))]
+				mean_mapq = np.mean(r['map_qualities'])
+				mean_baseq = np.mean(r['phred_qualities'])
+			rec = [r['ref_id'], r['ref_pos'], r['ref_base'], r['depth'],
+				   ','.join([str(x) for x in counts]),
+				   cons_base, cons_freq, mean_mapq, mean_baseq]
+			outfile.write('\t'.join([str(x) for x in rec])+'\n')
+
+
+def vcf_to_snps(genome_clusters):
+	""" Parse vcf file in order to call consensus alleles and reference allele frequencies """
+	# create outdir
+	outdir = '/'.join([args['out'], 'snps'])
+	if not os.path.isdir(outdir): os.mkdir(outdir)
+	for cluster_id in genome_clusters:
+		# open outfile
+		outfile = gzip.open('/'.join([args['out'], 'snps', '%s.snps.gz' % cluster_id]), 'w')
+		header = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
+		          'count_alleles', 'count_ref', 'count_alt', 'depth', 'ref_freq']
+		outfile.write('\t'.join(header)+'\n')
+		# parse vcf
+		inpath = '/'.join([args['out'], 'vcf', '%s.vcf' % cluster_id])
+		for r in parse_vcf(inpath):
+			rec = [r['ref_id'], r['ref_pos'], r['ref_allele'], r['alt_allele'], r['cons_allele'],
+				   r['count_alleles'], r['count_ref'], r['count_alt'], r['depth'], r['ref_freq']]
+			outfile.write('\t'.join([str(x) for x in rec])+'\n')
+
+def parse_vcf(inpath):
+	""" Yields formatted records from VCF output file """
+	infile = open(inpath)
+	for line in infile:
+		# skip header and split line
+		if line[0] == '#': continue
+		r = line.rstrip().split()
+		# get alt alleles
+		alt_alleles = r[4].split(',')
+		if '<X>' in alt_alleles: alt_alleles.remove('<X>')
+		count_alleles = 1 + len(alt_alleles)
+		# get allele counts
+		info = dict([(_.split('=')) for _ in r[7].split(';')])
+		counts = [int(_) for _ in info['I16'].split(',')[0:4]]
+		# get consensus allele
+		# *note: occassionally there are counts for alternate alleles, but no listed alternate alleles
+		if sum(counts) == 0:
+			cons_allele = 'NA'
+		elif sum(counts[0:2]) >= sum(counts[2:4]):
+			cons_allele = r[3]
+		elif len(alt_alleles) == 0:
+			cons_allele = 'NA'
+		else:
+			cons_allele = alt_alleles[0]
+		# yield formatted record
+		yield {'ref_id':r[0],
+			   'ref_pos':r[1],
+			   'ref_allele':r[3],
+			   'count_alleles':count_alleles,
+			   'alt_allele':alt_alleles[0] if count_alleles > 1 else 'NA',
+			   'depth':sum(counts),
+			   'count_ref':sum(counts[0:2]),
+			   'count_alt':sum(counts[2:4]),
+			   'cons_allele':cons_allele,
+			   'ref_freq':'NA'if sum(counts) == 0 else sum(counts[0:2])/float(sum(counts))
+			   }
+
+
+
 
 
 # Main
@@ -488,7 +693,8 @@ if __name__ == "__main__":
 	
 	src_dir = os.path.dirname(os.path.abspath(__file__))
 	args['bowtie2'] = '/'.join([src_dir, 'lib', 'bowtie2-2.2.4', 'bowtie2'])
-	args['samtools'] = '/'.join([src_dir, 'lib', 'samtools-1.1', 'samtools'])
+	args['samtools'] = '/'.join([src_dir, 'lib', 'samtools-1.2', 'samtools'])
+	args['bcftools'] = '/'.join([src_dir, 'lib', 'bcftools-1.2', 'bcftools'])
 	args['bedcov'] = '/'.join([src_dir, 'lib', 'bedtools2', 'bin', 'coverageBed'])
 	
 	if args['verbose']: print_copyright()
@@ -543,7 +749,7 @@ if __name__ == "__main__":
 
 	if args['cov']:
 		start = time.time()
-		if args['verbose']: print("\nComputing coverage of pangenomes")
+		if args['verbose']: print("\nEstimating coverage of pangenomes")
 		# estimate average read length
 		read_length = get_read_length(args)
 		# get batch indexes from reassigned directory
@@ -559,48 +765,52 @@ if __name__ == "__main__":
 			write_pangene_coverage(pangene_to_cov, phyeco_cov, cluster_id)
 		if args['verbose']:
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
-			print("  %s Gb maximum memory\n") % max_mem_usage()
+			print("  %s Gb maximum memory") % max_mem_usage()
+
+	if args['extract']:
+		start = time.time()
+		if args['verbose']: print("\nExtacting/writing mapped reads to FASTQ")
+		bam_to_fastq(genome_clusters, args)
+		if args['verbose']:
+			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s Gb maximum memory") % max_mem_usage()
+
+	if args['remap']:
+		if args['verbose']: print("\nMapping reads to rep-genomes")
+		start = time.time()
+		align_to_rep(genome_clusters)
+		if args['verbose']:
+			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s Gb maximum memory") % max_mem_usage()
 
 	if args['snps']:
 		start = time.time()
-		if args['verbose']: print("\nExtracting mapped reads")
+		if args['verbose']: print("\nEstimating allele frequencies from mpileup")
+		pileup_on_rep(genome_clusters)
+		vcf_to_snps(genome_clusters)
+		if args['verbose']:
+			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s Gb maximum memory") % max_mem_usage()
 
-		bam_dir = '/'.join([args['out'], 'reassigned'])
-		batch_indexes = set([_.split('.')[1] for _ in os.listdir(bam_dir)])
-		fastq_dir = '/'.join([args['out'], 'fastq'])
-
-		try: os.mkdir(fastq_dir)
-		except: pass
-
-		for genome_cluster in genome_clusters:
-			outfile = gzip.open(os.path.join(fastq_dir, genome_cluster+'.fastq.gz'), 'w')
-			for batch_index in batch_indexes:
-				bam_name = '.'.join([genome_cluster, batch_index, 'bam'])
-				bam_path = '/'.join([bam_dir, bam_name])
-				aln_file = pysam.AlignmentFile(bam_path, "rb")
-				for index, aln in enumerate(aln_file.fetch(until_eof = True)):
-					write_fastq_record(aln, index, outfile)
-
-		if args['verbose']: print("\nRe-mapping reads")
-
-		fastq_dir = '/'.join([args['out'], 'fastq'])
-		bam_dir = '/'.join([args['out'], 'bam2'])
-
-		try: os.mkdir(bam_dir)
-		except: pass
-
-		for genome_cluster in genome_clusters:
-			align_reads2(genome_clusters)
-
-		# if genome-cluster contains >1 member:
-		#	a. create fastq files of reads mapped to each genome-cluster
-		#	b. use bowtie2 to align these reads back to representative
-		# else:
-		#	a. copy bam file
-		#
-		# use samtools/bcftools to:
-		#	a. estimate allele frequencies (see if we can also output matched positions)
-		#	b. compute read depth at all reference positions
-		#
-
-
+#	if args['remap']:
+#		start = time.time()
+#		if args['verbose']: print("\nExtacting/writing mapped reads to FASTQ")
+#		bam_to_fastq(genome_clusters, args)
+#		if args['verbose']:
+#			print("  %s minutes" % round((time.time() - start)/60, 2) )
+#			print("  %s Gb maximum memory") % max_mem_usage()
+#
+#		if args['verbose']: print("\nMapping reads to rep-genomes & running mpileup")
+#		start = time.time()
+#		pileup_on_rep_genomes(genome_clusters)
+#		if args['verbose']:
+#			print("  %s minutes" % round((time.time() - start)/60, 2) )
+#			print("  %s Gb maximum memory") % max_mem_usage()
+#
+#	if args['snps']:
+#		start = time.time()
+#		if args['verbose']: print("\nEstimating allele frequencies from mpileup")
+#		pileup_to_snps(genome_clusters, args)
+#		if args['verbose']:
+#			print("  %s minutes" % round((time.time() - start)/60, 2) )
+#			print("  %s Gb maximum memory") % max_mem_usage()

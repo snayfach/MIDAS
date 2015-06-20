@@ -21,17 +21,21 @@ for line in infile:
 # loop over genome-cluster directories
 for index, gc in enumerate(os.listdir(gc_dir)):
 	
-	print index
 	centroid_id = gc_to_rep[gc]
 	
-	# copy representative genome
+	# copy representative genome & remove empty lines
 	src = '/'.join([genomes_dir, centroid_id, '%s.fna' % centroid_id])
 	dest = '/'.join([gc_dir, gc, 'representative.fna'])
-	shutil.copyfile(src, dest)
+	
+	infile = open(src)
+	outfile = open(dest, 'w')
+	for line in infile:
+		if line == '\n': continue
+		else: outfile.write(line)
+
 
 	# index fasta file
 	process = subprocess.Popen("%s faidx %s" % (samtools, dest), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
-
 
 
