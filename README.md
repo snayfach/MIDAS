@@ -106,3 +106,6 @@ SNP detection:
 ### Example
 Run PhyloCNV using the test FASTQ file:
 `run_phylo_cnv.py -1 phylo_cnv/example/SRR413772_1.fastq.gz -D genome_clusters -o phylo_cnv/example --all --verbose`
+
+Run PhyloSpecies using the test FASTQ file: 
+`run_phylo_species.py -i phylo_species/example/example_1.fastq.gz -o phylo_species/example/example_1.out --verbose`
