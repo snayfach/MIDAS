@@ -7,8 +7,8 @@
 __version__ = '0.0.1'
 
 import argparse, sys, os
-phylo_cnv_path = '/mnt/data/work/pollardlab/snayfach/projects/strain_variation/microbe_cnv/phylo_cnv'
-sys.path.append(phylo_cnv_path)
+#phylo_cnv_path = '/mnt/data/work/pollardlab/snayfach/projects/strain_variation/microbe_cnv/phylo_cnv'
+#sys.path.append(phylo_cnv_path)
 import phylo_cnv
 
 def parse_arguments():
@@ -78,5 +78,6 @@ def parse_arguments():
 
 if __name__ == '__main__':
 	args = vars(parse_arguments())
+	if not os.path.isdir(args['out']): os.mkdir(args['out'])
 	phylo_cnv.run_pipeline(args)
 

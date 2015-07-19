@@ -11,7 +11,7 @@ import random
 import numpy as np
 import time
 from tempfile import mkstemp
-#from microbe_census import microbe_census
+from microbe_census import microbe_census
 
 # Functions
 # ---------
@@ -239,7 +239,7 @@ def normalize_counts(cluster_alns, total_gene_length, total_genomes):
 		cluster_abundance[cluster_id]['rel_abun'] = rpkg/total_rpkg
 	return cluster_abundance
 
-def write_results(outpath, cluster_abundance):
+def write_abundance(outpath, cluster_abundance):
 	""" Write cluster results to specified output file """
 	outfile = open(outpath, 'w')
 	fields = ['cluster_id', 'cluster_name', 'reads', 'bp', 'rpkg', 'cov', 'prop_cov', 'rel_abun']
@@ -253,6 +253,22 @@ def write_results(outpath, cluster_abundance):
 		rel_abun = values['rel_abun']
 		record = [cluster_id, reads, bp, rpkg, cov, prop_cov, rel_abun]
 		outfile.write('\t'.join([str(x) for x in record])+'\n')
+
+def write_summary(outpath, cluster_summary):
+	""" Write cluster summary to specified output file """
+	outfile = open(outpath, 'w')
+	fields = ['total_reads', 'total_bp', 'total_ags', 'total_coverage', 'classified_reads', 'classified_bp', 'classified_coverage', 'fraction_coverage']
+	outfile.write('\t'.join(fields)+'\n')
+	total_reads = cluster_summary['total_reads']
+	total_bp = cluster_summary['total_bp']
+	total_ags = cluster_summary['total_ags']
+	total_coverage = cluster_summary['total_coverage']
+	classified_reads = cluster_summary['classified_reads']
+	classified_bp = cluster_summary['classified_bp']
+	classified_coverage = cluster_summary['classified_coverage']
+	fraction_coverage = cluster_summary['fraction_coverage']
+	record = [total_reads, total_bp, total_ags, total_coverage, classified_reads, classified_bp, classified_coverage, fraction_coverage]
+	outfile.write('\t'.join([str(x) for x in record])+'\n')
 
 def count_reads_bases(inpath):
 	""" Count the number of base pairs in infile """
@@ -277,13 +293,12 @@ def estimate_species_abundance(args):
 	if args['verbose']: print("\t %ss" % round(time.time() - start))
 	
 	# estimate AGS
-	#start = time.time()
-	#if args['verbose']: print("Estimating AGS")
-	#ags = microbe_census.run_pipeline({'seqfile':paths['tempfile']})[0]
-	#total_reads, total_bp = count_reads_bases(paths['tempfile'])
-	#total_genomes = total_bp/ags
-	#if args['verbose']: print("\t %ss" % round(time.time() - start))
-	total_genomes = 100
+	start = time.time()
+	if args['verbose']: print("Estimating AGS")
+	ags = microbe_census.run_pipeline({'seqfile':paths['tempfile']})[0]
+	total_reads, total_bp = count_reads_bases(paths['tempfile'])
+	total_genomes = total_bp/ags
+	if args['verbose']: print("\t %ss" % round(time.time() - start))
 	
 	# align reads
 	start = time.time()
@@ -309,8 +324,15 @@ def estimate_species_abundance(args):
 	# clean up and return results
 	os.remove(paths['tempfile'])
 	
+	# cluster summary
+	cluster_summary = {'total_reads':total_reads, 'total_bp':total_bp, 'total_ags':ags, 'total_coverage':total_genomes}
+	cluster_summary['classified_reads'] = sum([x['reads'] for x in cluster_abundance.values()])
+	cluster_summary['classified_bp'] = sum([x['bp'] for x in cluster_abundance.values()])
+	cluster_summary['classified_coverage'] = sum([x['cov'] for x in cluster_abundance.values()])
+	cluster_summary['fraction_coverage'] = sum([x['prop_cov'] for x in cluster_abundance.values()])
+	
 	# return results
-	return cluster_abundance
+	return cluster_abundance, cluster_summary
 
 
 

@@ -18,8 +18,8 @@ import time
 import subprocess
 import operator
 import Bio.SeqIO
-phylo_species_path = '/mnt/data/work/pollardlab/snayfach/projects/strain_variation/microbe_cnv/phylo_species'
-sys.path.append(phylo_species_path)
+#phylo_species_path = '/mnt/data/work/pollardlab/snayfach/projects/strain_variation/microbe_cnv/phylo_species'
+#sys.path.append(phylo_species_path)
 import phylo_species
 import resource
 from collections import defaultdict
@@ -130,7 +130,7 @@ def align_reads(args, genome_clusters, batch_index, reads_start, batch_size, tax
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	for cluster_id in genome_clusters:
 		# Build command
-		command = '%s --no-unal --very-sensitive ' % 'bowtie2' # args['bowtie2']
+		command = '%s --no-unal --very-sensitive ' % args['bowtie2']
 		#   index
 		command += '-x %s ' % '/'.join([args['db_dir'], cluster_id, 'btdb', cluster_id])
 		#   specify reads
@@ -142,11 +142,12 @@ def align_reads(args, genome_clusters, batch_index, reads_start, batch_size, tax
 		else: command += '-U %s' % args['m1']
 		#   output
 		bampath = '/'.join([args['out'], 'bam', '%s.%s.bam' % (cluster_id, batch_index)])
-		command += '| %s view -b - > %s' % ('samtools', bampath) #(args['samtools'], bampath)
+		command += '| %s view -b - > %s' % (args['samtools'], bampath)
 		# Run command
 		if args['verbose']: print("    running: %s") % command
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		out, err = process.communicate()
+		#sys.stderr.write(err) # write to stderr: bowtie2 output
 
 def align_to_rep(args, genome_clusters):
 	""" Use Bowtie2 to map reads to representative genomes from each genome cluster
@@ -157,15 +158,15 @@ def align_to_rep(args, genome_clusters):
 	for cluster_id in genome_clusters:
 		# Build command
 		#	bowtie2
-		command = '%s --no-unal --very-sensitive ' % 'bowtie2'
+		command = '%s --no-unal --very-sensitive ' % args['bowtie2']
 		#   bt2 index
 		command += '-x %s ' % '/'.join([args['db_dir'], cluster_id, 'btdb_rep', cluster_id])
 		#   input fastq
 		command += '-U %s ' % '/'.join([args['out'], 'fastq', '%s.fastq.gz' % cluster_id])
 		#   convert to bam
-		command += '| %s view -b - ' % 'samtools'
+		command += '| %s view -b - ' % args['samtools']
 		#   sort bam
-		command += '| %s sort -f - %s ' % ('samtools', '/'.join([outdir, '%s.bam' % cluster_id]))
+		command += '| %s sort -f - %s ' % (args['samtools'], '/'.join([outdir, '%s.bam' % cluster_id]))
 		# Run command
 		if args['verbose']: print("    running: %s") % command
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -179,7 +180,7 @@ def pileup_on_rep(args, genome_clusters):
 	for cluster_id in genome_clusters:
 		# Build command
 		#   mpileup
-		command = '%s mpileup -uv -A -d 10000 --skip-indels -B ' % 'samtools'
+		command = '%s mpileup -uv -A -d 10000 --skip-indels -B ' % args['samtools']
 		#   quality filtering
 		command += '-q %s -Q %s ' % (args['snps_mapq'], args['snps_baseq'])
 		#   reference fna file
@@ -387,10 +388,11 @@ def run_bed_coverage(args, cluster_id, batch_index):
 	""" Run bedCoverage for cluster_id """
 	bampath = '/'.join([args['out'], 'reassigned', '%s.%s.bam' % (cluster_id, batch_index)])
 	bedpath = '/'.join([args['db_dir'], cluster_id, '%s.bed' % cluster_id])
-	cmdargs = {'bedcov':'coverageBed', 'bam':bampath, 'bed':bedpath}
+	cmdargs = {'bedcov':args['bedcov'], 'bam':bampath, 'bed':bedpath}
 	command = '%(bedcov)s -abam %(bam)s -b %(bed)s' % cmdargs
 	process = subprocess.Popen(command % cmdargs, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
+	#sys.stderr.write(err) # write to stderr: bedtools output
 	return out
 
 def compute_phyeco_cov(args, pangene_to_cov, cluster_id):
@@ -620,19 +622,20 @@ def run_pipeline(args):
 	check_arguments(args) # need to check gc args
 	
 	main_dir = os.path.dirname(os.path.abspath(__file__))
+	args['bowtie2'] = '/'.join([main_dir, 'bin', 'bowtie2'])
+	args['samtools'] = '/'.join([main_dir, 'bin', 'samtools'])
+	args['bedcov'] = '/'.join([main_dir, 'bin', 'coverageBed'])
 	
 	if args['verbose']: print_copyright()
 
 	if args['profile']:
 		start = time.time()
 		if args['verbose']: print("\nEstimating the abundance of genome-clusters")
-		cluster_abundance = phylo_species.estimate_species_abundance(
+		cluster_abundance, cluster_summary = phylo_species.estimate_species_abundance(
 			{'inpaths':[args['m1']], 'nreads':args['reads_ms'], 'outpath':'/'.join([args['out'], 'genome_clusters']),
 			 'min_quality': 30, 'min_length': 50, 'max_n':0.05})
-		phylo_species.write_results(
-			'/'.join([args['out'], 'genome_clusters.abundance']),
-			cluster_abundance
-			)
+		phylo_species.write_abundance('%s/genome_clusters.abundance' % args['out'], cluster_abundance)
+		phylo_species.write_summary('%s/genome_clusters.summary' % args['out'], cluster_summary)
 		if args['verbose']:
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
