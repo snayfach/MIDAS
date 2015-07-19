@@ -5,9 +5,7 @@
 # Freely distributed under the GNU General Public License (GPLv3
 
 import argparse, sys
-#phylo_species_path = '/mnt/data/work/pollardlab/snayfach/projects/strain_variation/microbe_cnv/phylo_species'
-#sys.path.append(phylo_species_path)
-import phylo_species
+from phylo_cnv import phylo_species
 
 def parse_arguments():
 	""" Parse command line arguments """

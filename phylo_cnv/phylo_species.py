@@ -301,11 +301,10 @@ def estimate_species_abundance(args):
 		ags = microbe_census.run_pipeline({'seqfile':paths['tempfile']})[0]
 		if args['verbose']: print("\t %ss" % round(time.time() - start))
 	else:
-		ags = 3000000
+		ags = 3000000.0
 	total_reads, total_bp = count_reads_bases(paths['tempfile'])
 	total_genomes = total_bp/ags
 
-	
 	# align reads
 	start = time.time()
 	if args['verbose']: print("Aligning reads")

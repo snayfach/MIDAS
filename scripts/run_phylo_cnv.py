@@ -9,7 +9,7 @@ __version__ = '0.0.1'
 import argparse, sys, os
 #phylo_cnv_path = '/mnt/data/work/pollardlab/snayfach/projects/strain_variation/microbe_cnv/phylo_cnv'
 #sys.path.append(phylo_cnv_path)
-import phylo_cnv
+from phylo_cnv import phylo_cnv
 
 def parse_arguments():
 	""" Parse command line arguments """
