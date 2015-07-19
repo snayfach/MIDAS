@@ -11,7 +11,6 @@ import random
 import numpy as np
 import time
 from tempfile import mkstemp
-from microbe_census import microbe_census
 
 # Functions
 # ---------
@@ -187,6 +186,8 @@ def impute_missing_args(args):
 		args['min_length'] = 0
 	if 'verbose' not in args:
 		args['verbose'] = False
+	if 'normalize' not in args:
+		args['normalize'] = False
 	return args
 
 def estimate_mix_props(alns, paths):
@@ -293,12 +294,17 @@ def estimate_species_abundance(args):
 	if args['verbose']: print("\t %ss" % round(time.time() - start))
 	
 	# estimate AGS
-	start = time.time()
-	if args['verbose']: print("Estimating AGS")
-	ags = microbe_census.run_pipeline({'seqfile':paths['tempfile']})[0]
+	if args['normalize']:
+		from microbe_census import microbe_census
+		start = time.time()
+		if args['verbose']: print("Estimating AGS")
+		ags = microbe_census.run_pipeline({'seqfile':paths['tempfile']})[0]
+		if args['verbose']: print("\t %ss" % round(time.time() - start))
+	else:
+		ags = 3000000
 	total_reads, total_bp = count_reads_bases(paths['tempfile'])
 	total_genomes = total_bp/ags
-	if args['verbose']: print("\t %ss" % round(time.time() - start))
+
 	
 	# align reads
 	start = time.time()
