@@ -1,4 +1,7 @@
-from distutils.core import setup
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 from distutils.command import install_lib
 from distutils import log
 import os
@@ -17,11 +20,8 @@ setup(
 	name = 'PhyloCNV',
 	version = '0.0.1',
 	description = 'An integrated pipeline and for estimating the abundance, gene content, and phylogeny of microbial species from metagnomic data',
-	packages = ['phylo_species', 'phylo_cnv'],
-	package_data={
-		'phylo_species': ['data/*', 'bin/*', 'example/*'],
-		'phylo_cnv': ['bin/*', 'example/*']
-		},
+	packages = ['phylo_cnv'],
+	package_data={'phylo_cnv': ['data/*', 'bin/*', 'example/*']},
 	scripts=['scripts/run_phylo_species.py', 'scripts/run_phylo_cnv.py'],
 	license = 'GPL',
 	author = 'Stephen Nayfach',

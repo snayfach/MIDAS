@@ -2,7 +2,7 @@
 
 # PhyloCNV - estimation of single-nucleotide-variants and gene-copy-number from shotgun sequence data
 # Copyright (C) 2015 Stephen Nayfach
-# Freely distributed under the GNU General Public License (GPLv3
+# Freely distributed under the GNU General Public License (GPLv3)
 
 __version__ = '0.0.1'
 
@@ -18,8 +18,6 @@ import time
 import subprocess
 import operator
 import Bio.SeqIO
-#phylo_species_path = '/mnt/data/work/pollardlab/snayfach/projects/strain_variation/microbe_cnv/phylo_species'
-#sys.path.append(phylo_species_path)
 import phylo_species
 import resource
 from collections import defaultdict
@@ -132,7 +130,7 @@ def align_reads(args, genome_clusters, batch_index, reads_start, batch_size, tax
 		# Build command
 		command = '%s --no-unal --very-sensitive ' % args['bowtie2']
 		#   index
-		command += '-x %s ' % '/'.join([args['db_dir'], cluster_id, 'btdb', cluster_id])
+		command += '-x %s ' % '/'.join([args['db_dir'], 'genome_clusters', cluster_id, 'genome_cluster', cluster_id])
 		#   specify reads
 		command += '-s %s -u %s ' % (reads_start, batch_size)
 		#	report up to 20 hits/read if masking hits
@@ -160,7 +158,7 @@ def align_to_rep(args, genome_clusters):
 		#	bowtie2
 		command = '%s --no-unal --very-sensitive ' % args['bowtie2']
 		#   bt2 index
-		command += '-x %s ' % '/'.join([args['db_dir'], cluster_id, 'btdb_rep', cluster_id])
+		command += '-x %s ' % '/'.join([args['db_dir'], 'genome_clusters', cluster_id, 'cluster_centroid', 'centroid'])
 		#   input fastq
 		command += '-U %s ' % '/'.join([args['out'], 'fastq', '%s.fastq.gz' % cluster_id])
 		#   convert to bam
@@ -184,7 +182,7 @@ def pileup_on_rep(args, genome_clusters):
 		#   quality filtering
 		command += '-q %s -Q %s ' % (args['snps_mapq'], args['snps_baseq'])
 		#   reference fna file
-		command += '-f %s ' % '/'.join([args['db_dir'], cluster_id, 'representative.fna'])
+		command += '-f %s ' % '/'.join([args['db_dir'], 'genome_clusters', cluster_id, 'cluster_centroid', 'centroid.fna'])
 		#   input bam file
 		command += '%s ' % '/'.join([args['out'], 'bam_rep', '%s.bam' % cluster_id])
 		#   output vcf file
@@ -248,7 +246,7 @@ def find_best_hits(args, genome_clusters, batch_index, tax_mask, tax_map):
 		# if masking alignments, read in:
 		if tax_mask:
 			scaffold_to_genome = {} # 1) map of scaffold to genome id
-			inpath = '/'.join([args['db_dir'], cluster_id, 'genome_to_scaffold.gz'])
+			inpath = '/'.join([args['db_dir'], 'genome_clusters', cluster_id, 'genome_to_scaffold.gz'])
 			infile = gzip.open(inpath)
 			for line in infile:
 				genome_id, scaffold_id = line.rstrip().split('\t')
@@ -387,7 +385,7 @@ def compute_pangenome_coverage(args, cluster_id, batch_index, read_length, pange
 def run_bed_coverage(args, cluster_id, batch_index):
 	""" Run bedCoverage for cluster_id """
 	bampath = '/'.join([args['out'], 'reassigned', '%s.%s.bam' % (cluster_id, batch_index)])
-	bedpath = '/'.join([args['db_dir'], cluster_id, '%s.bed' % cluster_id])
+	bedpath = '/'.join([args['db_dir'], 'genome_clusters', cluster_id, 'gene_to_pangene.bed'])
 	cmdargs = {'bedcov':args['bedcov'], 'bam':bampath, 'bed':bedpath}
 	command = '%(bedcov)s -abam %(bam)s -b %(bed)s' % cmdargs
 	process = subprocess.Popen(command % cmdargs, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -400,7 +398,7 @@ def compute_phyeco_cov(args, pangene_to_cov, cluster_id):
 	markers = ['B000039','B000041','B000062','B000063','B000065','B000071','B000079',
 			   'B000080','B000081','B000082','B000086','B000096','B000103','B000114']
 	phyeco_covs = []
-	inpath = '/'.join([args['db_dir'], cluster_id, 'pangene_to_phyeco.gz'])
+	inpath = '/'.join([args['db_dir'], 'genome_clusters', cluster_id, 'pangene_to_phyeco.gz'])
 	infile = gzip.open(inpath)
 	next(infile)
 	for line in infile:
