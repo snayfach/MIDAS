@@ -80,29 +80,45 @@ def quality_filter(rec, quality_type, min_length, min_quality, max_n):
 	# read passed QC
 	return False
 
+#def fastq_to_fasta(args, paths):
+#	""" Sample high quality reads from seqfile(s) """
+#	outfile = open(paths['tempfile'], 'w')
+#	index = 0
+#	for file in args['inpaths']:
+#		if args['indir']: inpath = os.path.join(args['indir'], file)
+#		else: inpath = file
+#		file_format = auto_detect_file_type(inpath)
+#		if file_format == 'fastq':
+#			fastq_format = auto_detect_fastq_format(inpath)
+#			quality_type = 'solexa_quality' if fastq_format == 'fastq-solexa' else 'phred_quality'
+#		for rec in Bio.SeqIO.parse(iopen(inpath), fastq_format if file_format == 'fastq' else 'fasta'):
+#			if file_format == 'fastq' and quality_filter(rec, quality_type, args['min_length'], args['min_quality'], args['max_n']):
+#				continue
+#			else:
+#				outfile.write('>'+str(rec.id)+'\n'+str(rec.seq)+'\n')
+#				index += 1
+#				if index == args['nreads']: return
+
 def fastq_to_fasta(args, paths):
 	""" Sample high quality reads from seqfile(s) """
 	outfile = open(paths['tempfile'], 'w')
 	index = 0
-	for file in args['inpaths']:
-		if args['indir']: inpath = os.path.join(args['indir'], file)
-		else: inpath = file
-		file_format = auto_detect_file_type(inpath)
-		if file_format == 'fastq':
-			fastq_format = auto_detect_fastq_format(inpath)
-			quality_type = 'solexa_quality' if fastq_format == 'fastq-solexa' else 'phred_quality'
-		for rec in Bio.SeqIO.parse(iopen(inpath), fastq_format if file_format == 'fastq' else 'fasta'):
-			if file_format == 'fastq' and quality_filter(rec, quality_type, args['min_length'], args['min_quality'], args['max_n']):
-				continue
-			else:
-				outfile.write('>'+str(rec.id)+'\n'+str(rec.seq)+'\n')
-				index += 1
-				if index == args['nreads']: return
+	file_format = auto_detect_file_type(args['inpath'])
+	if file_format == 'fastq':
+		fastq_format = auto_detect_fastq_format(args['inpath'])
+		quality_type = 'solexa_quality' if fastq_format == 'fastq-solexa' else 'phred_quality'
+	for rec in Bio.SeqIO.parse(iopen(args['inpath']), fastq_format if file_format == 'fastq' else 'fasta'):
+		if file_format == 'fastq' and quality_filter(rec, quality_type, args['min_length'], args['min_quality'], args['max_n']):
+			continue
+		else:
+			outfile.write('>'+str(rec.id)+'\n'+str(rec.seq)+'\n')
+			index += 1
+			if index == args['nreads']: return
 
 def map_reads_blast(args, paths):
 	""" Use blastn to map reads in fasta file to marker database """
-	command = " %(blastn)s -query %(query)s -db %(db)s -out %(out)s -outfmt 6 "
-	arguments = {'blastn':paths['blastn'], 'query':paths['tempfile'], 'db':paths['db'], 'out':'/dev/stdout'}
+	command = " %(blastn)s -query %(query)s -db %(db)s -out %(out)s -outfmt 6 -num_threads %(threads)s"
+	arguments = {'blastn':paths['blastn'], 'query':paths['tempfile'], 'db':paths['db'], 'out':'/dev/stdout', 'threads':args['threads']}
 	process = subprocess.Popen(command % arguments, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	stdout, stderr = process.communicate()
 	return stdout
@@ -186,8 +202,12 @@ def impute_missing_args(args):
 		args['min_length'] = 0
 	if 'verbose' not in args:
 		args['verbose'] = False
+	if 'threads' not in args:
+		args['threads'] = 1
 	if 'normalize' not in args:
 		args['normalize'] = False
+	if 'nreads' not in args:
+		args['nreads'] = float('Inf')
 	return args
 
 def estimate_mix_props(alns, paths):

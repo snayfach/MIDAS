@@ -128,18 +128,22 @@ def align_reads(args, genome_clusters, batch_index, reads_start, batch_size, tax
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	for cluster_id in genome_clusters:
 		# Build command
-		command = '%s --no-unal --very-sensitive ' % args['bowtie2']
+		command = '%s --no-unal ' % args['bowtie2']
 		#   index
 		command += '-x %s ' % '/'.join([args['db_dir'], 'genome_clusters', cluster_id, 'genome_cluster', cluster_id])
 		#   specify reads
 		command += '-s %s -u %s ' % (reads_start, batch_size)
+		#   speed/sensitivity
+		command += '--%s ' % args['align_speed']
+		#   threads
+		command += '--threads %s ' % args['threads']
 		#	report up to 20 hits/read if masking hits
 		if tax_mask: command += '-k 20 '
 		#   input
 		if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
 		else: command += '-U %s' % args['m1']
 		#   output
-		bampath = '/'.join([args['out'], 'bam', '%s.%s.bam' % (cluster_id, batch_index)])
+		bampath = '/'.join([args['out'], 'bam', '%s.%s.bam ' % (cluster_id, batch_index)])
 		command += '| %s view -b - > %s' % (args['samtools'], bampath)
 		# Run command
 		if args['verbose']: print("    running: %s") % command
@@ -157,6 +161,10 @@ def align_to_rep(args, genome_clusters):
 		# Build command
 		#	bowtie2
 		command = '%s --no-unal --very-sensitive ' % args['bowtie2']
+		#   speed/sensitivity
+		command += '--%s ' % args['align_speed']
+		#   threads
+		command += '--threads %s ' % args['threads']
 		#   bt2 index
 		command += '-x %s ' % '/'.join([args['db_dir'], 'genome_clusters', cluster_id, 'cluster_centroid', 'centroid'])
 		#   input fastq
@@ -186,11 +194,13 @@ def pileup_on_rep(args, genome_clusters):
 		#   input bam file
 		command += '%s ' % '/'.join([args['out'], 'bam_rep', '%s.bam' % cluster_id])
 		#   output vcf file
-		command += '> %s ' % '/'.join([outdir, '%s.vcf' % cluster_id])
+		#command += '> %s ' % '/'.join([outdir, '%s.vcf' % cluster_id])
 		# Run command
 		if args['verbose']: print("    running: %s") % command
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		out, err = process.communicate()
+		# Format output
+		vcf_to_snps(out, cluster_id, args)
 
 def fetch_reads(aln_file):
 	""" Use pysam to yield paired end reads from bam file """
@@ -493,28 +503,6 @@ def pileup_to_bases(pileup, ref_base):
 			break
 	return bases
 
-def parse_pileup(inpath):
-	""" Yields formatted records from mpileup output file """
-	infile = gzip.open(inpath)
-	for line in infile:
-		r = line.rstrip().split()
-		ref_id = r[0]
-		ref_pos = int(r[1])
-		ref_base = r[2].upper()
-		depth = int(r[3])
-		if depth == 0:
-			bases = []
-			phred_qualities = []
-			map_qualities = []
-		else:
-			bases = pileup_to_bases(r[4], ref_base)
-			phred_qualities = convert_from_ascii_quality(r[5])
-			map_qualities = convert_from_ascii_quality(r[6])
-		yield {'ref_id':ref_id, 'ref_pos':ref_pos,
-		       'ref_base':ref_base, 'depth':depth,
-			   'bases':bases, 'phred_qualities':phred_qualities,
-			   'map_qualities':map_qualities}
-
 def bam_to_fastq(genome_clusters, args):
 	""" Converts bam to fastq for reads assigned to each genome cluster """
 	bam_dir = '/'.join([args['out'], 'reassigned'])
@@ -531,57 +519,26 @@ def bam_to_fastq(genome_clusters, args):
 			for index, aln in enumerate(aln_file.fetch(until_eof = True)):
 				write_fastq_record(aln, index, outfile)
 
-def pileup_to_snps(genome_clusters, args):
-	""" Parse pileups in order to call consensus alleles and reference allele frequencies """
-	# create outdir
-	outdir = '/'.join([args['out'], 'snps'])
-	if not os.path.isdir(outdir): os.mkdir(outdir)
-	for cluster_id in genome_clusters:
-		# open outfile
-		outfile = gzip.open('/'.join([args['out'], 'snps', '%s.snps.gz' % cluster_id]), 'w')
-		header = ['ref_id', 'ref_pos', 'ref_base', 'coverage', 'counts',
-				  'cons_base', 'cons_freq', 'mean_mapq', 'mean_baseq']
-		outfile.write('\t'.join(header)+'\n')
-		# parse pileup
-		inpath = '/'.join([args['out'], 'pileup', '%s.pileup.gz' % cluster_id])
-		for r in parse_pileup(inpath):
-			if r['depth'] == 0:
-				counts = [0, 0, 0, 0]
-				cons_freq, cons_base, mean_mapq, mean_baseq = 'NA', 'NA', 'NA', 'NA'
-			else:
-				counts = [r['bases'].count(x) for x in ['A','T','C','G']]
-				cons_freq = max(counts)/float(r['depth'])
-				cons_base = ['A','T','C','G'][counts.index(max(counts))]
-				mean_mapq = np.mean(r['map_qualities'])
-				mean_baseq = np.mean(r['phred_qualities'])
-			rec = [r['ref_id'], r['ref_pos'], r['ref_base'], r['depth'],
-				   ','.join([str(x) for x in counts]),
-				   cons_base, cons_freq, mean_mapq, mean_baseq]
-			outfile.write('\t'.join([str(x) for x in rec])+'\n')
-
-
-def vcf_to_snps(args, genome_clusters):
+def vcf_to_snps(indata, cluster_id, args):
 	""" Parse vcf file in order to call consensus alleles and reference allele frequencies """
 	# create outdir
 	outdir = '/'.join([args['out'], 'snps'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
-	for cluster_id in genome_clusters:
-		# open outfile
-		outfile = gzip.open('/'.join([args['out'], 'snps', '%s.snps.gz' % cluster_id]), 'w')
-		header = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
-		          'count_alleles', 'count_ref', 'count_alt', 'depth', 'ref_freq']
-		outfile.write('\t'.join(header)+'\n')
-		# parse vcf
-		inpath = '/'.join([args['out'], 'vcf', '%s.vcf' % cluster_id])
-		for r in parse_vcf(inpath):
-			rec = [r['ref_id'], r['ref_pos'], r['ref_allele'], r['alt_allele'], r['cons_allele'],
-				   r['count_alleles'], r['count_ref'], r['count_alt'], r['depth'], r['ref_freq']]
-			outfile.write('\t'.join([str(x) for x in rec])+'\n')
+	# open outfile
+	outfile = gzip.open('/'.join([args['out'], 'snps', '%s.snps.gz' % cluster_id]), 'w')
+	header = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
+			  'count_alleles', 'count_ref', 'count_alt', 'depth', 'ref_freq']
+	outfile.write('\t'.join(header)+'\n')
+	# parse vcf
+	for r in parse_vcf(indata):
+		rec = [r['ref_id'], r['ref_pos'], r['ref_allele'], r['alt_allele'], r['cons_allele'],
+			   r['count_alleles'], r['count_ref'], r['count_alt'], r['depth'], r['ref_freq']]
+		outfile.write('\t'.join([str(x) for x in rec])+'\n')
 
-def parse_vcf(inpath):
-	""" Yields formatted records from VCF output file """
-	infile = open(inpath)
-	for line in infile:
+def parse_vcf(indata):
+	""" Yields formatted records from VCF output """
+#	infile = open(inpath)
+	for line in indata.split('\n')[0:-1]:
 		# skip header and split line
 		if line[0] == '#': continue
 		r = line.rstrip().split()
@@ -630,8 +587,10 @@ def run_pipeline(args):
 		start = time.time()
 		if args['verbose']: print("\nEstimating the abundance of genome-clusters")
 		cluster_abundance, cluster_summary = phylo_species.estimate_species_abundance(
-			{'inpaths':[args['m1']], 'nreads':args['reads_ms'], 'outpath':'/'.join([args['out'], 'genome_clusters']),
-			 'min_quality': 30, 'min_length': 50, 'max_n':0.05})
+			{'inpath':args['m1'], 'nreads':args['reads_ms'],
+			 'outpath':'/'.join([args['out'], 'genome_clusters']),
+			 'min_quality': 25, 'min_length': 50, 'max_n':0.05,
+			 'threads':args['threads']})
 		phylo_species.write_abundance('%s/genome_clusters.abundance' % args['out'], cluster_abundance)
 		phylo_species.write_summary('%s/genome_clusters.summary' % args['out'], cluster_summary)
 		if args['verbose']:
@@ -657,6 +616,8 @@ def run_pipeline(args):
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
+	# TO DO:
+	# use multithreading to process each batch independently
 	if args['map']:
 		start = time.time()
 		if args['verbose']: print("\nMapping reads to genome clusters")
@@ -672,6 +633,8 @@ def run_pipeline(args):
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
+	# TO DO:
+	# use multithreading to process each batch independently
 	if args['cov']:
 		start = time.time()
 		if args['verbose']: print("\nEstimating coverage of pangenomes")
@@ -712,7 +675,6 @@ def run_pipeline(args):
 		start = time.time()
 		if args['verbose']: print("\nEstimating allele frequencies from mpileup")
 		pileup_on_rep(args, genome_clusters)
-		vcf_to_snps(args, genome_clusters)
 		if args['verbose']:
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
