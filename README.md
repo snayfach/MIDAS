@@ -11,6 +11,7 @@ Python dependencies:
 * Numpy (v1.9.1)
 * BioPython (v1.6.2)
 * Pysam (v0.8.1)
+* MicrobeCensus (v1.0.4)
 
 External packages:
 * Bowtie2 (v2.2.4)
@@ -18,14 +19,15 @@ External packages:
 * bedtools2 (v2.23.0)
 * blastn (v2.2.25+)
 
-Tested version numbers are indicated in parenthesis. Other versions may also work
+Tested version numbers are indicated in parenthesis. Other versions may also work.
+Binaries for external packages are included with this software
 
 ### Reference database
-Download PhyloCNV database from: ______
+Download PhyloCNV database from: http://lighthouse.ucsf.edu/phylocnv/
 Note that this archive requires 230G of disk space.
 
 Unpack the archive: 
-`tar -zxvf _______`
+`tar -zxvf phylo_db.tar.gz`
 
 ### Installation
 
