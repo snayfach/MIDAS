@@ -24,26 +24,26 @@ Linux binaries for external packages are included with this software. Binaries f
 If included binaries fail to execute, you can compile them on your own machine and place them under: `PhyloCNV/phylo_cnv/bin`
 
 ### Reference database
-Download PhyloCNV database from: http://lighthouse.ucsf.edu/phylocnv/ 
-And unpack the archive: `tar -zxvf phylo_db.tar.gz` 
+Download PhyloCNV database from: http://lighthouse.ucsf.edu/phylocnv/  
+And unpack the archive: `tar -zxvf phylo_db.tar.gz`  
 Note that this archive requires 230G of disk space. Smaller reference databases targeted for specific environments (e.g. marine, human-gut) will be added in the near future
 
 ### Installation
 
 Download the latest version of the software: https://github.com/snayfach/PhyloCNV/archive/v0.0.1.tar.gz 
 
-Unpack the project: tar -zxvf PhyloCNV-0.0.1.tar.gz 
+Unpack the project: `tar -zxvf PhyloCNV-0.0.1.tar.gz`
 
-Run setup.py. This will install any dependencies: 
-`python setup.py install` or
+Run setup.py. This will install any dependencies:  
+`python setup.py install` or  
 `sudo python setup.py install` to install as a superuser
 
 Alternatively, you can manually install the software.
 First, check that required python libraries are installed. You should be able to enter the following command in the python interpreter without getting an error:  
 `>>> import Bio.SeqIO`  
-`>>> import numpy`
-`>>> import pysam`
-`>>> import microbe_census`
+`>>> import numpy`  
+`>>> import pysam`  
+`>>> import microbe_census`  
 
 Next, add the following to your PYTHONPATH environmental variable:  
 `export PYTHONPATH=$PYTHONPATH:/path/to/PhyloCNV` or  
@@ -54,11 +54,41 @@ Finally, add the scripts directory to your PATH environmental variable:
 `echo -e "\nexport PATH=\$PATH:/path/to/PhyloCNV/scripts" >> ~/.bash_profile` to avoid entering the command in the future
 
 Now, you should be able to enter the command into your terminal without getting an error:  
-`run_phylo_species.py -h`
+`run_phylo_species.py -h`  
 `run_phylo_cnv.py -h`
 
 ### Usage
 
+#### run_phylo_species.py
+Use this if you just want to perform metagenomic species (i.e. genome-cluster) profiling
+```
+usage: run_phylo_species.py [options]
+
+optional arguments:
+  -h, --help      show this help message and exit
+  -v
+
+Input/Output (required):
+  -i INPATH       path to input metagenome in FASTQ/FASTA format. gzip (.gz)
+                  and bzip (.bz2) compression supported
+  -o OUTBASE      basename for output files: {basename}.abundance,
+                  {basename}.summary
+  -t TEMP_DIR     path to directory to store temp files (/tmp)
+
+Pipeline Speed (optional):
+  -n NREADS       number of reads to use from input metagenome (use all)
+  -p THREADS      number of threads to use for database search (1)
+  -m              use MicrobeCensus to normalize counts. increases runtime by
+                  <=30 additional minutes (False)
+
+Quality control (optional):
+  -q MIN_QUALITY  keep reads with quality >= MIN_QUALITY (0)
+  -l MIN_LENGTH   keep reads with length >= MIN_LENGTH (0)
+  -u MAX_N        keep reads with fraction unknown bases <= MAX_N (1.0)
+```
+
+#### run_phylo_cnv.py 
+This is the integrated pipeline for estimating the abundance, gene content, and phylogeny of microbial species from a metagenome
 ```
 usage: run_phylo_cnv.py [options]
 
@@ -99,7 +129,7 @@ GC inclusion (choose one):
 
 Read Alignment/Mapping:
   --align_speed {very-fast,fast,sensitive,very-sensitive}
-                        alignment speed/sensitivity (very-sensitive)
+                        alignment speed/sensitivity (sensitive)
   --reads_align READS_ALIGN
                         # reads to use for pangenome alignment (All)
   --reads_batch RD_BATCH
@@ -110,10 +140,24 @@ Read Alignment/Mapping:
 
 SNP detection:
   --snps_mapq SNPS_MAPQ
-                        Minimum map quality (0)
+                        Minimum map quality (20)
   --snps_baseq SNPS_BASEQ
-                        Minimum base quality (0)  ```
-  
+                        Minimum base quality (20)  
+```
+
+### Output
+Final outputs:  
+* genome_clusters.abundance: abundance of 5,952 genome-clusters
+* genome_clusters.summary: abundance summary
+* coverage: coverage of pan genes within each genome-cluster  
+* snps: coverage, allele frequencies, and consensus alleles   
+
+Intermediate files:  
+* bam: alignments from mapping metagenome (in batches of reads) to each genome-cluster  
+* reassigned: best alignments (>= map_pid) for each read across genome-clusters  
+* fastq: reads extracted from reassigned bam files  
+* bam_rep: alignments on to representative genome for each genome-cluster  
+
 ### Example
 Run PhyloCNV using the test FASTQ file:
 `run_phylo_cnv.py -1 phylo_cnv/example/SRR413772_1.fastq.gz -D genome_clusters -o phylo_cnv/example --all --verbose`
