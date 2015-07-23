@@ -180,9 +180,6 @@ def align_to_rep(args, genome_clusters):
 
 def pileup_on_rep(args, genome_clusters):
 	""" Use Samtools to create pileup, filter low quality bases, and write results to VCF file """
-	# Create output directory
-	outdir = os.path.join(args['out'], 'vcf')
-	if not os.path.isdir(outdir): os.mkdir(outdir)
 	for cluster_id in genome_clusters:
 		# Build command
 		#   mpileup
@@ -199,7 +196,7 @@ def pileup_on_rep(args, genome_clusters):
 		if args['verbose']: print("    running: %s") % command
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		out, err = process.communicate()
-		# Format output
+		# Format output and write to file
 		vcf_to_snps(out, cluster_id, args)
 
 def fetch_reads(aln_file):

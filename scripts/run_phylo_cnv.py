@@ -61,7 +61,7 @@ def parse_arguments():
 	
 	map = parser.add_argument_group('Read Alignment/Mapping')
 	map.add_argument('--align_speed', dest='align_speed', choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
-		help='alignment speed/sensitivity (very-sensitive)', default='sensitive')
+		help='alignment speed/sensitivity (sensitive)', default='sensitive')
 	map.add_argument('--reads_align', type=int, dest='reads_align',
 		help='# reads to use for pangenome alignment (All)')
 	map.add_argument('--reads_batch', type=int, dest='rd_batch', default=5000000,
@@ -71,9 +71,9 @@ def parse_arguments():
 		
 	snps = parser.add_argument_group('SNP detection')
 	snps.add_argument('--snps_mapq', type=str, dest='snps_mapq',
-		default='0', help='Minimum map quality (0)')
+		default='20', help='Minimum map quality (20)')
 	snps.add_argument('--snps_baseq', type=str, dest='snps_baseq',
-		default='0', help='Minimum base quality (0)')
+		default='20', help='Minimum base quality (20)')
 				
 	mask = parser.add_argument_group('Leave-One-Out (for simulated data only)')
 	mask.add_argument('--tax_mask', action='store_true', dest='tax_mask',
