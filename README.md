@@ -25,11 +25,11 @@ If included binaries fail to execute, you can compile them on your own machine a
 
 ### Reference database
 Download a PhyloCNV database: 
-*http://lighthouse.ucsf.edu/phylocnv/phylo_db.tar.gz (140G compressed, 230G expanded)
-  *All 5,952 genome-clusters (31,007 total genomes)
-*http://lighthouse.ucsf.edu/phylocnv/phylo_db.human_gut.tar.gz (7.7G compressed, 11G expanded)
-  *188 prevalent genome-clusters from the human gut (3,742 total genomes)
-*For more info, see: http://lighthouse.ucsf.edu/phylocnv
+* http://lighthouse.ucsf.edu/phylocnv/phylo_db.tar.gz (140G compressed, 230G expanded)  
+  * All 5,952 genome-clusters (31,007 total genomes)  
+* http://lighthouse.ucsf.edu/phylocnv/phylo_db.human_gut.tar.gz (7.7G compressed, 11G expanded)  
+  * 188 prevalent genome-clusters from the human gut (3,742 total genomes)  
+* For more info, see: http://lighthouse.ucsf.edu/phylocnv  
   
 And unpack the archive: `tar -zxvf phylo_db.tar.gz`  
 
