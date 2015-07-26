@@ -24,9 +24,14 @@ Linux binaries for external packages are included with this software. Binaries f
 If included binaries fail to execute, you can compile them on your own machine and place them under: `PhyloCNV/phylo_cnv/bin`
 
 ### Reference database
-Download PhyloCNV database from: http://lighthouse.ucsf.edu/phylocnv/  
+Download a PhyloCNV database: 
+*http://lighthouse.ucsf.edu/phylocnv/phylo_db.tar.gz (140G compressed, 230G expanded)
+  *All 5,952 genome-clusters (31,007 total genomes)
+*http://lighthouse.ucsf.edu/phylocnv/phylo_db.human_gut.tar.gz (7.7G compressed, 11G expanded)
+  *188 prevalent genome-clusters from the human gut (3,742 total genomes)
+*For more info, see: http://lighthouse.ucsf.edu/phylocnv
+  
 And unpack the archive: `tar -zxvf phylo_db.tar.gz`  
-Note that this archive requires 230G of disk space. Smaller reference databases targeted for specific environments (e.g. marine, human-gut) will be added in the near future
 
 ### Installation
 
