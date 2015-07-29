@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# PhyloCNV - estimation of single-nucleotide-variants and gene-copy-number from shotgun sequence data
+# PhyloCNV - estimating the abundance, gene-content, and phylogeny of microbes from metagenomes
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
@@ -61,14 +61,14 @@ def check_arguments(args):
 def print_copyright():
 	# print out copyright information
 	print ("-------------------------------------------------------------------------")
-	print ("MicrobeCNV - estimation of gene-copy-number from shotgun sequence data")
-	print ("version %s; github.com/snayfach/MicrobeCNV" % __version__)
+	print ("PhyloCNV - estimating the abundance, gene-content, and phylogeny of microbes from metagenomes")
+	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
 	print ("Copyright (C) 2015 Stephen Nayfach")
 	print ("Freely distributed under the GNU General Public License (GPLv3)")
 	print ("-------------------------------------------------------------------------")
 
-def read_microbe_species(inpath):
-	""" Parse output from MicrobeSpecies """
+def read_phylo_species(inpath):
+	""" Parse output from PhyloSpecies """
 	if not os.path.isfile(inpath):
 		sys.exit("Could not locate species profile: %s\nTry rerunning with --profile" % inpath)
 	dict = {}
@@ -89,7 +89,7 @@ def select_genome_clusters(cluster_abundance, args):
 	my_clusters = {}
 	# prune all genome clusters that are missing from database
 	# this can happen when using an environment specific database
-	for cluster_id in cluster_abundance:
+	for cluster_id in cluster_abundance.copy():
 		if not os.path.isdir('/'.join([args['db_dir'], cluster_id])):
 			del cluster_abundance[cluster_id]
 	# user specified a single genome-cluster
@@ -185,6 +185,8 @@ def align_to_rep(args, genome_clusters):
 
 def pileup_on_rep(args, genome_clusters):
 	""" Use Samtools to create pileup, filter low quality bases, and write results to VCF file """
+	outdir = os.path.join(args['out'], 'vcf')
+	if not os.path.isdir(outdir): os.mkdir(outdir)
 	for cluster_id in genome_clusters:
 		# Build command
 		#   mpileup
@@ -196,13 +198,21 @@ def pileup_on_rep(args, genome_clusters):
 		#   input bam file
 		command += '%s ' % '/'.join([args['out'], 'bam_rep', '%s.bam' % cluster_id])
 		#   output vcf file
-		#command += '> %s ' % '/'.join([outdir, '%s.vcf' % cluster_id])
+		command += '> %s ' % '/'.join([outdir, '%s.vcf' % cluster_id])
 		# Run command
 		if args['verbose']: print("    running: %s") % command
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		out, err = process.communicate()
-		# Format output and write to file
-		vcf_to_snps(out, cluster_id, args)
+		
+def format_vcf(args, genome_clusters):
+	""" Format vcf output for easy parsing """
+	# create outdir
+	outdir = '/'.join([args['out'], 'snps'])
+	if not os.path.isdir(outdir): os.mkdir(outdir)
+	for cluster_id in genome_clusters:
+		inpath = '/'.join([args['out'], 'vcf', '%s.vcf' % cluster_id])
+		outpath = '/'.join([args['out'], 'snps', '%s.snps.gz' % cluster_id])
+		vcf_to_snps(inpath, outpath)
 
 def fetch_reads(aln_file):
 	""" Use pysam to yield paired end reads from bam file """
@@ -478,33 +488,6 @@ def write_fastq_record(aln, index, outfile):
 	outfile.write('+%s.%s length=%s\n' % (aln.query_name,str(index),str(aln.query_length)))
 	outfile.write('%s\n' % convert_to_ascii_quality(aln.query_qualities))
 
-def pileup_to_bases(pileup, ref_base):
-	""" Takes pileup string from mpileup output. Returns the aligned bases """
-	bases = []
-	index = 0
-	while True:
-		# parse pileup
-		pileup_char = pileup[index]
-		if pileup_char == '^': # skip '^' (start of a read segment) and ASCII character following '^'
-			index += 2
-		elif pileup_char == '$': # skip '$' (end of a read segment)
-			index += 1
-		elif pileup_char in ['+', '-']: # skip insertions and deletions (max 999 bp)
-			for ndigits in [3,2,1]:
-				indel_length = pileup[index+1:index+1+ndigits]
-				if indel_length.isdigit(): break
-			index += 1 + ndigits + int(indel_length)
-		else: # keep positions for aligned bases
-			if pileup_char in ['.',',']:
-				bases.append(ref_base.upper())
-			else:
-				bases.append(pileup_char.upper())
-			index += 1
-		# stop when end of pileup reached
-		if index == len(pileup):
-			break
-	return bases
-
 def bam_to_fastq(genome_clusters, args):
 	""" Converts bam to fastq for reads assigned to each genome cluster """
 	bam_dir = '/'.join([args['out'], 'reassigned'])
@@ -521,26 +504,23 @@ def bam_to_fastq(genome_clusters, args):
 			for index, aln in enumerate(aln_file.fetch(until_eof = True)):
 				write_fastq_record(aln, index, outfile)
 
-def vcf_to_snps(indata, cluster_id, args):
+def vcf_to_snps(inpath, outpath):
 	""" Parse vcf file in order to call consensus alleles and reference allele frequencies """
-	# create outdir
-	outdir = '/'.join([args['out'], 'snps'])
-	if not os.path.isdir(outdir): os.mkdir(outdir)
 	# open outfile
-	outfile = gzip.open('/'.join([args['out'], 'snps', '%s.snps.gz' % cluster_id]), 'w')
+	outfile = gzip.open(outpath, 'w')
 	header = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
 			  'count_alleles', 'count_ref', 'count_alt', 'depth', 'ref_freq']
 	outfile.write('\t'.join(header)+'\n')
 	# parse vcf
-	for r in parse_vcf(indata):
+	for r in parse_vcf(inpath):
 		rec = [r['ref_id'], r['ref_pos'], r['ref_allele'], r['alt_allele'], r['cons_allele'],
 			   r['count_alleles'], r['count_ref'], r['count_alt'], r['depth'], r['ref_freq']]
 		outfile.write('\t'.join([str(x) for x in rec])+'\n')
 
-def parse_vcf(indata):
+def parse_vcf(inpath):
 	""" Yields formatted records from VCF output """
-#	infile = open(inpath)
-	for line in indata.split('\n')[0:-1]:
+	infile = open(inpath)
+	for line in infile:
 		# skip header and split line
 		if line[0] == '#': continue
 		r = line.rstrip().split()
@@ -600,10 +580,10 @@ def run_pipeline(args):
 			print("  %s Gb maximum memory") % max_mem_usage()
 
 	if args['verbose']: print("\nSelecting genome-clusters for pangenome alignment")
-	cluster_abundance = read_microbe_species('/'.join([args['out'], 'genome_clusters.abundance']))
+	cluster_abundance = read_phylo_species('/'.join([args['out'], 'genome_clusters.abundance']))
 	genome_clusters = select_genome_clusters(cluster_abundance, args)
 	if len(genome_clusters) == 0:
-		sys.exit("No genome-clusters were detected that exceeded the minimum abundance threshold of %s" % args['abun'])
+		sys.exit("No genome-clusters were detected")
 	elif args['verbose']:
 		for cluster, abundance in sorted(genome_clusters.items(), key=operator.itemgetter(1), reverse=True):
 			print("  cluster_id: %s abundance: %s" % (cluster, round(abundance,2)))
@@ -677,6 +657,7 @@ def run_pipeline(args):
 		start = time.time()
 		if args['verbose']: print("\nEstimating allele frequencies from mpileup")
 		pileup_on_rep(args, genome_clusters)
+		format_vcf(args, genome_clusters)
 		if args['verbose']:
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
