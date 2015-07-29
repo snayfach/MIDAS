@@ -22,9 +22,31 @@ import phylo_species
 import resource
 from collections import defaultdict
 from math import ceil
+from multiprocessing import Process
 
 # Functions
 # ---------
+
+def parallel_process(function, args_list, threads, verbose):
+	""" Run function using multiple threads """
+	processes = []
+	for pargs in args_list: # run function for each set of args in args_list
+		p = Process(target=function, kwargs=pargs)
+		processes.append(p)
+		p.start()
+		# control number of active processes
+		while len(processes) >= threads:
+			indexes = []
+			# keep processes that are still alive
+			for index, process in enumerate(processes):
+				if process.is_alive(): indexes.append(index)
+			processes = [processes[i] for i in indexes]
+	# wait until there are no active processes
+	while len(processes) > 0:
+		indexes = []
+		for index, process in enumerate(processes):
+			if process.is_alive(): indexes.append(index)
+		processes = [processes[i] for i in indexes]
 
 def check_arguments(args):
 	""" Check validity of command line arguments """
@@ -57,6 +79,13 @@ def check_arguments(args):
 	# Output options
 	if not args['out']:
 		sys.exit('Specify output directory with -o')
+
+def add_binaries(args):
+	""" Add paths to external binaries """
+	main_dir = os.path.dirname(os.path.abspath(__file__))
+	args['bowtie2'] = '/'.join([main_dir, 'bin', 'bowtie2'])
+	args['samtools'] = '/'.join([main_dir, 'bin', 'samtools'])
+	args['bedcov'] = '/'.join([main_dir, 'bin', 'coverageBed'])
 
 def print_copyright():
 	# print out copyright information
@@ -256,7 +285,7 @@ def compute_perc_id(pe_read):
 		edit = dict(pe_read[0].tags)['NM'] + dict(pe_read[1].tags)['NM']
 	return 100 * (length - edit)/float(length)
 
-def find_best_hits(args, genome_clusters, batch_index, tax_mask, tax_map):
+def find_best_hits(args, genome_clusters, batch_index):
 	""" Find top scoring alignment(s) for each read """
 	if args['verbose']: print("    finding best alignments across GCs")
 	best_hits = {}
@@ -266,7 +295,7 @@ def find_best_hits(args, genome_clusters, batch_index, tax_mask, tax_map):
 	for cluster_id in genome_clusters:
 	
 		# if masking alignments, read in:
-		if tax_mask:
+		if args['tax_mask']:
 			scaffold_to_genome = {} # 1) map of scaffold to genome id
 			inpath = '/'.join([args['db_dir'], cluster_id, 'genome_to_scaffold.gz'])
 			infile = gzip.open(inpath)
@@ -274,7 +303,7 @@ def find_best_hits(args, genome_clusters, batch_index, tax_mask, tax_map):
 				genome_id, scaffold_id = line.rstrip().split('\t')
 				scaffold_to_genome[scaffold_id] = genome_id
 			run_to_genome = {} # 2) run_accession to genome id
-			for line in open(tax_map):
+			for line in open(args['tax_map']):
 				run_accession, genome_id = line.rstrip().split('\t')
 				run_to_genome[run_accession] = genome_id
 		
@@ -295,7 +324,7 @@ def find_best_hits(args, genome_clusters, batch_index, tax_mask, tax_map):
 				reference_map[(cluster_id, ref_index)] = ref_id
 				
 			# mask alignment
-			if tax_mask:
+			if args['tax_mask']:
 				ref_index = pe_read[0].reference_id
 				ref_id = aln_file.getrname(ref_index).split('|')[1]
 				run_accession = pe_read[0].query_name.split('.')[0]
@@ -377,6 +406,13 @@ def write_best_hits(args, genome_clusters, best_hits, reference_map, batch_index
 		for aln in pe_read:
 			aln_files[cluster_id].write(aln)
 
+def map_reads(args, genome_clusters, batch_index):
+	""" find and write bets-hits to disk """
+	# Get best hit for each read in batch_index
+	best_hits, reference_map = find_best_hits(args, genome_clusters, batch_index)
+	# Write best hits to disk
+	write_best_hits(args, genome_clusters, best_hits, reference_map, batch_index)
+
 def write_pangene_coverage(args, pangene_to_cov, phyeco_cov, cluster_id):
 	""" Write coverage of pangenes for genome cluster to disk """
 	outdir = '/'.join([args['out'], 'coverage'])
@@ -396,8 +432,8 @@ def parse_bed_cov(bedcov_out):
 		rec = line.split()
 		yield dict([(fields[i],formats[i](j)) for i,j in enumerate(rec)])
 
-def compute_pangenome_coverage(args, cluster_id, batch_index, read_length, pangene_to_cov):
-	""" Use bedtools to compute coverage of pangenome """
+def update_pangenome_coverage(args, cluster_id, batch_index, read_length, pangene_to_cov):
+	""" Use bedtools to compute coverage of pangenome for a given batch of mapped reads """
 	bedcov_out = run_bed_coverage(args, cluster_id, batch_index) # run bedtools
 	for r in parse_bed_cov(bedcov_out): # aggregate coverage by pangene_id
 		pangene_id = r['pangene_id']
@@ -428,6 +464,17 @@ def compute_phyeco_cov(args, pangene_to_cov, cluster_id):
 		if phyeco_id in markers:
 			phyeco_covs.append(pangene_to_cov[pangene])
 	return np.median(phyeco_covs)
+
+def compute_pangenome_coverage(args, genome_clusters):
+	""" Compute coverage of pangenome for cluster_id and write results to disk """
+	read_length = get_read_length(args)
+	batch_indexes = sorted(set([_.split('.')[1] for _ in os.listdir('/'.join([args['out'], 'reassigned']))]))
+	for cluster_id in genome_clusters:
+		pangene_to_cov = defaultdict(float) # init dictionary
+		for batch_index in batch_indexes:
+			update_pangenome_coverage(args, cluster_id, batch_index, read_length, pangene_to_cov)
+		phyeco_cov = compute_phyeco_cov(args, pangene_to_cov, cluster_id)
+		write_pangene_coverage(args, pangene_to_cov, phyeco_cov, cluster_id)
 
 def max_mem_usage():
 	""" Return max mem usage (Gb) of self and child processes """
@@ -556,15 +603,12 @@ def parse_vcf(inpath):
 
 def run_pipeline(args):
 	""" Run entire pipeline """
-	check_arguments(args) # need to check gc args
 	
-	main_dir = os.path.dirname(os.path.abspath(__file__))
-	args['bowtie2'] = '/'.join([main_dir, 'bin', 'bowtie2'])
-	args['samtools'] = '/'.join([main_dir, 'bin', 'samtools'])
-	args['bedcov'] = '/'.join([main_dir, 'bin', 'coverageBed'])
-	
+	check_arguments(args) # Check validity of command line arguments
+	add_binaries(args) # Add path to external binaries
 	if args['verbose']: print_copyright()
 
+	# 1a. Estimate the abundance of genome-clusters
 	if args['profile']:
 		start = time.time()
 		if args['verbose']: print("\nEstimating the abundance of genome-clusters")
@@ -579,6 +623,7 @@ def run_pipeline(args):
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
+	# 1b. Select genome-clusters for downstream steps
 	if args['verbose']: print("\nSelecting genome-clusters for pangenome alignment")
 	cluster_abundance = read_phylo_species('/'.join([args['out'], 'genome_clusters.abundance']))
 	genome_clusters = select_genome_clusters(cluster_abundance, args)
@@ -588,6 +633,7 @@ def run_pipeline(args):
 		for cluster, abundance in sorted(genome_clusters.items(), key=operator.itemgetter(1), reverse=True):
 			print("  cluster_id: %s abundance: %s" % (cluster, round(abundance,2)))
 
+	# 2a. Use bowtie2 to align batches of reads to each cluster of reference genomes
 	if args['align']:
 		start = time.time()
 		if args['verbose']: print("\nAligning reads to reference genomes")
@@ -598,45 +644,33 @@ def run_pipeline(args):
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
-	# TO DO:
-	# use multithreading to process each batch independently
+	# 2b. For each batch of reads, identify best-hit across genome-clusters
 	if args['map']:
 		start = time.time()
 		if args['verbose']: print("\nMapping reads to genome clusters")
-		# get batch indexes from bam directory
-		bam_dir = '/'.join([args['out'], 'bam'])
-		batch_indexes = sorted(set([_.split('.')[1] for _ in os.listdir(bam_dir)]))
-		# loop over batch indexes
+		batch_indexes = sorted(set([_.split('.')[1] for _ in os.listdir('/'.join([args['out'], 'bam']))]))
 		for batch_index in batch_indexes:
-			if args['verbose']: print("  batch %s:" % batch_index)
-			best_hits, reference_map = find_best_hits(args, genome_clusters, batch_index, args['tax_mask'], args['tax_map'])
-			write_best_hits(args, genome_clusters, best_hits, reference_map, batch_index)
+			map_reads(args, genome_clusters, batch_index)
+		## This is for running the above command in parallel
+		#args_list = []
+		#for batch_index in batch_indexes:
+		#	args_list.append({'args': args, 'genome_clusters':genome_clusters,'batch_index':batch_index})
+		#parallel_process(map_reads, args_list, args['threads'], args['verbose'])
+		##
 		if args['verbose']:
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
-	# TO DO:
-	# use multithreading to process each batch independently
+	# 2c. Compute pangenome coverage for each genome-cluster
 	if args['cov']:
 		start = time.time()
 		if args['verbose']: print("\nEstimating coverage of pangenomes")
-		# estimate average read length
-		read_length = get_read_length(args)
-		# get batch indexes from reassigned directory
-		mapped_dir = '/'.join([args['out'], 'reassigned'])
-		batch_indexes = sorted(set([_.split('.')[1] for _ in os.listdir(mapped_dir)]))
-		# loop over genome-clusters
-		for cluster_id in genome_clusters:
-			pangene_to_cov = defaultdict(float)
-			if args['verbose']: print("  genome-cluster %s" % cluster_id)
-			for batch_index in batch_indexes:
-				compute_pangenome_coverage(args, cluster_id, batch_index, read_length, pangene_to_cov)
-			phyeco_cov = compute_phyeco_cov(args, pangene_to_cov, cluster_id)
-			write_pangene_coverage(args, pangene_to_cov, phyeco_cov, cluster_id)
+		compute_pangenome_coverage(args, genome_clusters)
 		if args['verbose']:
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
+	# 3a. Extracted mapped reads and write to FASTQ
 	if args['extract']:
 		start = time.time()
 		if args['verbose']: print("\nExtacting/writing mapped reads to FASTQ")
@@ -645,6 +679,7 @@ def run_pipeline(args):
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
+	# 3b. Use bowtie2 to re-map reads to a representative genome for each genome-cluster
 	if args['remap']:
 		if args['verbose']: print("\nMapping reads to rep-genomes")
 		start = time.time()
@@ -653,6 +688,7 @@ def run_pipeline(args):
 			print("  %s minutes" % round((time.time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
+	# 3c. Use mpileup to identify SNPs
 	if args['snps']:
 		start = time.time()
 		if args['verbose']: print("\nEstimating allele frequencies from mpileup")
