@@ -27,30 +27,24 @@ def parse_arguments():
 	pipe = parser.add_argument_group('Pipeline')
 	pipe.add_argument('--all', action='store_true', dest='all',
 		default=False, help='Run entire pipeline')
-	pipe.add_argument('--profile', action='store_true', dest='profile',
+	pipe.add_argument('--species_profile', action='store_true', dest='species_profile',
 		default=False, help='Estimate genome-cluster abundance')
-	pipe.add_argument('--align', action='store_true', dest='align',
+	pipe.add_argument('--pangenome_build_db', action='store_true', dest='pangenome_build_db',
+		default=False, help='Build bowtie2 database of pangenome centroids')
+	pipe.add_argument('--pangenome_align', action='store_true', dest='pangenome_align',
 		default=False, help='Align reads to genome-clusters')
-	pipe.add_argument('--map', action='store_true', dest='map',
-		default=False, help='Assign reads to mapping locations')
-	pipe.add_argument('--cov', action='store_true', dest='cov',
+	pipe.add_argument('--pangenome_cov', action='store_true', dest='pangenome_cov',
 		default=False, help='Compute coverage of pangenomes')
-	pipe.add_argument('--extract', action='store_true', dest='extract',
-		default=False, help='Extract mapped reads from bam file & write to FASTQ')
-	pipe.add_argument('--remap', action='store_true', dest='remap',
-		default=False, help='Re-map reads to representative genomes')
-	pipe.add_argument('--snps', action='store_true', dest='snps',
+	pipe.add_argument('--snps_build_db', action='store_true', dest='snps_build_db',
+		default=False, help='Build bowtie2 database of representative genomes')
+	pipe.add_argument('--snps_align', action='store_true', dest='snps_align',
+		default=False, help='Align reads to representative genomes')
+	pipe.add_argument('--snps_call', action='store_true', dest='snps_call',
 		default=False, help='Run samtools mpileup & estimate SNP frequencies')
 
 	profile = parser.add_argument_group('GC Abundance')
 	profile.add_argument('--reads_gc', type=int, dest='reads_ms',
 		default=5000000, help='# reads to use for estimating genome-cluster abundance (5000000)')
-#	profile.add_argument('--reads_gc', type=int, dest='reads_ms',
-#		default=5000000, help='# reads to use for estimating genome-cluster abundance (5000000)')
-#	profile.add_argument('--reads_gc', type=int, dest='reads_ms',
-#		default=5000000, help='# reads to use for estimating genome-cluster abundance (5000000)')
-#	profile.add_argument('--reads_gc', type=int, dest='reads_ms',
-#		default=5000000, help='# reads to use for estimating genome-cluster abundance (5000000)')
 
 	gc = parser.add_argument_group('GC inclusion (choose one)')
 	gc.add_argument('--gc_topn', type=int, dest='gc_topn', default=5, help='Top N most abundant (5)')
@@ -64,8 +58,6 @@ def parse_arguments():
 		help='alignment speed/sensitivity (sensitive)', default='sensitive')
 	map.add_argument('--reads_align', type=int, dest='reads_align',
 		help='# reads to use for pangenome alignment (All)')
-	map.add_argument('--reads_batch', type=int, dest='rd_batch', default=5000000,
-		help='Batch size in # reads. Smaller batch sizes requires less memory, but can take longer to run (5000000)')
 	map.add_argument('--map_pid', type=float, dest='pid',
 		default=93, help='Minimum percent identity between read and reference (93.0)')
 		
