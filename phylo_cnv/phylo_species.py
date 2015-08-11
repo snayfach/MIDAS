@@ -257,7 +257,7 @@ def normalize_counts(cluster_alns, total_gene_length, total_genomes):
 	total_rpkg = sum([_['rpkg'] for _ in cluster_abundance.values()])
 	for cluster_id in cluster_abundance.keys():
 		rpkg = cluster_abundance[cluster_id]['rpkg']
-		cluster_abundance[cluster_id]['rel_abun'] = rpkg/total_rpkg
+		cluster_abundance[cluster_id]['rel_abun'] = rpkg/total_rpkg if total_rpkg > 0 else 0
 	return cluster_abundance
 
 def write_abundance(outpath, cluster_abundance):

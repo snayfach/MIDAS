@@ -17,6 +17,7 @@ def parse_arguments():
 	parser.add_argument('--version', action='version', version='MicrobeCNV %s' % __version__)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('-t', '--threads', dest='threads', default=1, help='Number of threads to use')
+	parser.add_argument('--tax_mask', dest='tax_mask', default=None, help=argparse.SUPPRESS)
 	
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-1', type=str, dest='m1', help='FASTQ file containing 1st mate if paired or unpaired reads', required=True)
@@ -54,12 +55,17 @@ def parse_arguments():
 	gc.add_argument('--gc_list', type=str, dest='gc_list', help='Comma-separated list of genome cluster ids (None)')
 	
 	map = parser.add_argument_group('Read Alignment/Mapping')
-	map.add_argument('--align_speed', dest='align_speed', choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
+	map.add_argument('--align_speed', dest='align_speed',
+		choices=[
+			'very-fast', 'fast', 'sensitive', 'very-sensitive',
+			'very-fast-local', 'fast-local', 'sensitive-local', 'very-sensitive-local'],
 		help='alignment speed/sensitivity (sensitive)', default='sensitive')
 	map.add_argument('--reads_align', type=int, dest='reads_align',
-		help='# reads to use for pangenome alignment (All)')
+		help='# reads to use for pangenome and/or genome alignment (use all)')
 	map.add_argument('--map_pid', type=float, dest='pid',
 		default=93, help='Minimum percent identity between read and reference (93.0)')
+	map.add_argument('--aln_cov', type=float, dest='aln_cov',
+		default=0.70, help='Minimum alignment coverage between read and reference (0.70)')
 		
 	snps = parser.add_argument_group('SNP detection')
 	snps.add_argument('--snps_mapq', type=str, dest='snps_mapq',
@@ -67,13 +73,11 @@ def parse_arguments():
 	snps.add_argument('--snps_baseq', type=str, dest='snps_baseq',
 		default='20', help='Minimum base quality (20)')
 				
-	mask = parser.add_argument_group('Leave-One-Out (for simulated data only)')
-	mask.add_argument('--tax_mask', action='store_true', dest='tax_mask',
-		default=False, help='Discard alignments for reads and ref seqs from the same genome')
-	mask.add_argument('--tax_map', type=str, dest='tax_map',
-		help='File mapping read ids to genome ids')
+	args = parser.parse_args()
+	if args.tax_mask: args.tax_mask = args.tax_mask.split(',')
+	if args.gc_list: args.gc_list = args.gc_list.split(',')
 	
-	return parser.parse_args()
+	return args
 
 if __name__ == '__main__':
 	args = vars(parse_arguments())
