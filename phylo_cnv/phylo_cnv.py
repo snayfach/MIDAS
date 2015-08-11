@@ -113,6 +113,27 @@ def read_phylo_species(inpath):
 			dict[values[0]][field[0]] = field[1](value)
 	return dict
 
+def auto_detect_file_type(inpath):
+	""" Detect file type [fasta or fastq] of <p_reads> """
+	for line in iopen(inpath):
+		if line[0] == '>': return 'fasta'
+		elif line[0] == '@': return 'fastq'
+		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
+
+def iopen(inpath):
+	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
+	ext = inpath.split('.')[-1]
+	# Python2
+	if sys.version_info[0] == 2:
+		if ext == 'gz': return gzip.open(inpath)
+		elif ext == 'bz2': return bz2.BZ2File(inpath)
+		else: return open(inpath)
+	# Python3
+	elif sys.version_info[0] == 3:
+		if ext == 'gz': return io.TextIOWrapper(gzip.open(inpath))
+		elif ext == 'bz2': return bz2.BZ2File(inpath)
+		else: return open(inpath)
+
 def select_genome_clusters(cluster_abundance, args):
 	""" Select genome clusters to map to """
 	my_clusters = {}
@@ -167,6 +188,9 @@ def pangenome_align(args, tax_mask):
 	command += '--%s ' % args['align_speed']
 	#   threads
 	command += '--threads %s ' % args['threads']
+	#   file type
+	if args['file_type'] == 'fasta': command += '-f '
+	else: command += '-q '
 	#   input file
 	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
 	else: command += '-U %s' % args['m1']
@@ -193,6 +217,9 @@ def genome_align(args):
 	command += '--%s ' % args['align_speed']
 	#   threads
 	command += '--threads %s ' % args['threads']
+	#   file type
+	if args['file_type'] == 'fasta': command += '-f '
+	else: command += '-q '
 	#   input file
 	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
 	else: command += '-U %s' % args['m1']
@@ -308,7 +335,7 @@ def count_mapped_bp(args):
 			continue
 		else:
 			ref_id = aln_file.getrname(aln.reference_id)
-			cov = float(aln.query_alignment_length)/ref_to_length[ref_id]
+			cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
 			ref_to_cov[ref_id] += cov
 	return ref_to_cov
 
@@ -442,6 +469,7 @@ def run_pipeline(args):
 	check_arguments(args) # Check validity of command line arguments
 	add_binaries(args) # Add path to external binaries
 	if args['verbose']: print_copyright()
+	args['file_type'] = auto_detect_file_type(args['m1'])
 
 	# 1a. Estimate the abundance of genome-clusters
 	if args['species_profile']:
