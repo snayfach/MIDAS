@@ -48,11 +48,10 @@ def parse_arguments():
 		default=5000000, help='# reads to use for estimating genome-cluster abundance (5000000)')
 
 	gc = parser.add_argument_group('GC inclusion (choose one)')
-	gc.add_argument('--gc_topn', type=int, dest='gc_topn', default=5, help='Top N most abundant (5)')
+	gc.add_argument('--gc_topn', type=int, dest='gc_topn', help='Top N most abundant (None)')
 	gc.add_argument('--gc_cov', type=float, dest='gc_cov', help='Coverage threshold (None)')
 	gc.add_argument('--gc_rbun', type=float, dest='gc_rbun', help='Relative abundance threshold (None)')
-	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific genome cluster (None)')
-	gc.add_argument('--gc_list', type=str, dest='gc_list', help='Comma-separated list of genome cluster ids (None)')
+	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific genome cluster or comma-separated list of ids (None)')
 	
 	map = parser.add_argument_group('Read Alignment/Mapping')
 	map.add_argument('--align_speed', dest='align_speed',
@@ -61,11 +60,11 @@ def parse_arguments():
 			'very-fast-local', 'fast-local', 'sensitive-local', 'very-sensitive-local'],
 		help='alignment speed/sensitivity (sensitive)', default='sensitive')
 	map.add_argument('--reads_align', type=int, dest='reads_align',
-		help='# reads to use for pangenome and/or genome alignment (use all)')
+		help='# reads for pangenome or genome alignment (use all)')
 	map.add_argument('--map_pid', type=float, dest='pid',
-		default=93, help='Minimum percent identity between read and reference (93.0)')
+		default=93, help='Minimum percent ID between read and reference (93.0)')
 	map.add_argument('--aln_cov', type=float, dest='aln_cov',
-		default=0.70, help='Minimum alignment coverage between read and reference (0.70)')
+		default=0.70, help='Minimum alignment coverage of read (0.70)')
 		
 	snps = parser.add_argument_group('SNP detection')
 	snps.add_argument('--snps_mapq', type=str, dest='snps_mapq',
@@ -75,7 +74,7 @@ def parse_arguments():
 				
 	args = parser.parse_args()
 	if args.tax_mask: args.tax_mask = args.tax_mask.split(',')
-	if args.gc_list: args.gc_list = args.gc_list.split(',')
+	if args.gc_id: args.gc_id = args.gc_id.split(',')
 	
 	return args
 

@@ -10,16 +10,18 @@ __version__ = '0.0.1'
 # ---------
 import sys
 import os
-import numpy as np
 import argparse
 import pysam
 import gzip
-import time
 import subprocess
-import operator
-import Bio.SeqIO
-import phylo_species
+from phylo_species import estimate_species_abundance, write_abundance
 import resource
+
+from Bio.SeqIO import parse as SeqIOparse
+from operator import itemgetter
+from time import time
+from numpy import median
+from platform import system
 from collections import defaultdict
 from math import ceil
 from multiprocessing import Process
@@ -55,7 +57,9 @@ def check_arguments(args):
 	if not any([args['all'], args['species_profile'],
 				args['pangenome_build_db'], args['pangenome_align'], args['pangenome_cov'],
 				args['snps_build_db'], args['snps_align'], args['snps_call']]):
-		sys.exit('Specify one or more pipeline option(s): --all, --profile, --align, --map, --cov, --extract, --remap, --snps')
+		sys.exit('Specify one or more pipeline option(s)')
+	
+	# Turn on entire pipeline
 	if args['all']:
 		args['species_profile'] = True
 		args['pangenome_build_db'] = True
@@ -81,11 +85,14 @@ def check_arguments(args):
 
 def add_binaries(args):
 	""" Add paths to external binaries """
-	main_dir = os.path.dirname(os.path.abspath(__file__))
-	args['bowtie2-build'] = '/'.join([main_dir, 'bin', 'bowtie2-build'])
-	args['bowtie2'] = '/'.join([main_dir, 'bin', 'bowtie2'])
-	args['samtools'] = '/'.join([main_dir, 'bin', 'samtools'])
-	args['bedcov'] = '/'.join([main_dir, 'bin', 'coverageBed'])
+	if system() not in ['Linux', 'Darwin']:
+		sys.exit("Operating system '%s' not supported" % system())
+	else:
+		main_dir = os.path.dirname(os.path.abspath(__file__))
+		args['bowtie2-build'] = '/'.join([main_dir, 'bin', system(), 'bowtie2-build'])
+		args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
+		args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
+		args['bedcov'] = '/'.join([main_dir, 'bin', system(), 'coverageBed'])
 
 def print_copyright():
 	# print out copyright information
@@ -102,8 +109,7 @@ def read_phylo_species(inpath):
 		sys.exit("Could not locate species profile: %s\nTry rerunning with --species_profile" % inpath)
 	dict = {}
 	fields = [
-		('cluster_id', str), ('reads', float), ('bp', float), ('rpkg', float),
-		('cov', float), ('prop_cov', float), ('rel_abun', float)]
+		('cluster_id', str), ('cov', float), ('rel_abun', float)]
 	infile = open(inpath)
 	next(infile)
 	for line in infile:
@@ -134,46 +140,42 @@ def iopen(inpath):
 		elif ext == 'bz2': return bz2.BZ2File(inpath)
 		else: return open(inpath)
 
-def select_genome_clusters(cluster_abundance, args):
+def select_genome_clusters(args):
 	""" Select genome clusters to map to """
-	my_clusters = {}
-	# prune all genome clusters that are missing from database
-	# this can happen when using an environment specific database
-	for cluster_id in cluster_abundance.copy():
-		if not os.path.isdir('/'.join([args['db_dir'], cluster_id])):
-			del cluster_abundance[cluster_id]
-	# user specified a single genome-cluster
-	if args['gc_id']:
-		cluster_id = args['gc_id']
-		if cluster_id not in cluster_abundance:
-			sys.exit("Error: specified genome-cluster id %s not found" % cluster_id)
-		else:
-			abundance = cluster_abundance[args['gc_id']]['rel_abun']
-			my_clusters[args['gc_id']] = abundance
-	# user specified a list of genome-clusters
-	elif args['gc_list']:
-		for cluster_id in args['gc_list']:
-			if cluster_id not in cluster_abundance:
-				sys.exit("Error: specified genome-cluster id %s not found" % cluster_id)
-			else:
-				abundance = cluster_abundance[cluster_id]['rel_abun']
-				my_clusters[cluster_id] = abundance
-	# user specifed a coverage threshold
-	elif args['gc_cov']:
-		for cluster_id, values in cluster_abundance.items():
-			if values['cell_count'] >= args['gc_cov']:
-				my_clusters[cluster_id] = values['cov']
-	# user specifed a relative-abundance threshold
-	elif args['gc_rbun']:
-		for cluster_id, values in cluster_abundance.items():
-			if values['prop_mapped'] >= args['gc_rbun']:
-				my_clusters[cluster_id] = values['rel_abun']
-	# user specifed a relative-abundance threshold
-	elif args['gc_topn']:
-		cluster_abundance = [(i,d['rel_abun']) for i,d in cluster_abundance.items()]
-		sorted_abundance = sorted(cluster_abundance, key=operator.itemgetter(1), reverse=True)
-		for cluster_id, coverage in sorted_abundance[0:args['gc_topn']]:
-			my_clusters[cluster_id] = abundance
+	my_clusters = []
+	# read in cluster abundance if necessary
+	if any([args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+		inpath = '/'.join([args['out'], 'genome_clusters.abundance'])
+		if not os.path.isfile(inpath):
+			sys.exit("\nError: genome_clusters.abundance not found in the specified output directory.\nThis file is necessary to specify genome-clusters with --gc_topn, --gc_cov, or --gc_rbun.\nYour options include:\n  1) Include the flag --species_profile when you run phylo_cnv\n  2) Manually specify the genome-clusters you wish to target using --gc_id\n")
+		cluster_abundance = read_phylo_species(inpath)
+		# user specifed a coverage threshold
+		if args['gc_cov']:
+			for cluster_id, values in cluster_abundance.items():
+				if values['cov'] >= args['gc_cov']:
+					my_clusters.append(cluster_id)
+		# user specifed a relative-abundance threshold
+		elif args['gc_rbun']:
+			for cluster_id, values in cluster_abundance.items():
+				if values['rel_abun'] >= args['gc_rbun']:
+					my_clusters.append(cluster_id)
+		# user specifed a relative-abundance threshold
+		elif args['gc_topn']:
+			cluster_abundance = [(i,d['rel_abun']) for i,d in cluster_abundance.items()]
+			sorted_abundance = sorted(cluster_abundance, key=itemgetter(1), reverse=True)
+			for cluster_id, rel_abun in sorted_abundance[0:args['gc_topn']]:
+				my_clusters.append(cluster_id)
+	# user specified one or more genome-clusters
+	elif args['gc_id']:
+		for cluster_id in args['gc_id']:
+			my_clusters.append(cluster_id)
+	# check that specified genome-clusters are valid
+	for cluster_id in my_clusters:
+		if cluster_id not in os.listdir(args['db_dir']):
+			sys.exit("\nError: the specified genome_cluster '%s' was not found in the reference database (-D)\n" % cluster_id)
+	# check that at least one genome-cluster was selected
+	if len(my_clusters) == 0:
+		sys.exit("\nError: no genome-clusters sastisfied your selection criteria. \n")
 	return my_clusters
 
 def pangenome_align(args, tax_mask):
@@ -250,7 +252,7 @@ def pileup(args):
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
 		
-def format_vcf(args, genome_clusters):
+def format_vcf(args):
 	""" Format vcf output for easy parsing """
 	# map scaffold to cluster_id
 	ref_to_cluster = {}
@@ -261,6 +263,7 @@ def format_vcf(args, genome_clusters):
 	outdir = '/'.join([args['out'], 'snps'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	outfiles = {}
+	genome_clusters = set(ref_to_cluster.values())
 	for cluster_id in genome_clusters:
 		outfiles[cluster_id] = gzip.open('/'.join([outdir, '%s.snps.gz' % cluster_id]), 'w')
 		outfiles[cluster_id].write('\t'.join(['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
@@ -351,9 +354,9 @@ def compute_phyeco_cov(args, pangene_to_cov, cluster_id):
 		pangene, phyeco_id = line.rstrip().split()
 		if phyeco_id in markers:
 			phyeco_covs.append(pangene_to_cov[pangene])
-	return np.median(phyeco_covs)
+	return median(phyeco_covs)
 
-def compute_pangenome_coverage(args, genome_clusters):
+def compute_pangenome_coverage(args):
 	""" Compute coverage of pangenome for cluster_id and write results to disk """
 	# map ref_id to cluster_id
 	ref_to_cluster = {}
@@ -364,6 +367,7 @@ def compute_pangenome_coverage(args, genome_clusters):
 	outdir = '/'.join([args['out'], 'coverage'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	outfiles = {}
+	genome_clusters = set(ref_to_cluster.values())
 	for cluster_id in genome_clusters:
 		outfiles[cluster_id] = gzip.open('/'.join([outdir, '%s.cov.gz' % cluster_id]), 'w')
 		outfiles[cluster_id].write('\t'.join(['ref_id', 'coverage'])+'\n')
@@ -421,13 +425,22 @@ def build_pangenome_db(args, genome_clusters):
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	pangenome_fasta = open('/'.join([args['out'], 'db/pangenomes.fa']), 'w')
 	pangenome_map = open('/'.join([args['out'], 'db/pangenome.map']), 'w')
+	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
 	for cluster_id in genome_clusters:
+		db_stats['genome_clusters'] += 1
 		inpath = '/'.join([args['db_dir'], cluster_id, 'pangenome/centroids.fa'])
-		for r in Bio.SeqIO.parse(inpath, 'fasta'):
+		for r in SeqIOparse(inpath, 'fasta'):
 			genome_id = '.'.join(r.id.split('.')[0:2])
 			if not args['tax_mask'] or genome_id not in args['tax_mask']:
 				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq)))
 				pangenome_map.write('%s\t%s\n' % (r.id, cluster_id))
+				db_stats['total_length'] += len(r.seq)
+				db_stats['total_seqs'] += 1
+	# print out database stats
+	if args['verbose']:
+		print("  total genome-clusters: %s" % db_stats['genome_clusters'])
+		print("  total genes: %s" % db_stats['total_seqs'])
+		print("  total base-pairs: %s" % db_stats['total_length'])
 	# bowtie2 database
 	inpath = '/'.join([args['out'], 'db/pangenomes.fa'])
 	outpath = '/'.join([args['out'], 'db/pangenomes'])
@@ -448,14 +461,23 @@ def build_genome_db(args, genome_clusters):
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	genomes_fasta = open('/'.join([args['out'], 'db', 'genomes.fa']), 'w')
 	genomes_map = open('/'.join([args['out'], 'db', 'genomes.map']), 'w')
+	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
 	for cluster_id in genome_clusters:
 		if args['tax_mask'] and fetch_centroid(args, cluster_id) in args['tax_mask']:
 			continue
+		db_stats['genome_clusters'] += 1
 		for line in open('/'.join([args['db_dir'], cluster_id, 'cluster_centroid/centroid.fna'])):
 			genomes_fasta.write(line)
+			db_stats['total_length'] += len(line.rstrip())
 			if line[0] == '>':
 				sid = line.rstrip().lstrip('>').split()[0]
 				genomes_map.write(sid+'\t'+cluster_id+'\n')
+				db_stats['total_seqs'] += 1
+	# print out database stats
+	if args['verbose']:
+		print("  total genomes: %s" % db_stats['genome_clusters'])
+		print("  total contigs: %s" % db_stats['total_seqs'])
+		print("  total base-pairs: %s" % db_stats['total_length'])
 	# bowtie2 database
 	inpath = '/'.join([args['out'], 'db', 'genomes.fa'])
 	outpath = '/'.join([args['out'], 'db', 'genomes'])
@@ -473,81 +495,68 @@ def run_pipeline(args):
 
 	# 1a. Estimate the abundance of genome-clusters
 	if args['species_profile']:
-		start = time.time()
+		start = time()
 		if args['verbose']: print("\nEstimating the abundance of genome-clusters")
-		cluster_abundance, cluster_summary = phylo_species.estimate_species_abundance(
-			{'inpath':args['m1'], 'nreads':args['reads_ms'],
-			 'outpath':'/'.join([args['out'], 'genome_clusters']),
-			 'min_quality': 25, 'min_length': 50, 'max_n':0.05,
-			 'threads':args['threads']})
-		phylo_species.write_abundance('%s/genome_clusters.abundance' % args['out'], cluster_abundance)
-		phylo_species.write_summary('%s/genome_clusters.summary' % args['out'], cluster_summary)
+		cluster_abundance = estimate_species_abundance({'inpath':args['m1'],'nreads':args['reads_ms'],'threads':args['threads']})
+		write_abundance('%s/genome_clusters.abundance' % args['out'], cluster_abundance)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
-
-	# 1b. Select genome-clusters for downstream steps
-	if args['verbose']: print("\nSelecting genome-clusters for pangenome alignment")
-	cluster_abundance = read_phylo_species('/'.join([args['out'], 'genome_clusters.abundance']))
-	genome_clusters = select_genome_clusters(cluster_abundance, args)
-	if len(genome_clusters) == 0:
-		sys.exit("No genome-clusters were detected")
-	elif args['verbose']:
-		for cluster, abundance in sorted(genome_clusters.items(), key=operator.itemgetter(1), reverse=True):
-			print("  cluster_id: %s abundance: %s" % (cluster, round(abundance,2)))
 
 	# 2a. Build pangenome database for selected GCs
 	if args['pangenome_build_db']:
 		if args['verbose']: print("\nBuilding pangenome database")
-		start = time.time()
+		start = time()
+		genome_clusters = select_genome_clusters(args)
 		build_pangenome_db(args, genome_clusters)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
 	# 2a. Use bowtie2 to align reads to pangenome database
 	if args['pangenome_align']:
-		start = time.time()
+		start = time()
 		if args['verbose']: print("\nAligning reads to pangenomes")
 		pangenome_align(args, args['tax_mask'])
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
 	# 2b. Compute pangenome coverage for each genome-cluster
 	if args['pangenome_cov']:
-		start = time.time()
+		start = time()
 		if args['verbose']: print("\nComputing coverage of pangenomes")
-		compute_pangenome_coverage(args, genome_clusters)
+		compute_pangenome_coverage(args)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
 	# 3a. Build genome database for selected GCs
 	if args['snps_build_db']:
 		if args['verbose']: print("\nBuilding database of representative genomes")
-		start = time.time()
+		start = time()
+		genome_clusters = select_genome_clusters(args)
 		build_genome_db(args, genome_clusters)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
 	# 3b. Use bowtie2 to map reads to a representative genome for each genome-cluster
 	if args['snps_align']:
 		if args['verbose']: print("\nMapping reads to representative genomes")
-		start = time.time()
+		start = time()
 		genome_align(args)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
 	# 3c. Use mpileup to identify SNPs
 	if args['snps_call']:
-		start = time.time()
+		start = time()
 		if args['verbose']: print("\nRunning mpileup")
 		pileup(args)
-		format_vcf(args, genome_clusters)
+		format_vcf(args)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
