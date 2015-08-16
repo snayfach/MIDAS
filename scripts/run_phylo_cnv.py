@@ -16,6 +16,7 @@ def parse_arguments():
 	
 	parser.add_argument('--version', action='version', version='MicrobeCNV %s' % __version__)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
+	parser.add_argument('-d', '--debug', dest='debug', default=False)
 	parser.add_argument('-t', '--threads', dest='threads', default=1, help='Number of threads to use')
 	parser.add_argument('--tax_mask', dest='tax_mask', default=None, help=argparse.SUPPRESS)
 	
@@ -63,6 +64,9 @@ def parse_arguments():
 		help='# reads for pangenome or genome alignment (use all)')
 	map.add_argument('--map_pid', type=float, dest='pid',
 		default=93, help='Minimum percent ID between read and reference (93.0)')
+	map.add_argument('--pangenome_pid', type=str, dest='pangenome_pid',
+		default='97.5', choices=['90', '92.5', '95', '97.5', '99'],
+		help='Reference gene cluster percent ID (97.5)')
 	map.add_argument('--aln_cov', type=float, dest='aln_cov',
 		default=0.70, help='Minimum alignment coverage of read (0.70)')
 		
