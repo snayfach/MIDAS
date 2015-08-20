@@ -14,18 +14,14 @@ def parse_arguments():
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-i', type=str, dest='inpath', required=True,
 		help='path to input metagenome in FASTQ/FASTA format. gzip (.gz) and bzip (.bz2) compression supported')
-	io.add_argument('-o', type=str, dest='outbase', required=True,
-		help='basename for output files: {basename}.abundance, {basename}.summary')
-	io.add_argument('-t', type=str, dest='temp_dir', required=False,
-		help='path to directory to store temp files (/tmp)')
+	io.add_argument('-o', type=str, dest='outpath', required=True,
+		help='output file name')
 	
 	speed = parser.add_argument_group('Pipeline Speed (optional)')
 	speed.add_argument('-n', type=int, dest='nreads', required=False, default=float('Inf'),
 		help='number of reads to use from input metagenome (use all)')
 	speed.add_argument('-p', type=int, dest='threads', required=False, default=1,
 		help='number of threads to use for database search (1)')
-	speed.add_argument('-m', dest='normalize', action='store_true', default=False,
-		help='use MicrobeCensus to normalize counts. increases runtime by <=30 additional minutes (False)')
 	
 	qc = parser.add_argument_group('Quality control (optional)')
 	qc.add_argument('-q', type=int, dest='min_quality', required=False, default=0,
@@ -41,6 +37,5 @@ def parse_arguments():
 
 if __name__ == '__main__':
 	args = vars(parse_arguments())
-	cluster_abundance, cluster_summary = phylo_species.estimate_species_abundance(args)
-	phylo_species.write_abundance(args['outbase']+'.abundance', cluster_abundance)
-	phylo_species.write_summary(args['outbase']+'.summary', cluster_summary)
+	cluster_abundance = phylo_species.estimate_species_abundance(args)
+	phylo_species.write_abundance(args['outpath'], cluster_abundance)

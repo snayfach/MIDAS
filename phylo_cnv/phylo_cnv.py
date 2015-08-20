@@ -10,61 +10,43 @@ __version__ = '0.0.1'
 # ---------
 import sys
 import os
-import numpy as np
-import argparse
 import pysam
-import gzip
-import time
 import subprocess
-import operator
-import Bio.SeqIO
-import phylo_species
 import resource
-from collections import defaultdict
-from math import ceil
+from phylo_species import estimate_species_abundance, write_abundance
+from gzip import open as gzopen
+from Bio.SeqIO import parse as SeqIOparse
+from operator import itemgetter
+from time import time
+from numpy import median
+from platform import system
 from multiprocessing import Process
 
 # Functions
 # ---------
 
-def parallel_process(function, args_list, threads, verbose):
-	""" Run function using multiple threads """
-	processes = []
-	for pargs in args_list: # run function for each set of args in args_list
-		p = Process(target=function, kwargs=pargs)
-		processes.append(p)
-		p.start()
-		# control number of active processes
-		while len(processes) >= threads:
-			indexes = []
-			# keep processes that are still alive
-			for index, process in enumerate(processes):
-				if process.is_alive(): indexes.append(index)
-			processes = [processes[i] for i in indexes]
-	# wait until there are no active processes
-	while len(processes) > 0:
-		indexes = []
-		for index, process in enumerate(processes):
-			if process.is_alive(): indexes.append(index)
-		processes = [processes[i] for i in indexes]
-
 def check_arguments(args):
 	""" Check validity of command line arguments """
 	
 	# Pipeline options
-	if not any([args['all'], args['profile'], args['align'], args['map'],
-	            args['cov'], args['extract'], args['remap'], args['snps']]):
-		sys.exit('Specify one or more pipeline option(s): --all, --profile, --align, --map, --cov, --extract, --remap, --snps')
+	if not any([args['all'], args['species_profile'],
+				args['pangenome_build_db'], args['pangenome_align'], args['pangenome_cov'],
+				args['snps_build_db'], args['snps_align'], args['snps_call']]):
+		sys.exit('Specify one or more pipeline option(s)')
+		
+	# Genome cluster selection
+	if not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+		sys.exit('Specify one or more genome-cluster-selection option(s)')
+
+	# Turn on entire pipeline
 	if args['all']:
-		args['profile'] = True
-		args['align'] = True
-		args['map'] = True
-		args['cov'] = True
-		args['extract'] = True
-		args['remap'] = True
-		args['snps'] = True
-	if args['tax_mask'] and not args['tax_map']:
-		sys.exit('Specify file mapping read ids in FASTQ file to genome ids in reference database')
+		args['species_profile'] = True
+		args['pangenome_build_db'] = True
+		args['pangenome_align'] = True
+		args['pangenome_cov'] = True
+		args['snps_build_db'] = True
+		args['snps_align'] = True
+		args['snps_call'] = True
 
 	# Input options
 	if not args['m1'] and (args['profile'] or args['align']):
@@ -80,12 +62,17 @@ def check_arguments(args):
 	if not args['out']:
 		sys.exit('Specify output directory with -o')
 
-def add_binaries(args):
-	""" Add paths to external binaries """
-	main_dir = os.path.dirname(os.path.abspath(__file__))
-	args['bowtie2'] = '/'.join([main_dir, 'bin', 'bowtie2'])
-	args['samtools'] = '/'.join([main_dir, 'bin', 'samtools'])
-	args['bedcov'] = '/'.join([main_dir, 'bin', 'coverageBed'])
+def add_paths(args):
+	""" Add paths to external files and binaries """
+	if system() not in ['Linux', 'Darwin']:
+		sys.exit("Operating system '%s' not supported" % system())
+	else:
+		main_dir = os.path.dirname(os.path.abspath(__file__))
+		args['bowtie2-build'] = '/'.join([main_dir, 'bin', system(), 'bowtie2-build'])
+		args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
+		args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
+		args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
+		args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
 
 def print_copyright():
 	# print out copyright information
@@ -99,11 +86,9 @@ def print_copyright():
 def read_phylo_species(inpath):
 	""" Parse output from PhyloSpecies """
 	if not os.path.isfile(inpath):
-		sys.exit("Could not locate species profile: %s\nTry rerunning with --profile" % inpath)
+		sys.exit("Could not locate species profile: %s\nTry rerunning with --species_profile" % inpath)
 	dict = {}
-	fields = [
-		('cluster_id', str), ('reads', float), ('bp', float), ('rpkg', float),
-		('cov', float), ('prop_cov', float), ('rel_abun', float)]
+	fields = [('cluster_id', str), ('cov', float), ('rel_abun', float)]
 	infile = open(inpath)
 	next(infile)
 	for line in infile:
@@ -113,455 +98,171 @@ def read_phylo_species(inpath):
 			dict[values[0]][field[0]] = field[1](value)
 	return dict
 
-def select_genome_clusters(cluster_abundance, args):
+def auto_detect_file_type(inpath):
+	""" Detect file type [fasta or fastq] of <p_reads> """
+	for line in iopen(inpath):
+		if line[0] == '>': return 'fasta'
+		elif line[0] == '@': return 'fastq'
+		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
+
+def iopen(inpath):
+	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
+	ext = inpath.split('.')[-1]
+	# Python2
+	if sys.version_info[0] == 2:
+		if ext == 'gz': return gzopen(inpath)
+		elif ext == 'bz2': return bz2.BZ2File(inpath)
+		else: return open(inpath)
+	# Python3
+	elif sys.version_info[0] == 3:
+		if ext == 'gz': return io.TextIOWrapper(gzopen(inpath))
+		elif ext == 'bz2': return bz2.BZ2File(inpath)
+		else: return open(inpath)
+
+def select_genome_clusters(args):
 	""" Select genome clusters to map to """
-	my_clusters = {}
-	# prune all genome clusters that are missing from database
-	# this can happen when using an environment specific database
-	for cluster_id in cluster_abundance.copy():
-		if not os.path.isdir('/'.join([args['db_dir'], cluster_id])):
-			del cluster_abundance[cluster_id]
-	# user specified a single genome-cluster
+	cluster_sets = {}
+	# read in cluster abundance if necessary
+	if any([args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+		inpath = '/'.join([args['out'], 'genome_clusters.abundance'])
+		if not os.path.isfile(inpath):
+			sys.exit("\nError: genome_clusters.abundance not found in the specified output directory.\nThis file is necessary to specify genome-clusters with --gc_topn, --gc_cov, or --gc_rbun.\nYour options include:\n  1) Include the flag --species_profile when you run phylo_cnv\n  2) Manually specify the genome-clusters you wish to target using --gc_id\n")
+		cluster_abundance = read_phylo_species(inpath)
+		# user specifed a coverage threshold
+		if args['gc_cov']:
+			cluster_sets['gc_cov'] = set([])
+			for cluster_id, values in cluster_abundance.items():
+				if values['cov'] >= args['gc_cov']:
+					cluster_sets['gc_cov'].add(cluster_id)
+		# user specifed a relative-abundance threshold
+		if args['gc_rbun']:
+			cluster_sets['gc_rbun'] = set([])
+			for cluster_id, values in cluster_abundance.items():
+				if values['rel_abun'] >= args['gc_rbun']:
+					cluster_sets['gc_rbun'].add(cluster_id)
+		# user specifed a relative-abundance threshold
+		if args['gc_topn']:
+			cluster_sets['gc_topn'] = set([])
+			cluster_abundance = [(i,d['rel_abun']) for i,d in cluster_abundance.items()]
+			sorted_abundance = sorted(cluster_abundance, key=itemgetter(1), reverse=True)
+			for cluster_id, rel_abun in sorted_abundance[0:args['gc_topn']]:
+				cluster_sets['gc_topn'].add(cluster_id)
+	# user specified one or more genome-clusters
 	if args['gc_id']:
-		cluster_id = args['gc_id']
-		if cluster_id not in cluster_abundance:
-			sys.exit("Error: specified genome-cluster id %s not found" % cluster_id)
-		else:
-			abundance = cluster_abundance[args['gc_id']]['rel_abun']
-			my_clusters[args['gc_id']] = abundance
-	# user specified a list of genome-clusters
-	elif args['gc_list']:
-		for cluster_id in args['gc_list'].split(','):
-			if cluster_id not in cluster_abundance:
-				sys.exit("Error: specified genome-cluster id %s not found" % cluster_id)
-			else:
-				abundance = cluster_abundance[cluster_id]['rel_abun']
-				my_clusters[cluster_id] = coverage
-	# user specifed a coverage threshold
-	elif args['gc_cov']:
-		for cluster_id, values in cluster_abundance.items():
-			if values['cell_count'] >= args['gc_cov']:
-				my_clusters[cluster_id] = values['cov']
-	# user specifed a relative-abundance threshold
-	elif args['gc_rbun']:
-		for cluster_id, values in cluster_abundance.items():
-			if values['prop_mapped'] >= args['gc_rbun']:
-				my_clusters[cluster_id] = values['rel_abun']
-	# user specifed a relative-abundance threshold
-	elif args['gc_topn']:
-		cluster_abundance = [(i,d['rel_abun']) for i,d in cluster_abundance.items()]
-		sorted_abundance = sorted(cluster_abundance, key=operator.itemgetter(1), reverse=True)
-		for cluster_id, coverage in sorted_abundance[0:args['gc_topn']]:
-			my_clusters[cluster_id] = coverage
+		cluster_sets['gc_rbun'] = set([])
+		for cluster_id in args['gc_id']:
+			cluster_sets['gc_rbun'].add(cluster_id)
+	# intersect sets of genome-clusters
+	my_clusters = list(set.intersection(*cluster_sets.values()))
+	# check that specified genome-clusters are valid
+	for cluster_id in my_clusters:
+		if cluster_id not in os.listdir(args['db_dir']):
+			sys.exit("\nError: the specified genome_cluster '%s' was not found in the reference database (-D)\n" % cluster_id)
+	# remove bad cluster_ids
+	for line in open(args['bad_gcs']):
+		try: my_clusters.remove(line.rstrip())
+		except: pass
+	# check that at least one genome-cluster was selected
+	if len(my_clusters) == 0:
+		sys.exit("\nError: no genome-clusters sastisfied your selection criteria. \n")
 	return my_clusters
 
-def align_reads(args, genome_clusters, batch_index, reads_start, batch_size, tax_mask):
+def pangenome_align(args, tax_mask):
 	""" Use Bowtie2 to map reads to all specified genome clusters """
-	# Create output directory
-	outdir = os.path.join(args['out'], 'bam')
-	if not os.path.isdir(outdir): os.mkdir(outdir)
-	for cluster_id in genome_clusters:
-		# Build command
-		command = '%s --no-unal ' % args['bowtie2']
-		#   index
-		command += '-x %s ' % '/'.join([args['db_dir'], cluster_id, 'genome_cluster', cluster_id])
-		#   specify reads
-		command += '-s %s -u %s ' % (reads_start, batch_size)
-		#   speed/sensitivity
-		command += '--%s ' % args['align_speed']
-		#   threads
-		command += '--threads %s ' % args['threads']
-		#	report up to 20 hits/read if masking hits
-		if tax_mask: command += '-k 20 '
-		#   input
-		if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
-		else: command += '-U %s' % args['m1']
-		#   output
-		bampath = '/'.join([args['out'], 'bam', '%s.%s.bam ' % (cluster_id, batch_index)])
-		command += '| %s view -b - > %s' % (args['samtools'], bampath)
-		# Run command
-		if args['verbose']: print("    running: %s") % command
-		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		out, err = process.communicate()
-		#sys.stderr.write(err) # write to stderr: bowtie2 output
+	# Build command
+	command = '%s --no-unal ' % args['bowtie2']
+	#   index
+	command += '-x %s ' % '/'.join([args['out'], 'db', 'pangenomes'])
+	#   specify reads
+	if args['pangenome_reads']: command += '-u %s ' % args['pangenome_reads']
+	#   speed/sensitivity
+	command += '--%s ' % args['pangenome_align_speed']
+	#   threads
+	command += '--threads %s ' % args['threads']
+	#   file type
+	if args['file_type'] == 'fasta': command += '-f '
+	else: command += '-q '
+	#   input file
+	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
+	else: command += '-U %s' % args['m1']
+	#   output unsorted bam
+	bampath = '/'.join([args['out'], 'pangenome.bam'])
+	command += '| %s view -b - > %s' % (args['samtools'], bampath)
+	# Run command
+	if args['debug']: print("  running: %s") % command
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = process.communicate()
+	#sys.stderr.write(err) # write to stderr: bowtie2 output
 
-def align_to_rep(args, genome_clusters):
+def genome_align(args):
 	""" Use Bowtie2 to map reads to representative genomes from each genome cluster
 	"""
-	# Create output directory
-	outdir = os.path.join(args['out'], 'bam_rep')
-	if not os.path.isdir(outdir): os.mkdir(outdir)
-	for cluster_id in genome_clusters:
-		# Build command
-		#	bowtie2
-		command = '%s --no-unal --very-sensitive ' % args['bowtie2']
-		#   speed/sensitivity
-		command += '--%s ' % args['align_speed']
-		#   threads
-		command += '--threads %s ' % args['threads']
-		#   bt2 index
-		command += '-x %s ' % '/'.join([args['db_dir'], cluster_id, 'cluster_centroid', 'centroid'])
-		#   input fastq
-		command += '-U %s ' % '/'.join([args['out'], 'fastq', '%s.fastq.gz' % cluster_id])
-		#   convert to bam
-		command += '| %s view -b - ' % args['samtools']
-		#   sort bam
-		command += '| %s sort -f - %s ' % (args['samtools'], '/'.join([outdir, '%s.bam' % cluster_id]))
-		# Run command
-		if args['verbose']: print("    running: %s") % command
-		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		out, err = process.communicate()
+	# Build command
+	#	bowtie2
+	command = '%s --no-unal ' % args['bowtie2']
+	#   index
+	command += '-x %s ' % '/'.join([args['out'], 'db', 'genomes'])
+	#   specify reads
+	if args['snps_reads']: command += '-u %s ' % args['snps_reads']
+	#   speed/sensitivity
+	command += '--%s ' % args['snps_align_speed']
+	#   threads
+	command += '--threads %s ' % args['threads']
+	#   file type
+	if args['file_type'] == 'fasta': command += '-f '
+	else: command += '-q '
+	#   input file
+	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
+	else: command += '-U %s' % args['m1']
+	#   convert to bam
+	command += '| %s view -b - ' % args['samtools']
+	#   sort bam
+	command += '| %s sort -f - %s ' % (args['samtools'], os.path.join(args['out'], 'genomes.bam'))
+	# Run command
+	if args['debug']: print("  running: %s") % command
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = process.communicate()
 
-def pileup_on_rep(args, genome_clusters):
+def pileup(args):
 	""" Use Samtools to create pileup, filter low quality bases, and write results to VCF file """
-	outdir = os.path.join(args['out'], 'vcf')
-	if not os.path.isdir(outdir): os.mkdir(outdir)
-	for cluster_id in genome_clusters:
-		# Build command
-		#   mpileup
-		command = '%s mpileup -uv -A -d 10000 --skip-indels -B ' % args['samtools']
-		#   quality filtering
-		command += '-q %s -Q %s ' % (args['snps_mapq'], args['snps_baseq'])
-		#   reference fna file
-		command += '-f %s ' % '/'.join([args['db_dir'], cluster_id, 'cluster_centroid', 'centroid.fna'])
-		#   input bam file
-		command += '%s ' % '/'.join([args['out'], 'bam_rep', '%s.bam' % cluster_id])
-		#   output vcf file
-		command += '> %s ' % '/'.join([outdir, '%s.vcf' % cluster_id])
-		# Run command
-		if args['verbose']: print("    running: %s") % command
-		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		out, err = process.communicate()
+	# Build command
+	#   mpileup
+	command = '%s mpileup -uv -A -d 10000 --skip-indels -B ' % args['samtools']
+	#   quality filtering
+	command += '-q %s -Q %s ' % (args['snps_mapq'], args['snps_baseq'])
+	#   reference fna file
+	command += '-f %s ' % '/'.join([args['out'], 'db/genomes.fa'])
+	#   input bam file
+	command += '%s ' % '/'.join([args['out'], 'genomes.bam'])
+	#   output vcf file
+	command += '> %s ' % '/'.join([args['out'], 'genomes.vcf'])
+	# Run command
+	if args['debug']: print("  running: %s") % command
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = process.communicate()
 		
-def format_vcf(args, genome_clusters):
+def format_vcf(args):
 	""" Format vcf output for easy parsing """
-	# create outdir
+	# map scaffold to cluster_id
+	ref_to_cluster = {}
+	for line in open('/'.join([args['out'], 'db/genomes.map'])):
+		ref_id, cluster_id = line.rstrip().split()
+		ref_to_cluster[ref_id] = cluster_id
+	# open outfiles for each cluster_id
 	outdir = '/'.join([args['out'], 'snps'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
+	outfiles = {}
+	genome_clusters = set(ref_to_cluster.values())
 	for cluster_id in genome_clusters:
-		inpath = '/'.join([args['out'], 'vcf', '%s.vcf' % cluster_id])
-		outpath = '/'.join([args['out'], 'snps', '%s.snps.gz' % cluster_id])
-		vcf_to_snps(inpath, outpath)
-
-def fetch_reads(aln_file):
-	""" Use pysam to yield paired end reads from bam file """
-	pe_read = []
-	for aln in aln_file.fetch(until_eof = True):
-		if not aln.is_paired:
-			yield [aln]
-		elif aln.mate_is_unmapped and aln.is_read1:
-			yield [aln]
-		elif aln.mate_is_unmapped and aln.is_read2:
-			yield [aln]
-		else:
-			pe_read.append(aln)
-			if len(pe_read) == 2:
-				yield pe_read
-				pe_read = []
-
-def compute_aln_score(pe_read):
-	""" Compute alignment score for single or paired-end read """
-	if not pe_read[0].is_paired:
-		score = pe_read[0].query_length - dict(pe_read[0].tags)['NM']
-		return score
-	elif pe_read[0].mate_is_unmapped:
-		score = pe_read[0].query_length - dict(pe_read[0].tags)['NM']
-		return score
-	else:
-		score1 = pe_read[0].query_length - dict(pe_read[0].tags)['NM']
-		score2 = pe_read[1].query_length - dict(pe_read[1].tags)['NM']
-		return score1 + score2
-
-def compute_perc_id(pe_read):
-	""" Compute percent identity for paired-end read """
-	if not pe_read[0].is_paired:
-		length = pe_read[0].query_length
-		edit = dict(pe_read[0].tags)['NM']
-	elif pe_read[0].mate_is_unmapped:
-		length = pe_read[0].query_length
-		edit = dict(pe_read[0].tags)['NM']
-	else:
-		length = pe_read[0].query_length + pe_read[1].query_length
-		edit = dict(pe_read[0].tags)['NM'] + dict(pe_read[1].tags)['NM']
-	return 100 * (length - edit)/float(length)
-
-def find_best_hits(args, genome_clusters, batch_index):
-	""" Find top scoring alignment(s) for each read """
-	if args['verbose']: print("    finding best alignments across GCs")
-	best_hits = {}
-	reference_map = {} # (cluster_id, ref_index) = ref_id (ref_id == scaffold id)
-	
-	# map reads across genome clusters
-	for cluster_id in genome_clusters:
-	
-		# if masking alignments, read in:
-		if args['tax_mask']:
-			scaffold_to_genome = {} # 1) map of scaffold to genome id
-			inpath = '/'.join([args['db_dir'], cluster_id, 'genome_to_scaffold.gz'])
-			infile = gzip.open(inpath)
-			for line in infile:
-				genome_id, scaffold_id = line.rstrip().split('\t')
-				scaffold_to_genome[scaffold_id] = genome_id
-			run_to_genome = {} # 2) run_accession to genome id
-			for line in open(args['tax_map']):
-				run_accession, genome_id = line.rstrip().split('\t')
-				run_to_genome[run_accession] = genome_id
-		
-		# get path to bam file
-		bam_path = '/'.join([args['out'], 'bam', '%s.%s.bam' % (cluster_id, batch_index)])
-		if not os.path.isfile(bam_path):
-			sys.stderr.write("      warning: bam file not found for %s.%s" % (cluster_id, batch_index))
-			continue
-			
-		# loop over PE reads
-		aln_file = pysam.AlignmentFile(bam_path, "rb")
-		for pe_read in fetch_reads(aln_file):
-		
-			# map reference ids
-			for aln in pe_read:
-				ref_index = aln.reference_id
-				ref_id = aln_file.getrname(ref_index).split('|')[1] # reformat ref id
-				reference_map[(cluster_id, ref_index)] = ref_id
-				
-			# mask alignment
-			if args['tax_mask']:
-				ref_index = pe_read[0].reference_id
-				ref_id = aln_file.getrname(ref_index).split('|')[1]
-				run_accession = pe_read[0].query_name.split('.')[0]
-				if run_to_genome[run_accession] == scaffold_to_genome[ref_id]:
-					continue
-					
-			# parse pe_read
-			query = pe_read[0].query_name
-			score = compute_aln_score(pe_read)
-			pid = compute_perc_id(pe_read)
-			if pid < args['pid']: # filter aln
-				continue
-			elif query not in best_hits: # store aln
-				best_hits[query] = {'score':score, 'aln':{cluster_id:pe_read} }
-			elif score > best_hits[query]['score']: # update aln
-				best_hits[query] = {'score':score, 'aln':{cluster_id:pe_read} }
-			elif score == best_hits[query]['score']: # append aln
-				best_hits[query]['aln'][cluster_id] = pe_read
-				
-	# resolve ties
-	best_hits = resolve_ties(args, best_hits, genome_clusters)
-	return best_hits, reference_map
-
-def report_mapping_summary(best_hits):
-	""" Summarize hits to genome-clusters """
-	hit1, hit2, hit3 = 0, 0, 0
-	for value in best_hits.values():
-		if len(value['aln']) == 1: hit1 += 1
-		elif len(value['aln']) == 2: hit2 += 1
-		else: hit3 += 1
-	if args['reads_align']:
-		print("  summary:")
-		print("    %s reads assigned to any GC (%s)" % (hit1+hit2+hit3, round(float(hit1+hit2+hit3)/args['reads_align'], 2)) )
-		print("    %s reads assigned to 1 GC (%s)" % (hit1, round(float(hit1)/args['reads_align'], 2)) )
-		print("    %s reads assigned to 2 GCs (%s)" % (hit2, round(float(hit2)/args['reads_align'], 2)) )
-		print("    %s reads assigned to 3 or more GCs (%s)" % (hit3, round(float(hit3)/args['reads_align'], 2)) )
-	else:
-		print("  summary:")
-		print("    %s reads assigned to any GC" % (hit1+hit2+hit3))
-		print("    %s reads assigned to 1 GC" % (hit1))
-		print("    %s reads assigned to 2 GCs" % (hit2))
-		print("    %s reads assigned to 3 or more GCs" % (hit3))
-
-def resolve_ties(args, best_hits, cluster_to_abun):
-	""" Reassign reads that map equally well to >1 genome cluster """
-	if args['verbose']: print("    reassigning reads mapped to >1 GC")
-	for query, rec in best_hits.items():
-		if len(rec['aln']) == 1:
-			best_hits[query] = rec['aln'].items()[0]
-		if len(rec['aln']) > 1:
-			target_gcs = rec['aln'].keys()
-			abunds = [cluster_to_abun[gc] for gc in target_gcs]
-			probs = [abund/sum(abunds) for abund in abunds]
-			selected_gc = np.random.choice(target_gcs, 1, p=probs)[0]
-			best_hits[query] = (selected_gc, rec['aln'][selected_gc])
-	return best_hits
-
-def write_best_hits(args, genome_clusters, best_hits, reference_map, batch_index):
-	""" Write reassigned PE reads to disk """
-	if args['verbose']: print("    writing mapped reads to disk")
-	try: os.makedirs('/'.join([args['out'], 'reassigned']))
-	except: pass
-	# open filehandles
-	aln_files = {}
-	scaffold_to_genome = {}
-	# loop over genome clusters
-	for cluster_id in genome_clusters:
-		# get template bam file
-		bam_path = '/'.join([args['out'], 'bam', '%s.%s.bam' % (cluster_id, batch_index)])
-		if not os.path.isfile(bam_path):
-			sys.stderr.write("    bam file not found for %s.%s Skipping\n" % (cluster_id, batch_index))
-			continue
-		template = pysam.AlignmentFile(bam_path, 'rb')
-		# store filehandle
-		outpath = '/'.join([args['out'], 'reassigned', '%s.%s.bam' % (cluster_id, batch_index)])
-		aln_files[cluster_id] = pysam.AlignmentFile(outpath, 'wb', template=template)
-	# write reads to disk
-	for cluster_id, pe_read in best_hits.values():
-		for aln in pe_read:
-			aln_files[cluster_id].write(aln)
-
-def map_reads(args, genome_clusters, batch_index):
-	""" find and write bets-hits to disk """
-	# Get best hit for each read in batch_index
-	best_hits, reference_map = find_best_hits(args, genome_clusters, batch_index)
-	# Write best hits to disk
-	write_best_hits(args, genome_clusters, best_hits, reference_map, batch_index)
-
-def write_pangene_coverage(args, pangene_to_cov, phyeco_cov, cluster_id):
-	""" Write coverage of pangenes for genome cluster to disk """
-	outdir = '/'.join([args['out'], 'coverage'])
-	try: os.mkdir(outdir)
-	except: pass
-	outfile = gzip.open('/'.join([outdir, '%s.cov.gz' % cluster_id]), 'w')
-	for pangene in sorted(pangene_to_cov.keys()):
-		cov = pangene_to_cov[pangene]
-		cn = cov/phyeco_cov if phyeco_cov > 0 else 0
-		outfile.write('\t'.join([pangene, str(cov), str(cn)])+'\n')
-
-def parse_bed_cov(bedcov_out):
-	""" Yield dictionary of formatted values from bed coverage output """
-	fields =  ['sid', 'start', 'end', 'gene_id', 'pangene_id', 'reads', 'pos_cov', 'gene_length', 'fract_cov']
-	formats = [str, int, int, str, str, int, int, int, float]
-	for line in bedcov_out.rstrip().split('\n'):
-		rec = line.split()
-		yield dict([(fields[i],formats[i](j)) for i,j in enumerate(rec)])
-
-def update_pangenome_coverage(args, cluster_id, batch_index, read_length, pangene_to_cov):
-	""" Use bedtools to compute coverage of pangenome for a given batch of mapped reads """
-	bedcov_out = run_bed_coverage(args, cluster_id, batch_index) # run bedtools
-	for r in parse_bed_cov(bedcov_out): # aggregate coverage by pangene_id
-		pangene_id = r['pangene_id']
-		coverage = r['reads'] * read_length / r['gene_length']
-		pangene_to_cov[pangene_id] += coverage
-
-def run_bed_coverage(args, cluster_id, batch_index):
-	""" Run bedCoverage for cluster_id """
-	bampath = '/'.join([args['out'], 'reassigned', '%s.%s.bam' % (cluster_id, batch_index)])
-	bedpath = '/'.join([args['db_dir'], cluster_id, 'gene_to_pangene.bed'])
-	cmdargs = {'bedcov':args['bedcov'], 'bam':bampath, 'bed':bedpath}
-	command = '%(bedcov)s -abam %(bam)s -b %(bed)s' % cmdargs
-	process = subprocess.Popen(command % cmdargs, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = process.communicate()
-	#sys.stderr.write(err) # write to stderr: bedtools output
-	return out
-
-def compute_phyeco_cov(args, pangene_to_cov, cluster_id):
-	""" Compute coverage of phyeco markers for genome cluster """
-	markers = ['B000039','B000041','B000062','B000063','B000065','B000071','B000079',
-			   'B000080','B000081','B000082','B000086','B000096','B000103','B000114']
-	phyeco_covs = []
-	inpath = '/'.join([args['db_dir'], cluster_id, 'pangene_to_phyeco.gz'])
-	infile = gzip.open(inpath)
-	next(infile)
-	for line in infile:
-		pangene, phyeco_id = line.rstrip().split()
-		if phyeco_id in markers:
-			phyeco_covs.append(pangene_to_cov[pangene])
-	return np.median(phyeco_covs)
-
-def compute_pangenome_coverage(args, genome_clusters):
-	""" Compute coverage of pangenome for cluster_id and write results to disk """
-	read_length = get_read_length(args)
-	batch_indexes = sorted(set([_.split('.')[1] for _ in os.listdir('/'.join([args['out'], 'reassigned']))]))
-	for cluster_id in genome_clusters:
-		pangene_to_cov = defaultdict(float) # init dictionary
-		for batch_index in batch_indexes:
-			update_pangenome_coverage(args, cluster_id, batch_index, read_length, pangene_to_cov)
-		phyeco_cov = compute_phyeco_cov(args, pangene_to_cov, cluster_id)
-		write_pangene_coverage(args, pangene_to_cov, phyeco_cov, cluster_id)
-
-def max_mem_usage():
-	""" Return max mem usage (Gb) of self and child processes """
-	max_mem_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-	max_mem_child = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-	return round((max_mem_self + max_mem_child)/float(1e6), 2)
-
-def get_read_length(args):
-	""" Estimate the average read length of fastq file from bam file """
-	max_reads = 50000
-	read_lengths = []
-	bam_dir = '/'.join([args['out'], 'bam'])
-	for file in os.listdir(bam_dir):
-		bam_path = '/'.join([bam_dir, file])
-		aln_file = pysam.AlignmentFile(bam_path, "rb")
-		for index, aln in enumerate(aln_file.fetch(until_eof = True)):
-			if index == max_reads: break
-			else: read_lengths.append(aln.query_length)
-	return np.mean(read_lengths)
-
-def get_read_count(inpath):
-	""" Count the number of reads in fastq file """
-	line_count = 0
-	infile = gzip.open(inpath)
-	for line_count, line in enumerate(infile):
-		pass
-	return (line_count+1)/4
-
-def batch_reads(args, batch_size):
-	""" Define batches of reads (batch_index, reads_start, reads_end)"""
-	batches = []
-	total_reads = args['reads_align'] if args['reads_align'] else get_read_count(args['m1'])
-	nbatches = int(ceil(total_reads/float(batch_size)))
-	for batch_index in range(1, nbatches+1):
-		reads_start = (batch_index * batch_size) - batch_size + 1
-		reads_end = reads_start + batch_size - 1
-		if reads_end > total_reads: # adjust size for final chunk
-			batch_size = batch_size - (reads_end - total_reads)
-		batches.append([batch_index, reads_start, batch_size])
-	return batches
-
-def convert_to_ascii_quality(scores):
-	""" Convert quality scores to Sanger encoded (Phred+33) ascii values """
-	ascii = """!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQR"""
-	score_to_ascii = dict((x,y) for x,y in zip(range(0,50),list(ascii)))
-	return ''.join([score_to_ascii[x] for x in scores])
-
-def convert_from_ascii_quality(asciis):
-	""" Convert quality scores to Sanger encoded (Phred+33) ascii values """
-	ascii = """!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQR"""
-	ascii_to_score = dict((y,x) for x,y in zip(range(0,50),list(ascii)))
-	return [ascii_to_score[x] for x in asciis]
-
-def write_fastq_record(aln, index, outfile):
-	""" Write pysam alignment record to outfile in FASTQ format """
-	outfile.write('@%s.%s length=%s\n' % (aln.query_name,str(index),str(aln.query_length)))
-	outfile.write('%s\n' % (aln.query_sequence))
-	outfile.write('+%s.%s length=%s\n' % (aln.query_name,str(index),str(aln.query_length)))
-	outfile.write('%s\n' % convert_to_ascii_quality(aln.query_qualities))
-
-def bam_to_fastq(genome_clusters, args):
-	""" Converts bam to fastq for reads assigned to each genome cluster """
-	bam_dir = '/'.join([args['out'], 'reassigned'])
-	batch_indexes = sorted(set([_.split('.')[1] for _ in os.listdir(bam_dir)]))
-	fastq_dir = '/'.join([args['out'], 'fastq'])
-	try: os.mkdir(fastq_dir)
-	except: pass
-	for genome_cluster in genome_clusters:
-		outfile = gzip.open(os.path.join(fastq_dir, genome_cluster+'.fastq.gz'), 'w')
-		for batch_index in batch_indexes:
-			bam_name = '.'.join([genome_cluster, batch_index, 'bam'])
-			bam_path = '/'.join([bam_dir, bam_name])
-			aln_file = pysam.AlignmentFile(bam_path, "rb")
-			for index, aln in enumerate(aln_file.fetch(until_eof = True)):
-				write_fastq_record(aln, index, outfile)
-
-def vcf_to_snps(inpath, outpath):
-	""" Parse vcf file in order to call consensus alleles and reference allele frequencies """
-	# open outfile
-	outfile = gzip.open(outpath, 'w')
-	header = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
-			  'count_alleles', 'count_ref', 'count_alt', 'depth', 'ref_freq']
-	outfile.write('\t'.join(header)+'\n')
-	# parse vcf
+		outfiles[cluster_id] = gzopen('/'.join([outdir, '%s.snps.gz' % cluster_id]), 'w')
+		outfiles[cluster_id].write('\t'.join(['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
+											  'count_alleles', 'count_ref', 'count_alt', 'depth', 'ref_freq'])+'\n')
+	# parse vcf into snp files for each cluster_id
+	inpath = '/'.join([args['out'], 'genomes.vcf'])
 	for r in parse_vcf(inpath):
 		rec = [r['ref_id'], r['ref_pos'], r['ref_allele'], r['alt_allele'], r['cons_allele'],
 			   r['count_alleles'], r['count_ref'], r['count_alt'], r['depth'], r['ref_freq']]
+		outfile = outfiles[ref_to_cluster[r['ref_id']]]
 		outfile.write('\t'.join([str(x) for x in rec])+'\n')
 
 def parse_vcf(inpath):
@@ -601,100 +302,289 @@ def parse_vcf(inpath):
 			   'ref_freq':'NA'if sum(counts) == 0 else sum(counts[0:2])/float(sum(counts))
 			   }
 
+def compute_perc_id(aln):
+	""" Compute percent identity for read """
+	length = aln.query_length
+	edit = dict(aln.tags)['NM']
+	return 100 * (length - edit)/float(length)
+
+def compute_aln_cov(aln):
+	""" Compute percent identity for paired-end read """
+	aln_cov = len(aln.query_alignment_sequence)/float(aln.query_length)
+	return aln_cov
+
+def count_mapped_bp(args):
+	""" Count number of bp mapped to each centroid across pangenomes """
+	bam_path = '/'.join([args['out'], 'pangenome.bam'])
+	aln_file = pysam.AlignmentFile(bam_path, "rb")
+	ref_to_length = dict([(i,j) for i,j in zip(aln_file.references, aln_file.lengths)])
+	ref_to_cov = dict([(i,0.0) for i in aln_file.references])
+	for aln in aln_file.fetch(until_eof = True):
+		query = aln.query_name
+		if compute_perc_id(aln) < args['pangenome_map_pid']:
+			continue
+		elif compute_aln_cov(aln) < args['pangenome_aln_cov']:
+			continue
+		else:
+			ref_id = aln_file.getrname(aln.reference_id)
+			cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
+			ref_to_cov[ref_id] += cov
+	return ref_to_cov
+
+def read_centroid_map(args, genome_clusters):
+	""" Map 99% ID pangenome centroids to a lower level (90, 92.5, 95, 97.5)"""
+	centroid_map = {}
+	for cluster_id in genome_clusters:
+		inpath = '/'.join([args['db_dir'], cluster_id, 'gene_family_map.txt.gz'])
+		infile = gzopen(inpath)
+		next(infile)
+		for line in infile:
+			x = line.rstrip().split()
+			y = {'90':x[0], '92.5':x[1], '95':x[2], '97.5':x[3], '99':x[4]}
+			centroid_map[y['99']] = y[args['pangenome_pid']]
+	return centroid_map
+
+def aggregate_coverage(args, ref_to_cov, genome_clusters):
+	""" Aggregate gene coverage at given percent identity clustering """
+	centroid_map = read_centroid_map(args, genome_clusters)
+
+	centroid_to_cov = dict([(x, 0.0) for x in set(centroid_map.values())])
+	for ref_id, cov in ref_to_cov.items():
+		ref_id2 = centroid_map[ref_id]
+		centroid_to_cov[ref_id2] += cov
+	return centroid_to_cov
+
+def compute_phyeco_cov(args, genome_clusters):
+	""" Count number of bp mapped to each PhyEco marker gene """
+	# read in cutoffs
+	phyeco_to_cutoff = {}
+	for line in open(args['pid_cutoffs']):
+		phyeco_id, pid = line.rstrip().split()
+		phyeco_to_cutoff[phyeco_id] = float(pid)
+	# read in map of gene to phyeco
+	ref_to_cluster = {}
+	ref_to_phyeco = {}
+	for cluster_id in genome_clusters:
+		inpath = '/'.join([args['db_dir'], cluster_id, 'universal_genes.txt.gz'])
+		infile = gzopen(inpath)
+		next(infile)
+		for line in infile:
+			gene_id, phyeco_id = line.rstrip().split()
+			ref_to_phyeco[gene_id] = phyeco_id
+			ref_to_cluster[gene_id] = cluster_id
+	# init phyeco coverage
+	cluster_to_phyeco_to_cov = {}
+	for cluster_id in genome_clusters:
+		cluster_to_phyeco_to_cov[cluster_id] = {}
+		for phyeco_id in phyeco_to_cutoff:
+			cluster_to_phyeco_to_cov[cluster_id][phyeco_id] = 0.0
+	# open input file
+	bam_path = '/'.join([args['out'], 'pangenome.bam'])
+	aln_file = pysam.AlignmentFile(bam_path, "rb")
+	# read in map of gene lengths
+	ref_to_length = dict([(i,j) for i,j in zip(aln_file.references, aln_file.lengths)])
+	# count bp mapped to phyeco genes
+	for aln in aln_file.fetch(until_eof = True):
+		ref_id = aln_file.getrname(aln.reference_id)
+		phyeco_id = ref_to_phyeco[ref_id] if ref_id in ref_to_phyeco else None
+		if not phyeco_id:
+			continue
+		elif phyeco_id not in phyeco_to_cutoff:
+			continue
+		elif compute_perc_id(aln) < phyeco_to_cutoff[phyeco_id]:
+			continue
+		elif compute_aln_cov(aln) < args['pangenome_aln_cov']:
+			continue
+		else:
+			cluster_id = ref_to_cluster[ref_id]
+			cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
+			cluster_to_phyeco_to_cov[cluster_id][phyeco_id] += cov
+	# compute median phyeco cov
+	cluster_to_norm = {}
+	for cluster_id in cluster_to_phyeco_to_cov:
+		covs = cluster_to_phyeco_to_cov[cluster_id].values()
+		cluster_to_norm[cluster_id] = median(covs)
+	return cluster_to_norm
+
+def compute_pangenome_coverage(args):
+	""" Compute coverage of pangenome for cluster_id and write results to disk """
+	# map ref_id to cluster_id
+	ref_to_cluster = {}
+	for line in open('/'.join([args['out'], 'db/pangenome.map'])):
+		ref_id, cluster_id = line.rstrip().split()
+		ref_to_cluster[ref_id] = cluster_id
+	# open outfiles for each cluster_id
+	outdir = '/'.join([args['out'], 'coverage'])
+	if not os.path.isdir(outdir): os.mkdir(outdir)
+	outfiles = {}
+	genome_clusters = set(ref_to_cluster.values())
+	for cluster_id in genome_clusters:
+		outfiles[cluster_id] = gzopen('/'.join([outdir, '%s.cov.gz' % cluster_id]), 'w')
+		outfiles[cluster_id].write('\t'.join(['ref_id', 'raw_coverage', 'normalized_coverage'])+'\n')
+	# parse bam into cov files for each cluster_id
+	cluster_to_norm = compute_phyeco_cov(args, genome_clusters)
+	ref_to_cov = count_mapped_bp(args)
+	# aggregate coverages
+	if args['pangenome_pid'] != '99':
+		ref_to_cov = aggregate_coverage(args, ref_to_cov, genome_clusters)
+	# write to output files
+	for ref_id, cov in ref_to_cov.items():
+		outfile = outfiles[ref_to_cluster[ref_id]]
+		normcov = cov/cluster_to_norm[cluster_id] if cluster_to_norm[cluster_id] > 0 else 0
+		outfile.write('\t'.join([str(x) for x in [ref_id, cov, normcov]])+'\n')
+
+def max_mem_usage():
+	""" Return max mem usage (Gb) of self and child processes """
+	max_mem_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+	max_mem_child = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+	return round((max_mem_self + max_mem_child)/float(1e6), 2)
+
+def build_pangenome_db(args, genome_clusters):
+	""" Build FASTA and BT2 database from pangene cluster centroids """
+	# fasta database
+	outdir = '/'.join([args['out'], 'db'])
+	if not os.path.isdir(outdir): os.mkdir(outdir)
+	pangenome_fasta = open('/'.join([args['out'], 'db/pangenomes.fa']), 'w')
+	pangenome_map = open('/'.join([args['out'], 'db/pangenome.map']), 'w')
+	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
+	for cluster_id in genome_clusters:
+		db_stats['genome_clusters'] += 1
+		inpath = '/'.join([args['db_dir'], cluster_id, 'pangenome.fa.gz'])
+		infile = gzopen(inpath)
+		for r in SeqIOparse(infile, 'fasta'):
+			genome_id = '.'.join(r.id.split('.')[0:2])
+			if not args['tax_mask'] or genome_id not in args['tax_mask']:
+				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq)))
+				pangenome_map.write('%s\t%s\n' % (r.id, cluster_id))
+				db_stats['total_length'] += len(r.seq)
+				db_stats['total_seqs'] += 1
+	# print out database stats
+	if args['verbose']:
+		print("  total genome-clusters: %s" % db_stats['genome_clusters'])
+		print("  total genes: %s" % db_stats['total_seqs'])
+		print("  total base-pairs: %s" % db_stats['total_length'])
+	# bowtie2 database
+	inpath = '/'.join([args['out'], 'db/pangenomes.fa'])
+	outpath = '/'.join([args['out'], 'db/pangenomes'])
+	command = ' '.join([args['bowtie2-build'], inpath, outpath])
+	if args['debug']: print("  running: %s" % command)
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = process.communicate()
+
+def fetch_centroid(args, cluster_id):
+	""" Get the genome_id corresponding to cluster centroid """
+	inpath = '/'.join([args['db_dir'], cluster_id, 'genomes.txt.gz'])
+	infile = gzopen(inpath)
+	for line in infile:
+		if line.split()[2] == 'Y':
+			return line.split()[1]
+
+def build_genome_db(args, genome_clusters):
+	""" Build FASTA and BT2 database from genome cluster centroids """
+	# fasta database
+	outdir = '/'.join([args['out'], 'db'])
+	if not os.path.isdir(outdir): os.mkdir(outdir)
+	genomes_fasta = open('/'.join([args['out'], 'db', 'genomes.fa']), 'w')
+	genomes_map = open('/'.join([args['out'], 'db', 'genomes.map']), 'w')
+	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
+	for cluster_id in genome_clusters:
+		if args['tax_mask'] and fetch_centroid(args, cluster_id) in args['tax_mask']:
+			continue
+		db_stats['genome_clusters'] += 1
+		inpath = '/'.join([args['db_dir'], cluster_id, 'representative.fna.gz'])
+		infile = gzopen(inpath)
+		for line in infile:
+			genomes_fasta.write(line)
+			db_stats['total_length'] += len(line.rstrip())
+			if line[0] == '>':
+				sid = line.rstrip().lstrip('>').split()[0]
+				genomes_map.write(sid+'\t'+cluster_id+'\n')
+				db_stats['total_seqs'] += 1
+	# print out database stats
+	if args['verbose']:
+		print("  total genomes: %s" % db_stats['genome_clusters'])
+		print("  total contigs: %s" % db_stats['total_seqs'])
+		print("  total base-pairs: %s" % db_stats['total_length'])
+	# bowtie2 database
+	inpath = '/'.join([args['out'], 'db', 'genomes.fa'])
+	outpath = '/'.join([args['out'], 'db', 'genomes'])
+	command = ' '.join([args['bowtie2-build'], inpath, outpath])
+	if args['debug']: print("  running: %s" % command)
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = process.communicate()
+
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
 	check_arguments(args) # Check validity of command line arguments
-	add_binaries(args) # Add path to external binaries
+	add_paths(args) # Add paths to external files and binaries
 	if args['verbose']: print_copyright()
+	args['file_type'] = auto_detect_file_type(args['m1'])
 
 	# 1a. Estimate the abundance of genome-clusters
-	if args['profile']:
-		start = time.time()
+	if args['species_profile']:
+		start = time()
 		if args['verbose']: print("\nEstimating the abundance of genome-clusters")
-		cluster_abundance, cluster_summary = phylo_species.estimate_species_abundance(
-			{'inpath':args['m1'], 'nreads':args['reads_ms'],
-			 'outpath':'/'.join([args['out'], 'genome_clusters']),
-			 'min_quality': 25, 'min_length': 50, 'max_n':0.05,
-			 'threads':args['threads']})
-		phylo_species.write_abundance('%s/genome_clusters.abundance' % args['out'], cluster_abundance)
-		phylo_species.write_summary('%s/genome_clusters.summary' % args['out'], cluster_summary)
+		cluster_abundance = estimate_species_abundance({'inpath':args['m1'],'nreads':args['reads_ms'],'threads':args['threads']})
+		write_abundance('%s/genome_clusters.abundance' % args['out'], cluster_abundance)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
-	# 1b. Select genome-clusters for downstream steps
-	if args['verbose']: print("\nSelecting genome-clusters for pangenome alignment")
-	cluster_abundance = read_phylo_species('/'.join([args['out'], 'genome_clusters.abundance']))
-	genome_clusters = select_genome_clusters(cluster_abundance, args)
-	if len(genome_clusters) == 0:
-		sys.exit("No genome-clusters were detected")
-	elif args['verbose']:
-		for cluster, abundance in sorted(genome_clusters.items(), key=operator.itemgetter(1), reverse=True):
-			print("  cluster_id: %s abundance: %s" % (cluster, round(abundance,2)))
-
-	# 2a. Use bowtie2 to align batches of reads to each cluster of reference genomes
-	if args['align']:
-		start = time.time()
-		if args['verbose']: print("\nAligning reads to reference genomes")
-		for batch_index, reads_start, batch_size in batch_reads(args, args['rd_batch']):
-			if args['verbose']: print("  batch %s:" % batch_index)
-			align_reads(args, genome_clusters, batch_index, reads_start, batch_size, args['tax_mask'])
+	# 2a. Build pangenome database for selected GCs
+	if args['pangenome_build_db']:
+		if args['verbose']: print("\nBuilding pangenome database")
+		start = time()
+		genome_clusters = select_genome_clusters(args)
+		build_pangenome_db(args, genome_clusters)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
-	# 2b. For each batch of reads, identify best-hit across genome-clusters
-	if args['map']:
-		start = time.time()
-		if args['verbose']: print("\nMapping reads to genome clusters")
-		batch_indexes = sorted(set([_.split('.')[1] for _ in os.listdir('/'.join([args['out'], 'bam']))]))
-		for batch_index in batch_indexes:
-			map_reads(args, genome_clusters, batch_index)
-		## This is for running the above command in parallel
-		#args_list = []
-		#for batch_index in batch_indexes:
-		#	args_list.append({'args': args, 'genome_clusters':genome_clusters,'batch_index':batch_index})
-		#parallel_process(map_reads, args_list, args['threads'], args['verbose'])
-		##
+	# 2a. Use bowtie2 to align reads to pangenome database
+	if args['pangenome_align']:
+		start = time()
+		if args['verbose']: print("\nAligning reads to pangenomes")
+		pangenome_align(args, args['tax_mask'])
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
-	# 2c. Compute pangenome coverage for each genome-cluster
-	if args['cov']:
-		start = time.time()
-		if args['verbose']: print("\nEstimating coverage of pangenomes")
-		compute_pangenome_coverage(args, genome_clusters)
+	# 2b. Compute pangenome coverage for each genome-cluster
+	if args['pangenome_cov']:
+		start = time()
+		if args['verbose']: print("\nComputing coverage of pangenomes")
+		compute_pangenome_coverage(args)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
-	# 3a. Extracted mapped reads and write to FASTQ
-	if args['extract']:
-		start = time.time()
-		if args['verbose']: print("\nExtacting/writing mapped reads to FASTQ")
-		bam_to_fastq(genome_clusters, args)
+	# 3a. Build genome database for selected GCs
+	if args['snps_build_db']:
+		if args['verbose']: print("\nBuilding database of representative genomes")
+		start = time()
+		genome_clusters = select_genome_clusters(args)
+		build_genome_db(args, genome_clusters)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
-	# 3b. Use bowtie2 to re-map reads to a representative genome for each genome-cluster
-	if args['remap']:
-		if args['verbose']: print("\nMapping reads to rep-genomes")
-		start = time.time()
-		align_to_rep(args, genome_clusters)
+	# 3b. Use bowtie2 to map reads to a representative genome for each genome-cluster
+	if args['snps_align']:
+		if args['verbose']: print("\nMapping reads to representative genomes")
+		start = time()
+		genome_align(args)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
 	# 3c. Use mpileup to identify SNPs
-	if args['snps']:
-		start = time.time()
-		if args['verbose']: print("\nEstimating allele frequencies from mpileup")
-		pileup_on_rep(args, genome_clusters)
-		format_vcf(args, genome_clusters)
+	if args['snps_call']:
+		start = time()
+		if args['verbose']: print("\nRunning mpileup")
+		pileup(args)
+		format_vcf(args)
 		if args['verbose']:
-			print("  %s minutes" % round((time.time() - start)/60, 2) )
+			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 

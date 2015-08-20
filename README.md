@@ -6,6 +6,7 @@ PhyloCNV consists of three main modules:
 * Pan-Gene Presence/Absence & Copy Number: reads are aligned against clusters of reference genomes for abundant species
 * Single-Nucleotide-Variant Prediction: reads are aligned against representative genomes for abundant species and samtools mpileup is used to call variants
 
+
 ### Requirements
 Python dependencies: 
 * Numpy (v1.9.1)
