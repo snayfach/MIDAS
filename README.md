@@ -151,3 +151,7 @@ run_phylo_cnv.py \
 --gc_topn 5 \
 --verbose
 ```
+
+### Citation
+If you use this tool, please cite:
+Nayfach, S. and Pollard, KS. PhyloCNV: an integrated, high-resolution pipeline for quantifying strain-level variation from shotgun metagenomes (In Preparation).
