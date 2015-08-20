@@ -2,43 +2,46 @@
 PhyloCNV is an integrated pipeline and for estimating the abundance, gene content, and phylogeny of microbial species from metagnomic data.  PhyloCNV leverage a database of 30,000 Bacterial genomes that have been clustered into species groups using a panel of 30 universal-single-copy genes. 
 
 PhyloCNV consists of three main modules: 
-* Species Abundance Estimation: reads are aligned against database of phylogenetic marker genes
-* Pan-Gene Presence/Absence & Copy Number: reads are aligned against clusters of reference genomes for abundant species
-* Single-Nucleotide-Variant Prediction: reads are aligned against representative genomes for abundant species and samtools mpileup is used to call variants
+* Species Abundance Estimation  
+ -rapidly map reads to db of universal genes & probabalistally assign reads to species groups  
+ -estimate genome coverage of species-groups   
 
+* Pan Genome Alignment and Coverage  
+ -build a bowtie2 database of pangenomes from abundant species    
+ -use bowtie2 to map reads to pangenome database  
+ -compute normalized coverage of genes  
+
+* Single Nucleotide Variant Prediction  
+-build a bowtie2 database of representative genomes from abundant species  
+-use bowtie2 to map reads to genome database  
+-call SNVs and estimate allele frequencies     
 
 ### Requirements
-Python dependencies: 
+Python dependencies (installed via setup.py): 
 * Numpy (v1.9.1)
 * BioPython (v1.6.2)
 * Pysam (v0.8.1)
-* MicrobeCensus (v1.0.4)
 
-External packages:
+External packages (included):
 * Bowtie2 (v2.2.4)
 * samtools (v1.2)
-* bedtools2 (v2.23.0)
 * blastn (v2.2.25+)
 
 Tested version numbers are indicated in parenthesis. Other versions may also work.
-Linux binaries for external packages are included with this software. Binaries for OSX will be added in the near future.
-If included binaries fail to execute, you can compile them on your own machine and place them under: `PhyloCNV/phylo_cnv/bin`
+Linux binaries for external packages are included with this software. If included binaries fail to execute, you can compile them on your own machine and place them under: `PhyloCNV/phylo_cnv/bin/Linux` or `PhyloCNV/phylo_cnv/bin/Darwin`
 
 ### Reference database
 Download a PhyloCNV database: 
-* http://lighthouse.ucsf.edu/phylocnv/phylo_db.tar.gz (140G compressed, 230G expanded)  
-  * All 5,952 genome-clusters (31,007 total genomes)  
-* http://lighthouse.ucsf.edu/phylocnv/phylo_db.human_gut.tar.gz (7.7G compressed, 11G expanded)  
-  * 188 prevalent genome-clusters from the human gut (3,742 total genomes)  
+* http://lighthouse.ucsf.edu/phylocnv/genome_clusters.tar.gz (17G expanded)  
 * For more info, see: http://lighthouse.ucsf.edu/phylocnv  
   
-And unpack the archive: `tar -zxvf phylo_db.tar.gz`  
+And unpack the archive: `tar -zxvf genome_clusters.tar.gz`  
 
 ### Installation
 
-Download the latest version of the software: https://github.com/snayfach/PhyloCNV/archive/v0.0.1.tar.gz 
+Download the latest version of the software: https://github.com/snayfach/PhyloCNV/archive/v0.0.2.tar.gz 
 
-Unpack the project: `tar -zxvf PhyloCNV-0.0.1.tar.gz`
+Unpack the project: `tar -zxvf PhyloCNV-0.0.2.tar.gz`
 
 Run setup.py. This will install any dependencies:  
 `python setup.py install` or  
@@ -49,7 +52,6 @@ First, check that required python libraries are installed. You should be able to
 `>>> import Bio.SeqIO`  
 `>>> import numpy`  
 `>>> import pysam`  
-`>>> import microbe_census`  
 
 Next, add the following to your PYTHONPATH environmental variable:  
 `export PYTHONPATH=$PYTHONPATH:/path/to/PhyloCNV` or  
@@ -64,37 +66,6 @@ Now, you should be able to enter the command into your terminal without getting 
 `run_phylo_cnv.py -h`
 
 ### Usage
-
-#### run_phylo_species.py
-Use this if you just want to perform metagenomic species (i.e. genome-cluster) profiling
-```
-usage: run_phylo_species.py [options]
-
-optional arguments:
-  -h, --help      show this help message and exit
-  -v
-
-Input/Output (required):
-  -i INPATH       path to input metagenome in FASTQ/FASTA format. gzip (.gz)
-                  and bzip (.bz2) compression supported
-  -o OUTBASE      basename for output files: {basename}.abundance,
-                  {basename}.summary
-  -t TEMP_DIR     path to directory to store temp files (/tmp)
-
-Pipeline Speed (optional):
-  -n NREADS       number of reads to use from input metagenome (use all)
-  -p THREADS      number of threads to use for database search (1)
-  -m              use MicrobeCensus to normalize counts. increases runtime by
-                  <=30 additional minutes (False)
-
-Quality control (optional):
-  -q MIN_QUALITY  keep reads with quality >= MIN_QUALITY (0)
-  -l MIN_LENGTH   keep reads with length >= MIN_LENGTH (0)
-  -u MAX_N        keep reads with fraction unknown bases <= MAX_N (1.0)
-```
-
-#### run_phylo_cnv.py 
-This is the integrated pipeline for estimating the abundance, gene content, and phylogeny of microbial species from a metagenome
 ```
 usage: run_phylo_cnv.py [options]
 
@@ -102,6 +73,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
   -v, --verbose
+  -d, --debug
   -t THREADS, --threads THREADS
                         Number of threads to use
 
@@ -114,37 +86,42 @@ Input/Output (required):
 
 Pipeline:
   --all                 Run entire pipeline
-  --profile             Estimate genome-cluster abundance
-  --align               Align reads to genome-clusters
-  --map                 Assign reads to mapping locations
-  --cov                 Compute coverage of pangenomes
-  --extract             Extract mapped reads from bam file & write to FASTQ
-  --remap               Re-map reads to representative genomes
-  --snps                Run samtools mpileup & estimate SNP frequencies
+  --species_profile     Estimate genome-cluster abundance
+  --pangenome_build_db  Build bowtie2 database of pangenome centroids
+  --pangenome_align     Align reads to genome-clusters
+  --pangenome_cov       Compute coverage of pangenomes
+  --snps_build_db       Build bowtie2 database of representative genomes
+  --snps_align          Align reads to representative genomes
+  --snps_call           Run samtools mpileup & estimate SNP frequencies
 
-GC Abundance:
+Species Abundance:
   --reads_gc READS_MS   # reads to use for estimating genome-cluster abundance
                         (5000000)
 
-GC inclusion (choose one):
-  --gc_topn GC_TOPN     Top N most abundant (5)
+Species selection (choose one):
+  --gc_topn GC_TOPN     Top N most abundant (None)
   --gc_cov GC_COV       Coverage threshold (None)
   --gc_rbun GC_RBUN     Relative abundance threshold (None)
-  --gc_id GC_ID         Identifier of specific genome cluster (None)
-  --gc_list GC_LIST     Comma-separated list of genome cluster ids (None)
+  --gc_id GC_ID         Identifier of specific genome cluster or comma-
+                        separated list of ids (None)
 
-Read Alignment/Mapping:
-  --align_speed {very-fast,fast,sensitive,very-sensitive}
-                        alignment speed/sensitivity (sensitive)
-  --reads_align READS_ALIGN
-                        # reads to use for pangenome alignment (All)
-  --reads_batch RD_BATCH
-                        Batch size in # reads. Smaller batch sizes requires
-                        less memory, but can take longer to run (5000000)
-  --map_pid PID         Minimum percent identity between read and reference
-                        (93.0)
+Pangenome module:
+  --pangenome_align_speed {very-fast-local,fast-local,sensitive-local,very-sensitive-local}
+                        alignment speed/sensitivity (very-sensitive-local)
+  --pangenome_reads PANGENOME_READS
+                        # reads for pangenome or genome alignment (use all)
+  --pangenome_map_pid PANGENOME_MAP_PID
+                        Minimum percent ID between read and reference (93.0)
+  --pangenome_pid {90,92.5,95,97.5,99}
+                        Reference gene cluster percent ID (97.5)
+  --pangenome_aln_cov PANGENOME_ALN_COV
+                        Minimum alignment coverage of read (0.70)
 
-SNP detection:
+SNPs module:
+  --snps_align_speed {very-fast,fast,sensitive,very-sensitive}
+                        alignment speed/sensitivity (very-sensitive)
+  --snps_reads SNPS_READS
+                        # reads for pangenome or genome alignment (use all)
   --snps_mapq SNPS_MAPQ
                         Minimum map quality (20)
   --snps_baseq SNPS_BASEQ
@@ -154,19 +131,23 @@ SNP detection:
 ### Output
 Final outputs:  
 * genome_clusters.abundance: abundance of 5,952 genome-clusters
-* genome_clusters.summary: abundance summary
 * coverage: coverage of pan genes within each genome-cluster  
 * snps: coverage, allele frequencies, and consensus alleles   
 
 Intermediate files:  
-* bam: alignments from mapping metagenome (in batches of reads) to each genome-cluster  
-* reassigned: best alignments (>= map_pid) for each read across genome-clusters  
-* fastq: reads extracted from reassigned bam files  
-* bam_rep: alignments on to representative genome for each genome-cluster  
+* db: bowtie2 indexes of pangenomes and/or genomes   
+* pangenome.bam: alignments against pangenome database 
+* genomes.bam: alignments against genome database   
+* genomes.vcf: vcf file generated from genomes.bam
 
 ### Example
-Run PhyloCNV using the test FASTQ file:
-`run_phylo_cnv.py -1 phylo_cnv/example/SRR413772_1.fastq.gz -D genome_clusters -o phylo_cnv/example --all --verbose`
-
-Run PhyloSpecies using the test FASTQ file: 
-`run_phylo_species.py -i phylo_species/example/example_1.fastq.gz -o phylo_species/example/example_1.out --verbose`
+Run PhyloCNV using the test FASTQ file and the top 5 most abundant species:
+```
+run_phylo_cnv.py \
+-1 phylo_cnv/example/example.fastq.gz \
+-D /path/to/genome_clusters \
+-o phylo_cnv/example \
+--all \
+--gc_topn 5 \
+--verbose
+```
