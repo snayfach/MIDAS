@@ -25,27 +25,6 @@ from multiprocessing import Process
 # Functions
 # ---------
 
-def parallel_process(function, args_list, threads, verbose):
-	""" Run function using multiple threads """
-	processes = []
-	for pargs in args_list: # run function for each set of args in args_list
-		p = Process(target=function, kwargs=pargs)
-		processes.append(p)
-		p.start()
-		# control number of active processes
-		while len(processes) >= threads:
-			indexes = []
-			# keep processes that are still alive
-			for index, process in enumerate(processes):
-				if process.is_alive(): indexes.append(index)
-			processes = [processes[i] for i in indexes]
-	# wait until there are no active processes
-	while len(processes) > 0:
-		indexes = []
-		for index, process in enumerate(processes):
-			if process.is_alive(): indexes.append(index)
-		processes = [processes[i] for i in indexes]
-
 def check_arguments(args):
 	""" Check validity of command line arguments """
 	
@@ -54,7 +33,11 @@ def check_arguments(args):
 				args['pangenome_build_db'], args['pangenome_align'], args['pangenome_cov'],
 				args['snps_build_db'], args['snps_align'], args['snps_call']]):
 		sys.exit('Specify one or more pipeline option(s)')
-	
+		
+	# Genome cluster selection
+	if not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+		sys.exit('Specify one or more genome-cluster-selection option(s)')
+
 	# Turn on entire pipeline
 	if args['all']:
 		args['species_profile'] = True
@@ -89,6 +72,7 @@ def add_paths(args):
 		args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
 		args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
 		args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
+		args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
 
 def print_copyright():
 	# print out copyright information
@@ -104,8 +88,7 @@ def read_phylo_species(inpath):
 	if not os.path.isfile(inpath):
 		sys.exit("Could not locate species profile: %s\nTry rerunning with --species_profile" % inpath)
 	dict = {}
-	fields = [
-		('cluster_id', str), ('cov', float), ('rel_abun', float)]
+	fields = [('cluster_id', str), ('cov', float), ('rel_abun', float)]
 	infile = open(inpath)
 	next(infile)
 	for line in infile:
@@ -138,7 +121,7 @@ def iopen(inpath):
 
 def select_genome_clusters(args):
 	""" Select genome clusters to map to """
-	my_clusters = []
+	cluster_sets = {}
 	# read in cluster abundance if necessary
 	if any([args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
 		inpath = '/'.join([args['out'], 'genome_clusters.abundance'])
@@ -147,28 +130,38 @@ def select_genome_clusters(args):
 		cluster_abundance = read_phylo_species(inpath)
 		# user specifed a coverage threshold
 		if args['gc_cov']:
+			cluster_sets['gc_cov'] = set([])
 			for cluster_id, values in cluster_abundance.items():
 				if values['cov'] >= args['gc_cov']:
-					my_clusters.append(cluster_id)
+					cluster_sets['gc_cov'].add(cluster_id)
 		# user specifed a relative-abundance threshold
-		elif args['gc_rbun']:
+		if args['gc_rbun']:
+			cluster_sets['gc_rbun'] = set([])
 			for cluster_id, values in cluster_abundance.items():
 				if values['rel_abun'] >= args['gc_rbun']:
-					my_clusters.append(cluster_id)
+					cluster_sets['gc_rbun'].add(cluster_id)
 		# user specifed a relative-abundance threshold
-		elif args['gc_topn']:
+		if args['gc_topn']:
+			cluster_sets['gc_topn'] = set([])
 			cluster_abundance = [(i,d['rel_abun']) for i,d in cluster_abundance.items()]
 			sorted_abundance = sorted(cluster_abundance, key=itemgetter(1), reverse=True)
 			for cluster_id, rel_abun in sorted_abundance[0:args['gc_topn']]:
-				my_clusters.append(cluster_id)
+				cluster_sets['gc_topn'].add(cluster_id)
 	# user specified one or more genome-clusters
-	elif args['gc_id']:
+	if args['gc_id']:
+		cluster_sets['gc_rbun'] = set([])
 		for cluster_id in args['gc_id']:
-			my_clusters.append(cluster_id)
+			cluster_sets['gc_rbun'].add(cluster_id)
+	# intersect sets of genome-clusters
+	my_clusters = list(set.intersection(*cluster_sets.values()))
 	# check that specified genome-clusters are valid
 	for cluster_id in my_clusters:
 		if cluster_id not in os.listdir(args['db_dir']):
 			sys.exit("\nError: the specified genome_cluster '%s' was not found in the reference database (-D)\n" % cluster_id)
+	# remove bad cluster_ids
+	for line in open(args['bad_gcs']):
+		try: my_clusters.remove(line.rstrip())
+		except: pass
 	# check that at least one genome-cluster was selected
 	if len(my_clusters) == 0:
 		sys.exit("\nError: no genome-clusters sastisfied your selection criteria. \n")
@@ -181,9 +174,9 @@ def pangenome_align(args, tax_mask):
 	#   index
 	command += '-x %s ' % '/'.join([args['out'], 'db', 'pangenomes'])
 	#   specify reads
-	if args['reads_align']: command += '-u %s ' % args['reads_align']
+	if args['pangenome_reads']: command += '-u %s ' % args['pangenome_reads']
 	#   speed/sensitivity
-	command += '--%s ' % args['align_speed']
+	command += '--%s ' % args['pangenome_align_speed']
 	#   threads
 	command += '--threads %s ' % args['threads']
 	#   file type
@@ -210,9 +203,9 @@ def genome_align(args):
 	#   index
 	command += '-x %s ' % '/'.join([args['out'], 'db', 'genomes'])
 	#   specify reads
-	if args['reads_align']: command += '-u %s ' % args['reads_align']
+	if args['snps_reads']: command += '-u %s ' % args['snps_reads']
 	#   speed/sensitivity
-	command += '--%s ' % args['align_speed']
+	command += '--%s ' % args['snps_align_speed']
 	#   threads
 	command += '--threads %s ' % args['threads']
 	#   file type
@@ -328,9 +321,9 @@ def count_mapped_bp(args):
 	ref_to_cov = dict([(i,0.0) for i in aln_file.references])
 	for aln in aln_file.fetch(until_eof = True):
 		query = aln.query_name
-		if compute_perc_id(aln) < args['pid']:
+		if compute_perc_id(aln) < args['pangenome_map_pid']:
 			continue
-		elif compute_aln_cov(aln) < args['aln_cov']:
+		elif compute_aln_cov(aln) < args['pangenome_aln_cov']:
 			continue
 		else:
 			ref_id = aln_file.getrname(aln.reference_id)
@@ -338,13 +331,12 @@ def count_mapped_bp(args):
 			ref_to_cov[ref_id] += cov
 	return ref_to_cov
 
-
 def read_centroid_map(args, genome_clusters):
 	""" Map 99% ID pangenome centroids to a lower level (90, 92.5, 95, 97.5)"""
 	centroid_map = {}
 	for cluster_id in genome_clusters:
-		inpath = '/'.join([args['db_dir'], cluster_id, 'pangenome/centroid_map.txt'])
-		infile = open(inpath)
+		inpath = '/'.join([args['db_dir'], cluster_id, 'gene_family_map.txt.gz'])
+		infile = gzopen(inpath)
 		next(infile)
 		for line in infile:
 			x = line.rstrip().split()
@@ -373,7 +365,8 @@ def compute_phyeco_cov(args, genome_clusters):
 	ref_to_cluster = {}
 	ref_to_phyeco = {}
 	for cluster_id in genome_clusters:
-		infile = gzopen('/'.join([args['db_dir'], cluster_id, 'normalization_genes.gz']))
+		inpath = '/'.join([args['db_dir'], cluster_id, 'universal_genes.txt.gz'])
+		infile = gzopen(inpath)
 		next(infile)
 		for line in infile:
 			gene_id, phyeco_id = line.rstrip().split()
@@ -400,7 +393,7 @@ def compute_phyeco_cov(args, genome_clusters):
 			continue
 		elif compute_perc_id(aln) < phyeco_to_cutoff[phyeco_id]:
 			continue
-		elif compute_aln_cov(aln) < 0.70:
+		elif compute_aln_cov(aln) < args['pangenome_aln_cov']:
 			continue
 		else:
 			cluster_id = ref_to_cluster[ref_id]
@@ -456,8 +449,9 @@ def build_pangenome_db(args, genome_clusters):
 	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
 	for cluster_id in genome_clusters:
 		db_stats['genome_clusters'] += 1
-		inpath = '/'.join([args['db_dir'], cluster_id, 'pangenome/centroids.fa'])
-		for r in SeqIOparse(inpath, 'fasta'):
+		inpath = '/'.join([args['db_dir'], cluster_id, 'pangenome.fa.gz'])
+		infile = gzopen(inpath)
+		for r in SeqIOparse(infile, 'fasta'):
 			genome_id = '.'.join(r.id.split('.')[0:2])
 			if not args['tax_mask'] or genome_id not in args['tax_mask']:
 				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq)))
@@ -479,7 +473,9 @@ def build_pangenome_db(args, genome_clusters):
 
 def fetch_centroid(args, cluster_id):
 	""" Get the genome_id corresponding to cluster centroid """
-	for line in open('/'.join([args['db_dir'], cluster_id, 'genomes.txt'])):
+	inpath = '/'.join([args['db_dir'], cluster_id, 'genomes.txt.gz'])
+	infile = gzopen(inpath)
+	for line in infile:
 		if line.split()[2] == 'Y':
 			return line.split()[1]
 
@@ -495,7 +491,9 @@ def build_genome_db(args, genome_clusters):
 		if args['tax_mask'] and fetch_centroid(args, cluster_id) in args['tax_mask']:
 			continue
 		db_stats['genome_clusters'] += 1
-		for line in open('/'.join([args['db_dir'], cluster_id, 'cluster_centroid/centroid.fna'])):
+		inpath = '/'.join([args['db_dir'], cluster_id, 'representative.fna.gz'])
+		infile = gzopen(inpath)
+		for line in infile:
 			genomes_fasta.write(line)
 			db_stats['total_length'] += len(line.rstrip())
 			if line[0] == '>':

@@ -16,7 +16,7 @@ def parse_arguments():
 	
 	parser.add_argument('--version', action='version', version='MicrobeCNV %s' % __version__)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
-	parser.add_argument('-d', '--debug', dest='debug', default=False)
+	parser.add_argument('-d', '--debug', dest='debug', default=False, action='store_true')
 	parser.add_argument('-t', '--threads', dest='threads', default=1, help='Number of threads to use')
 	parser.add_argument('--tax_mask', dest='tax_mask', default=None, help=argparse.SUPPRESS)
 	
@@ -44,33 +44,38 @@ def parse_arguments():
 	pipe.add_argument('--snps_call', action='store_true', dest='snps_call',
 		default=False, help='Run samtools mpileup & estimate SNP frequencies')
 
-	profile = parser.add_argument_group('GC Abundance')
+	profile = parser.add_argument_group('Species Abundance')
 	profile.add_argument('--reads_gc', type=int, dest='reads_ms',
 		default=5000000, help='# reads to use for estimating genome-cluster abundance (5000000)')
 
-	gc = parser.add_argument_group('GC inclusion (choose one)')
+	gc = parser.add_argument_group('Species selection (choose one)')
 	gc.add_argument('--gc_topn', type=int, dest='gc_topn', help='Top N most abundant (None)')
 	gc.add_argument('--gc_cov', type=float, dest='gc_cov', help='Coverage threshold (None)')
 	gc.add_argument('--gc_rbun', type=float, dest='gc_rbun', help='Relative abundance threshold (None)')
 	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific genome cluster or comma-separated list of ids (None)')
 	
-	map = parser.add_argument_group('Read Alignment/Mapping')
-	map.add_argument('--align_speed', dest='align_speed',
-		choices=[
-			'very-fast', 'fast', 'sensitive', 'very-sensitive',
-			'very-fast-local', 'fast-local', 'sensitive-local', 'very-sensitive-local'],
-		help='alignment speed/sensitivity (sensitive)', default='sensitive')
-	map.add_argument('--reads_align', type=int, dest='reads_align',
+	map = parser.add_argument_group('Pangenome module')
+	map.add_argument('--pangenome_align_speed', dest='pangenome_align_speed',
+		choices=['very-fast-local', 'fast-local', 'sensitive-local', 'very-sensitive-local'],
+		help='alignment speed/sensitivity (very-sensitive-local)',
+		default='very-sensitive-local')
+	map.add_argument('--pangenome_reads', type=int, dest='pangenome_reads',
 		help='# reads for pangenome or genome alignment (use all)')
-	map.add_argument('--map_pid', type=float, dest='pid',
+	map.add_argument('--pangenome_map_pid', type=float, dest='pangenome_map_pid',
 		default=93, help='Minimum percent ID between read and reference (93.0)')
 	map.add_argument('--pangenome_pid', type=str, dest='pangenome_pid',
 		default='97.5', choices=['90', '92.5', '95', '97.5', '99'],
 		help='Reference gene cluster percent ID (97.5)')
-	map.add_argument('--aln_cov', type=float, dest='aln_cov',
+	map.add_argument('--pangenome_aln_cov', type=float, dest='pangenome_aln_cov',
 		default=0.70, help='Minimum alignment coverage of read (0.70)')
 		
-	snps = parser.add_argument_group('SNP detection')
+	snps = parser.add_argument_group('SNPs module')
+	snps.add_argument('--snps_align_speed', dest='snps_align_speed',
+		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
+		help='alignment speed/sensitivity (very-sensitive)',
+		default='very-sensitive')
+	snps.add_argument('--snps_reads', type=int, dest='snps_reads',
+		help='# reads for pangenome or genome alignment (use all)')
 	snps.add_argument('--snps_mapq', type=str, dest='snps_mapq',
 		default='20', help='Minimum map quality (20)')
 	snps.add_argument('--snps_baseq', type=str, dest='snps_baseq',

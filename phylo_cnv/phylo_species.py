@@ -2,14 +2,10 @@
 
 # Libraries
 # ---------
-import sys
-import os
-import gzip
-import subprocess
-import Bio.SeqIO
-import random
-import numpy as np
-import time
+import sys, os, subprocess
+from random import sample
+from numpy.random import choice
+from time import time
 from platform import system
 
 # Functions
@@ -34,18 +30,6 @@ def parse_relative_paths(args):
 		assert(os.path.isfile(paths['marker_cutoffs']))
 		paths['db'] = '/'.join([main_dir,'data','phyeco.blastdb'])
 	return paths
-
-def quality_filter(seq, qual, args):
-	""" Return true if read fails QC """
-	l = len(seq)
-	# check for Ns
-	if sum([1 if b == 'N' else 0 for b in seq])/float(l) > args['max_n']:
-		return True
-	# check length
-	if l < args['min_length']:
-		return True
-	# read passed QC
-	return False
 
 def map_reads_blast(args, paths):
 	""" Use blastn to map reads in fasta file to marker database """
@@ -106,10 +90,10 @@ def assign_non_unique(args, paths, alns, unique_alns):
 			clusters = [x['target'].split('_')[0] for x in aln]
 			counts = [len(unique_alns[x]) for x in clusters]
 			if sum(counts) == 0:
-				cluster_id = random.sample(clusters, 1)[0]
+				cluster_id = sample(clusters, 1)[0]
 			else:
 				probs = [float(count)/sum(counts) for count in counts]
-				cluster_id = np.random.choice(clusters, 1, p=probs)[0]
+				cluster_id = choice(clusters, 1, p=probs)[0]
 			total_alns[cluster_id].append(aln[clusters.index(cluster_id)])
 	return total_alns
 
@@ -202,32 +186,27 @@ def write_abundance(outpath, cluster_abundance):
 
 def estimate_species_abundance(args):
 	""" Run entire pipeline """
-
 	# impute missing args & get relative file paths
 	args = impute_missing_args(args)
 	paths = parse_relative_paths(args)
-
 	# align reads
-	start = time.time()
+	start = time()
 	if args['verbose']: print("Aligning reads")
 	blastout = parse_blast(map_reads_blast(args, paths))
-	if args['verbose']: print("\t %ss" % round(time.time() - start))
-	
+	if args['verbose']: print("\t %ss" % round(time() - start))
 	# find best hit for each read
-	start = time.time()
+	start = time()
 	if args['verbose']: print("Classifying reads")
 	best_hits = find_best_hits(blastout, paths)
 	unique_alns = assign_unique(args, paths, best_hits)
 	cluster_alns = assign_non_unique(args, paths, best_hits, unique_alns)
-	if args['verbose']: print("\t %ss" % round(time.time() - start))
-	
+	if args['verbose']: print("\t %ss" % round(time() - start))
 	# estimate genome cluster abundance
-	start = time.time()
+	start = time()
 	if args['verbose']: print("Estimating cluster abundance")
 	total_gene_length = read_gene_lengths(paths)
 	cluster_abundance = normalize_counts(cluster_alns, total_gene_length)
-	if args['verbose']: print("\t %ss" % round(time.time() - start))
-	
+	if args['verbose']: print("\t %ss" % round(time() - start))
 	# return results
 	return cluster_abundance
 
