@@ -4,7 +4,7 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 import argparse, sys, os
 from phylo_cnv import phylo_cnv
@@ -41,9 +41,11 @@ def parse_arguments():
 		default=False, help='Build bowtie2 database of representative genomes')
 	pipe.add_argument('--snps_align', action='store_true', dest='snps_align',
 		default=False, help='Align reads to representative genomes')
+	pipe.add_argument('--snps_pileup', action='store_true', dest='snps_pileup',
+		default=False, help='Run samtools mpileup')
 	pipe.add_argument('--snps_call', action='store_true', dest='snps_call',
-		default=False, help='Run samtools mpileup & estimate SNP frequencies')
-
+		default=False, help='Call SNPs and format output')
+		
 	profile = parser.add_argument_group('Species Abundance')
 	profile.add_argument('--reads_gc', type=int, dest='reads_ms',
 		default=5000000, help='# reads to use for estimating genome-cluster abundance (5000000)')
@@ -62,7 +64,7 @@ def parse_arguments():
 	map.add_argument('--pangenome_reads', type=int, dest='pangenome_reads',
 		help='# reads for pangenome or genome alignment (use all)')
 	map.add_argument('--pangenome_map_pid', type=float, dest='pangenome_map_pid',
-		default=93, help='Minimum percent ID between read and reference (93.0)')
+		default=93.0, help='Minimum percent ID between read and reference (93.0)')
 	map.add_argument('--pangenome_pid', type=str, dest='pangenome_pid',
 		default='97.5', choices=['90', '92.5', '95', '97.5', '99'],
 		help='Reference gene cluster percent ID (97.5)')
@@ -76,6 +78,8 @@ def parse_arguments():
 		default='very-sensitive')
 	snps.add_argument('--snps_reads', type=int, dest='snps_reads',
 		help='# reads for pangenome or genome alignment (use all)')
+	snps.add_argument('--snps_pid', type=float, dest='snps_pid',
+		default='93.0', help='Minimum percent ID between read and reference (93.0)')
 	snps.add_argument('--snps_mapq', type=str, dest='snps_mapq',
 		default='20', help='Minimum map quality (20)')
 	snps.add_argument('--snps_baseq', type=str, dest='snps_baseq',

@@ -1,0 +1,34 @@
+TO DO
+
+ * report gene summary statistics
+
+CHANGE LOG
+
+2015-08-23 Stephen Nayfach <snayfach@gmail.com>
+ * all positions now reported in snps module
+ * now reporting snps summary
+ * new script for multi-sample snp calling
+
+2015-08-22 Stephen Nayfach <snayfach@gmail.com>
+ * switched back to uniform cutoffs for computing phyeco coverage
+ * fixed bug when computing phyeco coverages
+
+2015-08-20 Stephen Nayfach <snayfach@gmail.com>
+ * added %id filter to SNPs module
+
+2015-08-16 Stephen Nayfach <snayfach@gmail.com>
+ * made arguments specific to pangenome and SNPs modules
+
+2015-08-15 Stephen Nayfach <snayfach@gmail.com>
+ * run_phylo_cnv.py: added --pangenome_pid option
+ * phylo_cnv.py: added support for computing coverage of 90-99% id pangenes
+
+2015-08-14 Stephen Nayfach <snayfach@gmail.com>
+ * run_phylo_cnv.py: added --debug flag to print shell commands
+ * phylo_cnv.py: added phyeco normalization
+	-map reads to 15 phyeco genes using gene-specific mapping cutoffs
+    -compute median coverage across 15 phyeco marker genes
+	
+	
+	
+	
