@@ -1,29 +1,36 @@
 TO DO
+ * split up run_phylo_cnv in separate modules for species abundance, gene +/-, and snps
 
- * report gene summary statistics
+IN PROGRESS
 
-CHANGE LOG
+CHANGES
 
-2015-08-23 Stephen Nayfach <snayfach@gmail.com>
+2015-08-26
+ * added merge_genes.py: new script for building multi-sample gene matrix
+ * phylo_cnv.py: report gene summary statistics
+ * phylo_cnv.py: genes now reported in sorted order
+ * phylo_cnv.py: fixed bug in read_ref_to_cluster function
+
+2015-08-23
  * all positions now reported in snps module
  * now reporting snps summary
- * new script for multi-sample snp calling
+ * new script for building multi-sample snp matrix & fasta files
 
-2015-08-22 Stephen Nayfach <snayfach@gmail.com>
+2015-08-22
  * switched back to uniform cutoffs for computing phyeco coverage
  * fixed bug when computing phyeco coverages
 
-2015-08-20 Stephen Nayfach <snayfach@gmail.com>
+2015-08-20
  * added %id filter to SNPs module
 
-2015-08-16 Stephen Nayfach <snayfach@gmail.com>
+2015-08-16
  * made arguments specific to pangenome and SNPs modules
 
-2015-08-15 Stephen Nayfach <snayfach@gmail.com>
+2015-08-15
  * run_phylo_cnv.py: added --pangenome_pid option
  * phylo_cnv.py: added support for computing coverage of 90-99% id pangenes
 
-2015-08-14 Stephen Nayfach <snayfach@gmail.com>
+2015-08-14
  * run_phylo_cnv.py: added --debug flag to print shell commands
  * phylo_cnv.py: added phyeco normalization
 	-map reads to 15 phyeco genes using gene-specific mapping cutoffs

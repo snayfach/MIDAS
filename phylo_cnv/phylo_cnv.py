@@ -10,18 +10,11 @@ __version__ = '0.0.2'
 # ---------
 import sys
 import os
-import pysam
 import subprocess
 import resource
 import gzip
-import Bio.SeqIO
-import operator
 from time import time
-from numpy import median
 from platform import system
-from multiprocessing import Process
-from phylo_species import estimate_species_abundance, write_abundance
-
 
 # Functions
 # ---------
@@ -43,6 +36,7 @@ def check_arguments(args):
 		args['pangenome_cov'] = True
 		args['snps_build_db'] = True
 		args['snps_align'] = True
+		args['snps_pileup'] = True
 		args['snps_call'] = True
 
 	# Genome cluster selection
@@ -125,6 +119,7 @@ def iopen(inpath):
 
 def select_genome_clusters(args):
 	""" Select genome clusters to map to """
+	import operator
 	cluster_sets = {}
 	# read in cluster abundance if necessary
 	if any([args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
@@ -247,17 +242,17 @@ def pileup(args):
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
 
-def read_ref_to_cluster(args):
+def read_ref_to_cluster(args, type):
 	""" Read in map of scaffold id to genome-cluster id """
 	ref_to_cluster = {}
-	for line in open('/'.join([args['out'], 'db/genomes.map'])):
+	for line in open('/'.join([args['out'], 'db/%s.map' % type])):
 		ref_id, cluster_id = line.rstrip().split()
 		ref_to_cluster[ref_id] = cluster_id
 	return ref_to_cluster
 
 def split_vcf(args):
 	""" Format vcf output for easy parsing """
-	ref_to_cluster = read_ref_to_cluster(args)
+	ref_to_cluster = read_ref_to_cluster(args, 'genomes')
 	# open outfiles for each cluster_id
 	outdir = '/'.join([args['out'], 'vcf'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
@@ -275,6 +270,7 @@ def split_vcf(args):
 
 def read_ref_bases(args, cluster_id):
 	""" Read in reference genome by position """
+	import Bio.SeqIO
 	ref = []
 	centroid_path = '/'.join([args['db_dir'],cluster_id,'representative.fna.gz'])
 	infile = gzip.open(centroid_path)
@@ -304,7 +300,7 @@ def format_vcf(args):
 	""" Format vcf files to snp files and fill in missing positions """
 	outdir = '/'.join([args['out'], 'snps'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
-	for cluster_id in set(read_ref_to_cluster(args).values()):
+	for cluster_id in set(read_ref_to_cluster(args, 'genomes').values()):
 		# open outfile
 		outfile = gzip.open('/'.join([outdir, '%s.snps.gz' % cluster_id]), 'w')
 		write_snp_header(outfile)
@@ -360,12 +356,10 @@ def parse_vcf(inpath):
 			   'ref_freq':'NA' if sum(counts) == 0 else sum(counts[0:2])/float(sum(counts))
 			   }
 
-def parse_snps(inpath):
+def parse_file(inpath):
 	""" Yields formatted records from SNPs output """
 	infile = gzip.open(inpath)
-	next(infile)
-	fields = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
-			  'count_alleles', 'count_ref', 'count_alt', 'depth', 'ref_freq']
+	fields = next(infile).rstrip().split()
 	for line in infile:
 		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split())])
 
@@ -373,9 +367,9 @@ def snps_summary(args):
 	""" Get summary of mapping statistics """
 	# store stats
 	stats = {}
-	for cluster_id in set(read_ref_to_cluster(args).values()):
+	for cluster_id in set(read_ref_to_cluster(args, 'genomes').values()):
 		genome_length, covered_bases, total_depth, identity, maf = [0,0,0,0,0]
-		for r in parse_snps('/'.join([args['out'], 'snps/%s.snps.gz' % cluster_id])):
+		for r in parse_file('/'.join([args['out'], 'snps/%s.snps.gz' % cluster_id])):
 			genome_length += 1
 			depth = int(r['depth'])
 			if depth > 0:
@@ -396,6 +390,31 @@ def snps_summary(args):
 		record = [cluster_id] + [str(stats[cluster_id][field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 
+def genes_summary(args):
+	""" Get summary of mapping statistics """
+	# store stats
+	stats = {}
+	for cluster_id in set(read_ref_to_cluster(args, 'pangenome').values()):
+		pangenome_size, covered_genes, total_coverage, phyeco_coverage = [0,0,0,0]
+		for r in parse_file('/'.join([args['out'], 'coverage/%s.cov.gz' % cluster_id])):
+			pangenome_size += 1
+			coverage = float(r['raw_coverage'])
+			normcov = float(r['normalized_coverage'])
+			if coverage > 0:
+				covered_genes += 1
+				total_coverage += coverage
+			if normcov > 0:
+				phyeco_coverage = coverage/normcov
+		stats[cluster_id] = {'pangenome_size':pangenome_size, 'covered_genes':covered_genes,
+							 'mean_coverage':total_coverage/covered_genes, 'phyeco_coverage':phyeco_coverage}
+	# write stats
+	fields = ['pangenome_size', 'covered_genes', 'mean_coverage', 'phyeco_coverage']
+	outfile = open('/'.join([args['out'], 'genes_summary_stats.txt']), 'w')
+	outfile.write('\t'.join(['cluster_id'] + fields)+'\n')
+	for cluster_id in stats:
+		record = [cluster_id] + [str(stats[cluster_id][field]) for field in fields]
+		outfile.write('\t'.join(record)+'\n')
+
 def compute_perc_id(aln):
 	""" Compute percent identity for read """
 	length = aln.query_length
@@ -409,6 +428,7 @@ def compute_aln_cov(aln):
 
 def count_mapped_bp(args):
 	""" Count number of bp mapped to each centroid across pangenomes """
+	import pysam
 	bam_path = '/'.join([args['out'], 'pangenome.bam'])
 	aln_file = pysam.AlignmentFile(bam_path, "rb")
 	ref_to_length = dict([(i,j) for i,j in zip(aln_file.references, aln_file.lengths)])
@@ -450,6 +470,7 @@ def aggregate_coverage(args, ref_to_cov, genome_clusters):
 
 def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 	""" Count number of bp mapped to each PhyEco marker gene """
+	from numpy import median
 	# read in set of phyeco markers for normalization
 	phyeco_ids = set([])
 	for line in open(args['pid_cutoffs']):
@@ -505,7 +526,8 @@ def compute_pangenome_coverage(args):
 	if args['pangenome_pid'] != '99':
 		ref_to_cov = aggregate_coverage(args, ref_to_cov, genome_clusters)
 	# write to output files
-	for ref_id, cov in ref_to_cov.items():
+	for ref_id in sorted(ref_to_cov):
+		cov = ref_to_cov[ref_id]
 		cluster_id = ref_to_cluster[ref_id]
 		outfile = outfiles[cluster_id]
 		normcov = cov/cluster_to_norm[cluster_id] if cluster_to_norm[cluster_id] > 0 else 0
@@ -519,6 +541,7 @@ def max_mem_usage():
 
 def build_pangenome_db(args, genome_clusters):
 	""" Build FASTA and BT2 database from pangene cluster centroids """
+	import Bio.SeqIO
 	# fasta database
 	outdir = '/'.join([args['out'], 'db'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
@@ -601,6 +624,7 @@ def run_pipeline(args):
 
 	# 1a. Estimate the abundance of genome-clusters
 	if args['species_profile']:
+		from phylo_species import estimate_species_abundance, write_abundance
 		start = time()
 		if args['verbose']: print("\nEstimating the abundance of genome-clusters")
 		cluster_abundance = estimate_species_abundance({'inpath':args['m1'],'nreads':args['reads_ms'],'threads':args['threads']})
@@ -633,6 +657,7 @@ def run_pipeline(args):
 		start = time()
 		if args['verbose']: print("\nComputing coverage of pangenomes")
 		compute_pangenome_coverage(args)
+		genes_summary(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
@@ -665,7 +690,7 @@ def run_pipeline(args):
 			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
 
-	# 3d. Use mpileup to identify SNPs
+	# 3d. Split vcf into files for each GC, format, and report summary statistics
 	if args['snps_call']:
 		start = time()
 		if args['verbose']: print("\nFormatting output")

@@ -11,7 +11,7 @@
 
 __version__ = '0.0.2'
 
-import argparse, sys, os, gzip
+import argparse, sys, os, gzip, subprocess
 
 def parse_arguments():
 	""" Parse command line arguments """
@@ -19,30 +19,28 @@ def parse_arguments():
 	parser = argparse.ArgumentParser(usage='%s [options]' % os.path.basename(__file__))
 		
 	io = parser.add_argument_group('Input/Output')
-	io.add_argument('-i', '--indir', type=str, dest='in', help='Input directory', required=True)
-	io.add_argument('-o', '--outdir', type=str, dest='out', help='Output directory', required=True)
-	io.add_argument('-g', '--genome_cluster', type=str,  help='Genome cluster identifer', required=True)
+	io.add_argument('-i', '--indir', type=str, dest='in', help='input directory', required=True)
+	io.add_argument('-o', '--outdir', type=str, dest='out', help='output directory', required=True)
+	io.add_argument('-g', '--genome_cluster', type=str,  help='genome cluster id', required=True)
 	
 	sample = parser.add_argument_group('Sample filters')
+	sample.add_argument('--sample_list', dest='sample_list', type=str,
+		default=None, help='file of sample ids to include; each line should contain one id')
 	sample.add_argument('--sample_depth', dest='sample_depth', type=int,
-		default=2.0, help='Min mean read depth at sites with non-zero coverage (2)')
+		default=2.0, help='min read depth per sample (2)')
 	sample.add_argument('--ref_coverage', dest='ref_coverage', type=float,
-		default=0.4, help='Min fraction of reference sites with non-zero coverage (0.4)')
+		default=0.4, help='min coverage of reference genome per sample (0.4)')
 				
 	snps = parser.add_argument_group('SNP filters')
 	snps.add_argument('--snp_prev', dest='min_prev', type=float,
-		default=1.0, help='Minimum fraction of samples that contain SNP (1.0)')
+		default=1.0, help='min fraction of samples that contain SNP (1.0)')
 	snps.add_argument('--snp_depth', dest='snp_depth', type=int,
-		default=1.0, help='Minimum number of reads per sample supporting SNP (1)')
+		default=1.0, help='min # of reads supporting SNP per sample (1)')
 	snps.add_argument('--no_fixed', action='store_true', default=False,
-		help='Exclude SNPs with the same consensus allele across samples (False)')
+		help='exclude SNPs with the same consensus allele across samples (False)')
 	snps.add_argument('--max_snps', dest='max_snps', type=int,
-		default=float('Inf'), help='Only use up to MAX_SNPS. Useful for testing (use all)')
-		
-	other = parser.add_argument_group('Other')
-	other.add_argument('-v', '--verbose', action='store_true', default=False)
-	other.add_argument('-t', '--threads', dest='threads', default=1, help='Number of threads to use')
-			
+		default=float('Inf'), help='only use <= MAX_SNPS (use all)')
+					
 	args = vars(parser.parse_args())
 	
 	return args
@@ -61,6 +59,7 @@ def parse_snps_summary(inpath):
 def identify_samples(args):
 	""" Identify samples with sufficient depth for target genome-cluster """
 	samples = []
+	sample_list = [x.rstrip() for x in open(args['sample_list']).readlines()] if args['sample_list'] else None
 	for sample_id in os.listdir(args['in']):
 		# read in summary stats for sample across genome-clusters
 		indir = '/'.join([args['in'], sample_id])
@@ -70,7 +69,9 @@ def identify_samples(args):
 		else:
 			snps_summary = parse_snps_summary(inpath)
 		# check whether sample passes QC
-		if args['genome_cluster'] not in snps_summary:
+		if args['sample_list'] and sample_id not in sample_list:
+			continue
+		elif args['genome_cluster'] not in snps_summary:
 			continue
 		elif float(snps_summary[args['genome_cluster']]['average_depth']) < args['sample_depth']:
 			continue
@@ -208,6 +209,13 @@ def write_consensus(args, samples, filtered_snps):
 			i += 1
 	outfile.write('\n')
 
+def build_tree(args):
+	"""	Use FastTree to build phylogenetic tree of consensus sequences """
+	inpath = '%s/%s.fasta' % (args['out'], args['genome_cluster'])
+	outpath = '%s/%s.tree' % (args['out'], args['genome_cluster'])
+	p = subprocess.Popen('FastTree -nt -boot 100 < %s > %s' % (inpath, outpath), shell=True)
+	p.wait()
+
 if __name__ == '__main__':
 
 	args = parse_arguments()
@@ -228,5 +236,8 @@ if __name__ == '__main__':
 
 	print("Writing consensus sequences")
 	write_consensus(args, samples, filtered_snps)
+
+	print("Building phylogenetic tree")
+	build_tree(args)
 
 			
