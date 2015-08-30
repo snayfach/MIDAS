@@ -6,6 +6,10 @@ IN PROGRESS
 CHANGES
 
 2015-08-26
+ * run_phylo_cnv.py: capable of running three different programs (species, genes, snvs)
+ * phylo_cnv.py: split up into three separate modules (species.py, pangenome.py, snvs.py)
+
+2015-08-26
  * added merge_genes.py: new script for building multi-sample gene matrix
  * phylo_cnv.py: report gene summary statistics
  * phylo_cnv.py: genes now reported in sorted order
