@@ -1,11 +1,43 @@
 TO DO
- * split up run_phylo_cnv in separate modules for species abundance, gene +/-, and snps
+ * followup on MicrobeCensus crashing issue
+ * fix --sample_list in merge_genes.py
+ * determine ideal word size for sensitive search
+ * determine ideal alignment coverage (currently at 0.75)
+ * determine if sensitive settings chage the % unclassified in real datasets
 
 IN PROGRESS
 
 CHANGES
 
-2015-08-26
+2015-09-17
+ * renamed pangenome.py to cnvs.py
+ * run_phylo_cnv.py: removed option '--cluster_pid'
+ * run_phylo_cnv.py: fixed minor bug when parsing '--gc_id'
+ * cnvs.py: no longer aggregating gene coverage
+ * merge_genes.py: added option '--cluster_pid'
+ * merge_genes.py: fixed option '--sample_list'
+ * merge_genes.py: added option '--include_ref'
+
+2015-09-08
+ * fq_to_fa.py: no longer filtering reads with leading 'N'
+ * updated binaries: bin/Linux/hs-blastn and bin/Darwin/hs-blastn 
+   -reads from /dev/stdin without error
+   -reads sequences composed of all Ns without error
+ * updated database: phylo_db/marker_genes/hs-blastn*
+ * removed binaries: bin/Linux/blastn and bin/Darwin/blastn
+ * species.py: removed references to blastn
+ * species.py: 'speed' argument: args['speed'] == fast now runs hs-blastn with word_size = 18
+ * fq_to_fa.py: sequence ids now contain sequence length
+ * species.py: added 0.75 query alignment coverage filter
+
+2015-09-05
+ * species.py: added option for cellular relative abundance, which requires running MicrobeCensus
+
+2015-08-31
+ * run_phylo_cnv.py: fixed bug when parsing gc_ids. now gc_ids are split into list on commas
+ * pangenome.py: fixed division by zero bug in genes_summary function
+
+2015-08-30
  * run_phylo_cnv.py: capable of running three different programs (species, genes, snvs)
  * phylo_cnv.py: split up into three separate modules (species.py, pangenome.py, snvs.py)
 

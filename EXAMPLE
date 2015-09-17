@@ -4,6 +4,13 @@ export PYTHONPATH=$PYTHONPATH:$WORK/projects/strain_variation/phylo_cnv
 
 cd $WORK/projects/strain_variation/phylo_cnv
 
+
+run_phylo_cnv.py species \
+-1 phylo_cnv/example/example_1.fastq.gz \
+-D phylo_db/marker_genes \
+-o $WORK/test/test.species \
+-m -v -s fast
+
 run_phylo_cnv.py \
 -1 phylo_cnv/example/example_1.fastq.gz \
 -D $WORK/projects/strain_variation/phylo_cnv/phylo_db/genome_clusters \
