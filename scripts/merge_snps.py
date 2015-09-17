@@ -11,7 +11,7 @@
 
 __version__ = '0.0.2'
 
-import argparse, sys, os, gzip, subprocess
+import argparse, sys, os, gzip, subprocess, tempfile
 
 def parse_arguments():
 	""" Parse command line arguments """
@@ -22,6 +22,7 @@ def parse_arguments():
 	io.add_argument('-i', '--indir', type=str, dest='in', help='input directory', required=True)
 	io.add_argument('-o', '--outdir', type=str, dest='out', help='output directory', required=True)
 	io.add_argument('-g', '--genome_cluster', type=str,  help='genome cluster id', required=True)
+	io.add_argument('-m', '--matrix', type=str,  help='reference SNP matrix', required=False)
 	
 	sample = parser.add_argument_group('Sample filters')
 	sample.add_argument('--sample_list', dest='sample_list', type=str,
@@ -42,6 +43,7 @@ def parse_arguments():
 		default=float('Inf'), help='only use <= MAX_SNPS (use all)')
 					
 	args = vars(parser.parse_args())
+	args['consensus'] = '%s/%s.fasta' % (args['out'], args['genome_cluster'])
 	
 	return args
 
@@ -175,12 +177,14 @@ def filter_snps_write_matrices(args, snpfiles, outfiles, samples):
 		file.close()
 	for file in outfiles.values(): # close open file handles
 		file.close()
-	return filtered_snps
 
-def write_consensus(args, samples, filtered_snps):
-	""" Write consensus sequences from samples and reference genome """
-	outfile = open('%s/%s.fasta' % (args['out'], args['genome_cluster']), 'w')
+def write_consensus(args, samples):
+	""" Write consensus sequences from samples """
+	outfile = open(args['consensus'], 'w')
+	
+	filtered_snps = read_filtered_snps(args) # get snp list
 	n = len(filtered_snps) # number of snps in list
+	
 	# write consensus seqs for samples
 	for sample_id in samples:
 		i = 0 # index position in snp list
@@ -195,19 +199,67 @@ def write_consensus(args, samples, filtered_snps):
 				outfile.write('-' if snp['cons_allele'] == 'NA' else snp['cons_allele']) # write base
 				i += 1
 		outfile.write('\n')
-	# add consensus seqs for reference
+#	# add consensus seqs for reference
+#	i = 0 # index position in snp list
+#	outfile.write('>representative_genome\n') # sequence header
+#	inpath = '%s/%s/snps/%s.snps.gz' % (args['in'], samples[0], args['genome_cluster'])
+#	for snp in parse_snps(inpath):
+#		if i == n: # no more snps in list
+#			break
+#		elif [snp['ref_id'], snp['ref_pos']] != filtered_snps[i]: # snp not in list
+#			continue
+#		else: # snp in list
+#			outfile.write(snp['ref_allele']) # write base
+#			i += 1
+#	outfile.write('\n')
+
+
+def read_filtered_snps(args):
+	snps = []
+	inpath = '%s/%s.hq_snps' % (args['out'], args['genome_cluster'])
+	for line in open(inpath):
+		snps.append(line.rstrip().split())
+	return snps
+
+def add_ref_alleles(args):
+	""" Add partial genotypes from reference genomes """
+	
+	meta_snps = read_filtered_snps(args) # get snp list
+	n_snps = len(meta_snps) # length of snp list
+	ref_snps = gzip.open(args['matrix']) # open file of reference genotypes
+	max_genomes = 300 # maximum genomes to use from matrix
+	
+	# open tempfiles for reference genotypes
+	tempfiles = [] #
+	for line in ref_snps:
+		genomes = line.rstrip().split()[2:max_genomes+1]
+		for genome in genomes:
+			file = open(tempfile.mkstemp()[1], 'w')
+			file.write('>%s\n' % genome)
+			tempfiles.append(file)
+		break
+		
+	# write reference genotypes to temp files
 	i = 0 # index position in snp list
-	outfile.write('>representative_genome\n') # sequence header
-	inpath = '%s/%s/snps/%s.snps.gz' % (args['in'], samples[0], args['genome_cluster'])
-	for snp in parse_snps(inpath):
-		if i == n: # no more snps in list
+	for line in ref_snps: # get partial genotypes for reference genomes
+		ref_snp = line.rstrip().split()
+		if i == n_snps: # no more snps in meta_snp list
 			break
-		elif [snp['ref_id'], snp['ref_pos']] != filtered_snps[i]: # snp not in list
+		elif ref_snp[0:2] != meta_snps[i]: # ref_snp not in meta_snp list
 			continue
-		else: # snp in list
-			outfile.write(snp['ref_allele']) # write base
-			i += 1
-	outfile.write('\n')
+		else: # ref_snp in meta_snp list
+			genotypes = ref_snp[2:max_genomes+1]
+			for genotype, outfile in zip(genotypes, tempfiles):
+				outfile.write(genotype)
+			i += 1 # increment index
+	
+	# append reference genotypes to fasta
+	outfile = open(args['consensus'], 'a')
+	for f in tempfiles:
+		f.close()
+		f = open(f.name)
+		outfile.write(f.read()+'\n')
+		os.remove(f.name)
 
 def build_tree(args):
 	"""	Use FastTree to build phylogenetic tree of consensus sequences """
@@ -221,7 +273,6 @@ if __name__ == '__main__':
 	args = parse_arguments()
 	if not os.path.isdir(args['out']): os.mkdir(args['out'])
 
-	# id samples with sufficient depth
 	print("Identifying samples")
 	samples = identify_samples(args)
 	
@@ -232,11 +283,15 @@ if __name__ == '__main__':
 	outfiles = open_outfiles(args, samples)
 
 	print("Identifying and writing hq snps")
-	filtered_snps = filter_snps_write_matrices(args, snpfiles, outfiles, samples)
+	filter_snps_write_matrices(args, snpfiles, outfiles, samples)
 
 	print("Writing consensus sequences")
-	write_consensus(args, samples, filtered_snps)
+	write_consensus(args, samples)
 
+	if args['matrix']:
+		print("Adding references sequences")
+		add_ref_alleles(args)
+		
 	print("Building phylogenetic tree")
 	build_tree(args)
 

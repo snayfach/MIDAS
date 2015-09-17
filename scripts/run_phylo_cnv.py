@@ -63,8 +63,8 @@ def run_program(program, args):
 		from phylo_cnv import species
 		species.estimate_abundance(args)
 	elif program == 'genes':
-		from phylo_cnv import pangenome
-		pangenome.run_pipeline(args)
+		from phylo_cnv import cnvs
+		cnvs.run_pipeline(args)
 	elif program == 'snvs':
 		from phylo_cnv import snvs
 		snvs.run_pipeline(args)
@@ -76,20 +76,25 @@ def species_arguments():
 	parser = argparse.ArgumentParser(usage='phylo_cnv.py species [options]')
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
-	io = parser.add_argument_group('Input/Output (required)')
-	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads', required=True)
-	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
-	io.add_argument('-D', type=str, dest='db', help='Directory to marker gene database', required=True)
-	io.add_argument('-o', type=str, dest='out', help='Path to output file', required=True)
-	speed = parser.add_argument_group('Pipeline speed')
-	speed.add_argument('-s', type=str, dest='speed', default='fast', choices=['fast','sensitive'], help='Alignment speed/sensitivity (fast)')
-	speed.add_argument('-n', type=int, dest='reads', help='# reads to use from input file(s) (use all)')
-	speed.add_argument('-t', dest='threads', default=1, help='Number of threads to use')
+	parser.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads', required=True)
+	parser.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
+	parser.add_argument('-D', type=str, dest='db', help='Directory to marker gene database', required=True)
+	parser.add_argument('-o', type=str, dest='out', help='Path to output file', required=True)
+	parser.add_argument('-m', action='store_true', default=False, dest='norm', help='Estimate cellular relative abundance. Requires running MicrobeCensus and takes 20-30 minutes longer to complete.')
+	parser.add_argument('-s', type=str, dest='speed', default='fast', choices=['fast','sensitive'], help='Alignment speed/sensitivity (fast)')
+	parser.add_argument('-n', type=int, dest='reads', help='# reads to use from input file(s) (use all)')
+	parser.add_argument('-t', dest='threads', default=1, help='Number of threads to use')
 	args = vars(parser.parse_args())
 	return args
 
 def check_species(args):
-	pass
+	for arg in ['m1', 'm2']:
+		if args[arg] and not os.path.isfile(args[arg]):
+			sys.exit("\nInput file does not exist: '%s'" % args[arg])
+	if not os.path.isdir(args['db']):
+		sys.exit("\nDatabase directory does not exist: '%s'" % args['db'])
+	if not os.path.isdir(os.path.dirname(args['out'])):
+		sys.exit("\nOutput directory does not exist: '%s'" % os.path.dirname(args['out']))
 
 def pangenome_arguments():
 	""" Get arguments for metagenomic pangenome profiling """
@@ -102,7 +107,7 @@ def pangenome_arguments():
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
 	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
-	io.add_argument('-D', type=str, dest='db', help='Directory to genome-clusters database')
+	io.add_argument('-D', type=str, dest='db', help='Directory to genome-clusters database', required=True)
 	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
 	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
 
@@ -134,11 +139,10 @@ def pangenome_arguments():
 		default=93.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (93.0)')
 	map.add_argument('--aln_cov', type=float, dest='aln_cov',
 		default=0.70, help='Discard alignments where read coverage < ALN_COV. Higher values indicate that reads must be globally covered by alignment (0.70)')
-	map.add_argument('--cluster_pid', type=str, dest='cluster_pid',
-		default='97.5', choices=['90', '92.5', '95', '97.5', '99'],
-		help='Reference gene cluster percent ID (97.5)')
 
 	args = vars(parser.parse_args())
+	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
+	
 	return args
 
 def snv_arguments():
@@ -190,6 +194,8 @@ def snv_arguments():
 		default=20, help='Minimum base quality (20)')
 
 	args = vars(parser.parse_args())
+	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
+	
 	return args
 
 def check_genes(args):

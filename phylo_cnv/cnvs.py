@@ -110,8 +110,10 @@ def genes_summary(args):
 				total_coverage += coverage
 			if normcov > 0:
 				phyeco_coverage = coverage/normcov
-		stats[cluster_id] = {'pangenome_size':pangenome_size, 'covered_genes':covered_genes,
-							 'mean_coverage':total_coverage/covered_genes, 'phyeco_coverage':phyeco_coverage}
+		stats[cluster_id] = {'pangenome_size':pangenome_size,
+							 'covered_genes':covered_genes,
+							 'mean_coverage':total_coverage/covered_genes if covered_genes > 0 else 0.0,
+							 'phyeco_coverage':phyeco_coverage}
 	# write stats
 	fields = ['pangenome_size', 'covered_genes', 'mean_coverage', 'phyeco_coverage']
 	outfile = open('/'.join([args['out'], 'genes_summary_stats.txt']), 'w')
@@ -149,28 +151,6 @@ def count_mapped_bp(args):
 			cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
 			ref_to_cov[ref_id] += cov
 	return ref_to_cov
-
-def read_centroid_map(args, genome_clusters):
-	""" Map 99% ID pangenome centroids to a lower level (90, 92.5, 95, 97.5)"""
-	centroid_map = {}
-	for cluster_id in genome_clusters:
-		inpath = '/'.join([args['db'], cluster_id, 'gene_family_map.txt.gz'])
-		infile = gzip.open(inpath)
-		next(infile)
-		for line in infile:
-			x = line.rstrip().split()
-			y = {'90':x[0], '92.5':x[1], '95':x[2], '97.5':x[3], '99':x[4]}
-			centroid_map[y['99']] = y[args['cluster_pid']]
-	return centroid_map
-
-def aggregate_coverage(args, ref_to_cov, genome_clusters):
-	""" Aggregate gene coverage at given percent identity clustering """
-	centroid_map = read_centroid_map(args, genome_clusters)
-	centroid_to_cov = dict([(x, 0.0) for x in set(centroid_map.values())])
-	for ref_id, cov in ref_to_cov.items():
-		ref_id2 = centroid_map[ref_id]
-		centroid_to_cov[ref_id2] += cov
-	return centroid_to_cov
 
 def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 	""" Count number of bp mapped to each PhyEco marker gene """
@@ -226,9 +206,6 @@ def compute_pangenome_coverage(args):
 	ref_to_cov = count_mapped_bp(args)
 	# compute normalization factor
 	cluster_to_norm = compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster)
-	# aggregate coverages
-	if args['cluster_pid'] != '99':
-		ref_to_cov = aggregate_coverage(args, ref_to_cov, genome_clusters)
 	# write to output files
 	for ref_id in sorted(ref_to_cov):
 		cov = ref_to_cov[ref_id]

@@ -47,16 +47,25 @@ def readfq(fp):
 				yield name, seq, None # yield a fasta record instead
 				break
 
-if __name__ == "__main__":
+def main():
+	""" Run main pipeline """
 	max_reads = int(sys.argv[2]) if len(sys.argv) == 3 else float('Inf')
-	index = 0
+	reads = 0
+	bp = 0
 	for inpath in sys.argv[1].split(','):
 		infile = iopen(inpath)
 		for name, seq, qual in readfq(infile):
-			if seq[0] != 'N': # discard sequences with a leading 'N'
-				sys.stdout.write('>%s\n%s\n' % (name, seq))
-				index += 1
-				if index == max_reads: break
+			seq_len = len(seq)
+			sys.stdout.write('>%s_%s\n%s\n' % (name, seq_len, seq))
+			reads += 1
+			bp += seq_len
+			if reads == max_reads:
+				sys.stderr.write('%s\t%s' % (reads, bp)) # write number of reads, bp to stderr
+				return
+	sys.stderr.write('%s\t%s' % (reads, bp)) # write number of reads, bp to stderr
+
+if __name__ == "__main__":
+	main()
 
 
 

@@ -4,10 +4,11 @@
 # ---------
 import sys, os, subprocess
 from random import sample
-from numpy.random import choice
+import numpy as np
 from time import time
 from platform import system
 import resource
+from tempfile import mkstemp
 
 # Functions
 # ---------
@@ -21,8 +22,6 @@ def parse_relative_paths(args):
 		main_dir = os.path.dirname(os.path.abspath(__file__))
 		paths['hs-blastn'] = '/'.join([main_dir, 'bin', system(), 'hs-blastn'])
 		assert(os.path.isfile(paths['hs-blastn']))
-		paths['blastn'] = '/'.join([main_dir, 'bin', system(), 'blastn'])
-		assert(os.path.isfile(paths['blastn']))
 		paths['fa_to_fq'] = '/'.join([main_dir, 'fa_to_fq.py'])
 		assert(os.path.isfile(paths['fa_to_fq']))
 		paths['cluster_ids'] = '/'.join([main_dir,'data','cluster_annotations.txt'])
@@ -31,26 +30,20 @@ def parse_relative_paths(args):
 		assert(os.path.isfile(paths['gene_length']))
 		paths['marker_cutoffs'] = '/'.join([main_dir,'data','pid_cutoffs.txt'])
 		assert(os.path.isfile(paths['marker_cutoffs']))
+		paths['tempfile'] = mkstemp()[1]
 	return paths
-
-def map_reads_blast(args, paths):
-	""" Use blastn to map reads in fasta file to marker database """
-	command = 'python %s %s' % (paths['fa_to_fq'], args['m1']) # fasta to fastq
-	if args['m2']: command += ',%s' % args['m2'] # and mate if specified
-	if args['reads']: command += ' %s' % args[reads] # number of reads if specified
-	command += ' | %s' % paths['blastn'] # pipe to blastn
-	command += ' -query /dev/stdin -db %s/blast ' % args['db'] # specify db
-	command += ' -out /dev/stdout -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
-	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	stdout, stderr = process.communicate()
-	return stdout
 
 def map_reads_hsblast(args, paths):
 	""" Use hs-blastn to map reads in fasta file to marker database """
-	command = 'python %s %s' % (paths['fa_to_fq'], args['m1']) # fasta to fastq
+	# fasta to fastq
+	command = 'python %s' % paths['fa_to_fq']
+	command += ' %s' % args['m1'] # fastq
 	if args['m2']: command += ',%s' % args['m2'] # and mate if specified
-	if args['reads']: command += ' %s' % args[reads] # number of reads if specified
-	command += ' | %s align' % paths['hs-blastn'] # pipe to hs-blastn
+	if args['reads']: command += ' %s' % args['reads'] # number of reads if specified
+	command += ' 2> %s' % paths['tempfile'] # tmpfile to store # of reads, bp sampled
+	# hs-blastn
+	command += ' | %s align' % paths['hs-blastn']
+	if args['speed'] == 'sensitive': command += ' -word_size 18' # decrease word size for more sensisitve search
 	command += ' -query /dev/stdin -db %s/hs-blast' % args['db'] # specify db
 	command += ' -out /dev/stdout -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -65,15 +58,22 @@ def parse_blast(blastout):
 		values = line.rstrip().split()
 		yield dict([(field, format(value)) for field, format, value in zip(fields, formats, values)])
 
+def query_coverage(aln):
+	""" Compute alignment coverage of query """
+	return float(aln['aln'])/int(aln['query'].split('_')[-1])
+
 def find_best_hits(blastout, paths, args):
 	""" Find top scoring alignment for each read """
 	best_hits = {}
 	marker_cutoffs = get_markers(paths)
 	i = 0
+	qcovs = []
 	for aln in blastout:
 		i += 1
 		marker_id = aln['target'].split('_')[-1]
 		if aln['pid'] < marker_cutoffs[marker_id]: # does not meet marker cutoff
+			continue
+		elif query_coverage(aln) < 0.75: # filter local alignments
 			continue
 		elif aln['query'] not in best_hits: # record aln
 			best_hits[aln['query']] = [aln]
@@ -112,7 +112,7 @@ def assign_non_unique(args, paths, alns, unique_alns):
 				cluster_id = sample(clusters, 1)[0]
 			else:
 				probs = [float(count)/sum(counts) for count in counts]
-				cluster_id = choice(clusters, 1, p=probs)[0]
+				cluster_id = np.random.choice(clusters, 1, p=probs)[0]
 			total_alns[cluster_id].append(aln[clusters.index(cluster_id)])
 	return total_alns
 
@@ -173,19 +173,19 @@ def normalize_counts(cluster_alns, total_gene_length):
 	return cluster_abundance
 
 def estimate_abundance(args):
+	
 	""" Run entire pipeline """
 	# impute missing args & get relative file paths
 	paths = parse_relative_paths(args)
+	
 	# align reads
 	start = time()
 	if args['verbose']: print("\nAligning reads")
-	if args['speed'] == 'fast':
-		blastout = parse_blast(map_reads_hsblast(args, paths))
-	else:
-		blastout = parse_blast(map_reads_blast(args, paths))
+	blastout = parse_blast(map_reads_hsblast(args, paths))
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory") % max_mem_usage()
+	
 	# find best hit for each read
 	start = time()
 	if args['verbose']: print("\nClassifying reads")
@@ -195,6 +195,7 @@ def estimate_abundance(args):
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory") % max_mem_usage()
+	
 	# estimate genome cluster abundance
 	start = time()
 	if args['verbose']: print("\nEstimating cluster abundance")
@@ -203,8 +204,30 @@ def estimate_abundance(args):
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory") % max_mem_usage()
+	
+	# convert to cellular relative abundances
+	if args['norm']:
+		start = time()
+		if args['verbose']: print("\nConverting to cellular relative abundances")
+		from microbe_census import microbe_census
+		ags = microbe_census.run_pipeline({'seqfile':args['m1']})[0]
+		reads, bp = [int(x) for x in open(paths['tempfile']).read().rstrip().split()]
+		genomes = bp/float(ags)
+		for cluster_id in cluster_abundance:
+			cov = cluster_abundance[cluster_id]['cov']
+			cluster_abundance[cluster_id]['rel_abun'] = cov/genomes
+		if args['verbose']:
+			print("  average genome size: %s" % round(ags,2))
+			print("  total bp sampled: %s" % bp)
+			print("  total genome coverage: %s" % round(genomes,2))
+			print("  %s minutes" % round((time() - start)/60, 2) )
+			print("  %s Gb maximum memory") % max_mem_usage()
+
 	# write results
 	write_abundance(args['out'], cluster_abundance)
+
+	# clean up
+	os.remove(paths['tempfile'])
 
 def write_abundance(outpath, cluster_abundance):
 	""" Write cluster results to specified output file """
