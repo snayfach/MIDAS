@@ -30,8 +30,13 @@ def parse_relative_paths(args):
 		assert(os.path.isfile(paths['gene_length']))
 		paths['marker_cutoffs'] = '/'.join([main_dir,'data','pid_cutoffs.txt'])
 		assert(os.path.isfile(paths['marker_cutoffs']))
-		paths['tempfile'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.read_count')[1] #
-		paths['blastout'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.m8')[1] #
+		
+		paths['tempfile'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.read_count')[1]
+		paths['blastout'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.m8')[1]
+
+		paths['db'] = '%s/ref_db/marker_genes' % os.path.dirname(main_dir)
+		assert(os.path.isdir(paths['db']))
+
 	return paths
 
 def map_reads_hsblast(args, paths):
@@ -45,7 +50,7 @@ def map_reads_hsblast(args, paths):
 	# hs-blastn
 	command += ' | %s align' % paths['hs-blastn']
 	if args['speed'] == 'sensitive': command += ' -word_size 18' # decrease word size for more sensisitve search
-	command += ' -query /dev/stdin -db %s/hs-blast' % args['db'] # specify db
+	command += ' -query /dev/stdin -db %s/hs-blast' % paths['db'] # specify db
 	command += ' -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
 	command += ' -out %s' % paths['blastout'] # output file
 	command += ' -evalue 1e-3' # %id for reporting hits

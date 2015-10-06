@@ -78,7 +78,6 @@ def species_arguments():
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads', required=True)
 	parser.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
-	parser.add_argument('-D', type=str, dest='db', help='Directory to marker gene database', required=True)
 	parser.add_argument('-o', type=str, dest='out', help='Path to output file', required=True)
 	parser.add_argument('-k', dest='keep_temp', default=False, action='store_true', help='Keep temporary files, including BLAST output')
 	parser.add_argument('-m', action='store_true', default=False, dest='norm', help='Estimate cellular relative abundance. Requires running MicrobeCensus and takes 20-30 minutes longer to complete.')
@@ -92,8 +91,6 @@ def check_species(args):
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
 			sys.exit("\nInput file does not exist: '%s'" % args[arg])
-	if not os.path.isdir(args['db']):
-		sys.exit("\nDatabase directory does not exist: '%s'" % args['db'])
 	if not os.path.isdir(os.path.dirname(args['out'])):
 		sys.exit("\nOutput directory does not exist: '%s'" % os.path.dirname(args['out']))
 
@@ -109,7 +106,6 @@ def pangenome_arguments():
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
 	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
-	io.add_argument('-D', type=str, dest='db', help='Directory to genome-clusters database', required=True)
 	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
 	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
 
@@ -159,7 +155,6 @@ def snv_arguments():
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
 	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
-	io.add_argument('-D', type=str, dest='db', help='Directory to genome-clusters database')
 	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
 	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
 
@@ -226,9 +221,6 @@ def check_genes(args):
 	# genome cluster selection options, but no no profile file
 	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile']:
 		sys.exit("\nTo specify genome-clusters with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
-	# no path to genome-clusters database
-	if args['build_db'] and not args['db']:
-		sys.exit("\nTo build a pangenome database, you must specify path to genome-clusters database (-D)")
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
@@ -285,9 +277,6 @@ def check_snvs(args):
 	# genome cluster selection options, but no no profile file
 	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile']:
 		sys.exit("\nTo specify genome-clusters with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
-	# no path to genome-clusters database
-	if args['build_db'] and not args['db']:
-		sys.exit("\nTo build a genome database, you must specify path to genome-clusters database (-D)")
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']

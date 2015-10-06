@@ -31,6 +31,7 @@ def add_paths(args):
 		args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
 		args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
 		args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
+		args['db'] = '/'.join([os.path.dirname(main_dir), 'ref_db/genome_clusters'])
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
