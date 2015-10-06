@@ -253,6 +253,16 @@ def build_pangenome_db(args, genome_clusters):
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
 
+def remove_tmp(args):
+	""" Optionally remove specified temporary files """
+	if 'bowtie2_db' in args['remove']:
+		os.remove('/'.join([args['out'], 'db/pangenomes.fa']))
+		for file in os.listdir('%s/db' % args['out']):
+			if file.split('.')[-1] == 'bt2' and file.split('.')[0] == 'pangenomes':
+				os.remove('%s/db/%s' % (args['out'], file))
+	if 'bam'in args['remove']:
+		os.remove('%s/pangenome.bam' % args['out'])
+		
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
@@ -288,5 +298,11 @@ def run_pipeline(args):
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
+
+	# Optionally remove temporary files
+	if args['remove']:
+		remove_tmp(args)
+
+		
 
 

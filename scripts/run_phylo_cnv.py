@@ -80,6 +80,7 @@ def species_arguments():
 	parser.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
 	parser.add_argument('-D', type=str, dest='db', help='Directory to marker gene database', required=True)
 	parser.add_argument('-o', type=str, dest='out', help='Path to output file', required=True)
+	parser.add_argument('-k', dest='keep_temp', default=False, action='store_true', help='Keep temporary files, including BLAST output')
 	parser.add_argument('-m', action='store_true', default=False, dest='norm', help='Estimate cellular relative abundance. Requires running MicrobeCensus and takes 20-30 minutes longer to complete.')
 	parser.add_argument('-s', type=str, dest='speed', default='fast', choices=['fast','sensitive'], help='Alignment speed/sensitivity (fast)')
 	parser.add_argument('-n', type=int, dest='reads', help='# reads to use from input file(s) (use all)')
@@ -103,6 +104,7 @@ def pangenome_arguments():
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('--debug', action='store_true', default=False, help='Print out shell commands for debugging purposes')
 	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
+	parser.add_argument('--remove', choices=['bowtie2_db', 'bam'], nargs='*', help='Remove specified temporary files')
 	
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
@@ -152,6 +154,7 @@ def snv_arguments():
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('--debug', action='store_true', default=False, help='Print out shell commands for debugging purposes')
 	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
+	parser.add_argument('--remove', choices=['bowtie2_db', 'bam', 'vcf'], nargs='*', help='Remove specified temporary files')
 	
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')

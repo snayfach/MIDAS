@@ -30,7 +30,8 @@ def parse_relative_paths(args):
 		assert(os.path.isfile(paths['gene_length']))
 		paths['marker_cutoffs'] = '/'.join([main_dir,'data','pid_cutoffs.txt'])
 		assert(os.path.isfile(paths['marker_cutoffs']))
-		paths['tempfile'] = mkstemp()[1]
+		paths['tempfile'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.read_count')[1] #
+		paths['blastout'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.m8')[1] #
 	return paths
 
 def map_reads_hsblast(args, paths):
@@ -45,16 +46,18 @@ def map_reads_hsblast(args, paths):
 	command += ' | %s align' % paths['hs-blastn']
 	if args['speed'] == 'sensitive': command += ' -word_size 18' # decrease word size for more sensisitve search
 	command += ' -query /dev/stdin -db %s/hs-blast' % args['db'] # specify db
-	command += ' -out /dev/stdout -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
+	command += ' -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
+	command += ' -out %s' % paths['blastout'] # output file
+	command += ' -evalue 1e-3' # %id for reporting hits
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	stdout, stderr = process.communicate()
-	return stdout
+	#print stdout, stderr
 
-def parse_blast(blastout):
+def parse_blast(inpath):
 	""" Yield formatted record from BLAST m8 file """
 	formats = [str,str,float,int,float,float,float,float,float,float,float,float]
 	fields = ['query','target','pid','aln','mis','gaps','qstart','qend','tstart','tend','evalue','score']
-	for line in blastout.split('\n')[0:-1]:
+	for line in open(inpath):
 		values = line.rstrip().split()
 		yield dict([(field, format(value)) for field, format, value in zip(fields, formats, values)])
 
@@ -62,13 +65,13 @@ def query_coverage(aln):
 	""" Compute alignment coverage of query """
 	return float(aln['aln'])/int(aln['query'].split('_')[-1])
 
-def find_best_hits(blastout, paths, args):
+def find_best_hits(paths, args):
 	""" Find top scoring alignment for each read """
 	best_hits = {}
 	marker_cutoffs = get_markers(paths)
 	i = 0
 	qcovs = []
-	for aln in blastout:
+	for aln in parse_blast(paths['blastout']):
 		i += 1
 		marker_id = aln['target'].split('_')[-1]
 		if aln['pid'] < marker_cutoffs[marker_id]: # does not meet marker cutoff
@@ -181,7 +184,7 @@ def estimate_abundance(args):
 	# align reads
 	start = time()
 	if args['verbose']: print("\nAligning reads")
-	blastout = parse_blast(map_reads_hsblast(args, paths))
+	map_reads_hsblast(args, paths)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory") % max_mem_usage()
@@ -189,7 +192,7 @@ def estimate_abundance(args):
 	# find best hit for each read
 	start = time()
 	if args['verbose']: print("\nClassifying reads")
-	best_hits = find_best_hits(blastout, paths, args)
+	best_hits = find_best_hits(paths, args)
 	unique_alns = assign_unique(args, paths, best_hits)
 	cluster_alns = assign_non_unique(args, paths, best_hits, unique_alns)
 	if args['verbose']:
@@ -227,7 +230,9 @@ def estimate_abundance(args):
 	write_abundance(args['out'], cluster_abundance)
 
 	# clean up
-	os.remove(paths['tempfile'])
+	if not args['keep_temp']:
+		os.remove(paths['tempfile'])
+		os.remove(paths['blastout'])
 
 def write_abundance(outpath, cluster_abundance):
 	""" Write cluster results to specified output file """

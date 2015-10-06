@@ -27,6 +27,6 @@ setup(
 	author = 'Stephen Nayfach',
 	author_email='snayfach@gmail.com',
 	url='https://github.com/snayfach/PhyloCNV',
-	install_requires = ['biopython', 'numpy', 'pysam'],
+	install_requires = ['biopython', 'numpy', 'pysam', 'microbe_census'],
 	cmdclass={'install_lib':my_install_lib}
 )

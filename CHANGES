@@ -1,6 +1,6 @@
 TO DO
+ * add script to automatically run all pipeline steps on multiple samples
  * followup on MicrobeCensus crashing issue
- * fix --sample_list in merge_genes.py
  * determine ideal word size for sensitive search
  * determine ideal alignment coverage (currently at 0.75)
  * determine if sensitive settings chage the % unclassified in real datasets
@@ -9,6 +9,9 @@ IN PROGRESS
 
 CHANGES
 
+2015-10-06
+ * snvs.py: fixed path to filter_bam.py
+
 2015-09-17
  * renamed pangenome.py to cnvs.py
  * run_phylo_cnv.py: removed option '--cluster_pid'
@@ -16,7 +19,9 @@ CHANGES
  * cnvs.py: no longer aggregating gene coverage
  * merge_genes.py: added option '--cluster_pid'
  * merge_genes.py: fixed option '--sample_list'
- * merge_genes.py: added option '--include_ref'
+ * merge_genes.py: added reference genome profiles
+ * run_phylo_cnv.py: added option '--remove_tmp'
+ * snvs.py, cnvs.py: added support for '--remove' option
 
 2015-09-08
  * fq_to_fa.py: no longer filtering reads with leading 'N'

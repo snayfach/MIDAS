@@ -30,7 +30,7 @@ def add_paths(args):
 		args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
 		args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
 		args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
-		args['filter_bam'] = '/'.join([main_dir, 'bin', 'filter_bam.py'])
+		args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
@@ -301,6 +301,21 @@ def build_genome_db(args, genome_clusters):
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
 
+def remove_tmp(args):
+	""" Remove specified tmp files """
+	if 'bowtie2_db' in args['remove']:
+		os.remove('/'.join([args['out'], 'db/genomes.fa']))
+		os.remove('/'.join([args['out'], 'db/genomes.fa.fai']))
+		for file in os.listdir('%s/db' % args['out']):
+			if file.split('.')[-1] == 'bt2' and file.split('.')[0] == 'genomes':
+				os.remove('%s/db/%s' % (args['out'], file))
+	if 'bam'in args['remove']:
+		os.remove('%s/genomes.bam' % args['out'])
+	if 'vcf'in args['remove']:
+		import shutil
+		shutil.rmtree('%s/vcf' % args['out'])
+		os.remove('%s/genomes.vcf' % args['out'])
+
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
@@ -346,4 +361,8 @@ def run_pipeline(args):
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
 			print("  %s Gb maximum memory") % max_mem_usage()
+
+	# Optionally remove temporary files
+	if args['remove']:
+		 remove_tmp(args)
 

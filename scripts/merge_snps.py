@@ -22,13 +22,14 @@ def parse_arguments():
 	io.add_argument('-i', '--indir', type=str, dest='in', help='input directory', required=True)
 	io.add_argument('-o', '--outdir', type=str, dest='out', help='output directory', required=True)
 	io.add_argument('-g', '--genome_cluster', type=str,  help='genome cluster id', required=True)
-	io.add_argument('-m', '--matrix', type=str,  help='reference SNP matrix', required=False)
+	io.add_argument('-m', '--matrix', type=str,  help='reference SNP matrix')
+	io.add_argument('-t', '--tree', default=False, action='store_true',  help='build phylogenetic tree')
 	
 	sample = parser.add_argument_group('Sample filters')
 	sample.add_argument('--sample_list', dest='sample_list', type=str,
 		default=None, help='file of sample ids to include; each line should contain one id')
-	sample.add_argument('--sample_depth', dest='sample_depth', type=int,
-		default=2.0, help='min read depth per sample (2)')
+	sample.add_argument('--sample_depth', dest='sample_depth', type=float,
+		default=2.0, help='min average read depth per sample (2.0)')
 	sample.add_argument('--ref_coverage', dest='ref_coverage', type=float,
 		default=0.4, help='min coverage of reference genome per sample (0.4)')
 				
@@ -76,6 +77,9 @@ def identify_samples(args):
 		elif args['genome_cluster'] not in snps_summary:
 			continue
 		elif float(snps_summary[args['genome_cluster']]['average_depth']) < args['sample_depth']:
+			print sample_id
+			print snps_summary
+			quit()
 			continue
 		elif float(snps_summary[args['genome_cluster']]['fraction_covered']) < args['ref_coverage']:
 			continue
@@ -291,8 +295,9 @@ if __name__ == '__main__':
 	if args['matrix']:
 		print("Adding references sequences")
 		add_ref_alleles(args)
-		
-	print("Building phylogenetic tree")
-	build_tree(args)
+
+	if args['tree']:
+		print("Building phylogenetic tree")
+		build_tree(args)
 
 			
