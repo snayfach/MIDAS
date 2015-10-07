@@ -1,17 +1,17 @@
 ### Download the software
-Download the latest version of the software: https://github.com/snayfach/PhyloCNV/archive/v0.0.2.tar.gz
+Download the latest version of the software: https://github.com/snayfach/PhyloCNV/archive/v0.0.2.tar.gz  
 And unpack the project: `tar -zxvf PhyloCNV-0.0.2.tar.gz`
 
 Alternatively, clone directly from GitHub: `git clone https://github.com/snayfach/PhyloCNV`
 
 ### Download the reference database
-Download the PhyloCNV reference database of marker genes, pangenomes, and representative genomes.  
+Download the PhyloCNV reference database of marker genes, pangenomes, and representative genomes:    
 `python PhyloCNV/scripts/download_ref_db.py`  
 This may take several minutes to several hours, depending on your internet speed. The entire database requires ~17G of free space.
 
 ### Install the software
-Run setup.py to install:
-`python PhyloCNV/setup.py install` or
+Run setup.py to install:  
+`python PhyloCNV/setup.py install` or  
 `sudo python PhyloCNV/setup.py install` to install as a superuser
 
 Alternatively, you can manually install the software.
