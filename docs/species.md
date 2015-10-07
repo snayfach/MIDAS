@@ -28,16 +28,20 @@ optional arguments:
 A tab delimited file with a header and three fields:
 * cluster_id: species (i.e. genome-cluster) identifier
 * coverage: estimated genome-coverage of species in metagenome
-* relative_abundance: estimated relative abundance of species in metagenome
-  >If using the option -m, then relative abundances are in terms of the proportion of cells. The total relative abundance across known species will be less than 1.0, and the difference indicates the estimated relative abundance of novel species.
-  >If not using -m, then relative abundances are in terms of the proportion of known species.
+* relative_abundance: estimated relative abundance of species in metagenome  
+ * If using the option -m, then relative abundances are in terms of the proportion of cells. The total relative abundance across known species will be less than 1.0, and the difference indicates the estimated relative abundance of novel species.  
+ * If not using -m, then relative abundances are in terms of the proportion of known species.
 
 ## Example
-run_phylo_cnv.py species -1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz -o PhyloCNV/phylo_cnv/example/species_abundance.txt
+```
+run_phylo_cnv.py species \
+-1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
+-o PhyloCNV/phylo_cnv/example/species_abundance.txt
+```
 
 ## Speed
 * ~5,000 reads/second for 100-bp reads when using default parameters
 * Using -m will add an additional 20 minutes to runtime
 * Use -n and -t to increase throughput
-* Note than using -n will result in underestimated of species genome-coverage in the full metagenome
+* Note than using -n will result in underestimates of species genome-coverage in the full metagenome
 * We found that about 1 million reads was sufficient to precisely estimate species relative abundance for a gut community
