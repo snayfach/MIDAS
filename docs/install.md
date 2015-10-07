@@ -5,8 +5,9 @@ And unpack the project: `tar -zxvf PhyloCNV-0.0.2.tar.gz`
 Alternatively, clone directly from GitHub: `git clone https://github.com/snayfach/PhyloCNV`
 
 ### Download the reference database
-Download the PhyloCNV reference database of marker genes, pangenomes, and representative genomes. This may take several minutes to several hours, depending on your internet speed. The entire database requires ~17G of free space.
-`python PhyloCNV/scripts/download_ref_db.py`
+Download the PhyloCNV reference database of marker genes, pangenomes, and representative genomes.  
+`python PhyloCNV/scripts/download_ref_db.py`  
+This may take several minutes to several hours, depending on your internet speed. The entire database requires ~17G of free space.
 
 ### Install the software
 Run setup.py to install:
@@ -28,7 +29,8 @@ Finally, add the scripts directory to your PATH environmental variable:
 `export PATH=$PATH:/path/to/PhyloCNV/scripts` or  
 `echo -e "\nexport PATH=\$PATH:/path/to/PhyloCNV/scripts" >> ~/.bash_profile` to avoid entering the command in the future
 
-Now, you should be able to enter the command into your terminal without getting an error:  
+### Testing
+You should be able to enter the command into your terminal without getting an error:  
 `PhyloCNV/scripts/run_phylo_cnv.py -h`
 
 
