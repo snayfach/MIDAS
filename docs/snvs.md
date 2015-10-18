@@ -73,22 +73,25 @@ Read/base filters:
 
 ## Example
 
-### Call SNVs only for the most abundant species
+Call SNVs only for the most abundant species
+```
 run_phylo_cnv.py snvs \
 -1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
 -o PhyloCNV/phylo_cnv/example/ex1 \
 -p PhyloCNV/phylo_cnv/example/species_abundance.txt \
 --all \
 --gc_topn 1
+```
 
-### Call SNVs for all species with at least 0.5x coverage
+Call SNVs for all species with at least 0.5x coverage
+```
 run_phylo_cnv.py snvs \
 -1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
 -o PhyloCNV/phylo_cnv/example/ex1 \
 -p PhyloCNV/phylo_cnv/example/species_abundance.txt \
 --all \
 --gc_cov 0.5
-
+```
 ## Speed
 * Speed will depend on the number of species you search and the number of sequenced reference genomes per species.
 * For a single species with 1 reference genome, expect ~16,000 reads/second

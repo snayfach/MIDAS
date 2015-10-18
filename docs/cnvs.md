@@ -63,22 +63,25 @@ Computing gene coverage:
 
 ## Example
 
-### Estimate gene coverages only for the most abundant species
+Estimate gene coverages only for the most abundant species
+```
 run_phylo_cnv.py genes \
 -1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
 -o PhyloCNV/phylo_cnv/example/ex1 \
 -p PhyloCNV/phylo_cnv/example/species_abundance.txt \
 --all \
 --gc_topn 1
+```
 
-### Estimate gene coverages for all species with at least 0.5x coverage
+Estimate gene coverages for all species with at least 0.5x coverage
+```
 run_phylo_cnv.py genes \
 -1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
 -o PhyloCNV/phylo_cnv/example/ex1 \
 -p PhyloCNV/phylo_cnv/example/species_abundance.txt \
 --all \
 --gc_cov 0.5
-
+```
 
 ## Speed
 * Speed, will depend on the number of species you search and the number of reference genomes sequenced per species. 

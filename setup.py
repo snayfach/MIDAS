@@ -21,12 +21,12 @@ setup(
 	version = '0.0.2',
 	description = 'An integrated pipeline and for estimating the abundance, gene content, and phylogeny of microbial species from metagnomic data',
 	packages = ['phylo_cnv'],
-	package_data={'phylo_cnv': ['data/*', 'bin/*', 'bin/Darwin/*', 'bin/Linux/*', 'example/*']},
-	scripts=['scripts/run_phylo_species.py', 'scripts/run_phylo_cnv.py'],
+	package_data={'phylo_cnv': ['data/*', 'bin/Darwin/*', 'bin/Linux/*', 'example/*']},
+	scripts=['scripts/run_phylo_cnv.py', 'scripts/merge_snps.py', 'scripts/merge_genes.py'],
 	license = 'GPL',
 	author = 'Stephen Nayfach',
 	author_email='snayfach@gmail.com',
 	url='https://github.com/snayfach/PhyloCNV',
-	install_requires = ['biopython', 'numpy', 'pysam', 'microbe_census'],
+	install_requires = ['biopython', 'numpy', 'pysam', 'MicrobeCensus'],
 	cmdclass={'install_lib':my_install_lib}
 )
