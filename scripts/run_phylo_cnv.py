@@ -21,7 +21,7 @@ def get_program():
 	""" Get program specified by user (species, genes, or snvs) """
 	if len(sys.argv) == 1 or sys.argv[1] in ['-h', '--help']:
 		print('')
-		print('Usage: phylo_cnv.py command [options]')
+		print('Usage: run_phylo_cnv.py command [options]')
 		print('')
 		print('Commands:')
 		print('\tspecies\t rapidly estimate the abundance of genome-clusters')
@@ -73,7 +73,7 @@ def run_program(program, args):
 		
 def species_arguments():
 	""" Get arguments for metagenomic species profiling """
-	parser = argparse.ArgumentParser(usage='phylo_cnv.py species [options]')
+	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py species [options]')
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads', required=True)
@@ -96,7 +96,7 @@ def check_species(args):
 
 def pangenome_arguments():
 	""" Get arguments for metagenomic pangenome profiling """
-	parser = argparse.ArgumentParser(usage='phylo_cnv.py genes [options]')
+	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py genes [options]')
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('--debug', action='store_true', default=False, help='Print out shell commands for debugging purposes')
@@ -145,7 +145,7 @@ def pangenome_arguments():
 
 def snv_arguments():
 	""" Get arguments for metagenomic pangenome profiling """
-	parser = argparse.ArgumentParser(usage='phylo_cnv.py snvs [options]')
+	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py snvs [options]')
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('--debug', action='store_true', default=False, help='Print out shell commands for debugging purposes')

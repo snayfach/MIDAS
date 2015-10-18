@@ -9,6 +9,10 @@ IN PROGRESS
 
 CHANGES
 
+2015-10-08
+ * added annotate_snps.py
+ * merge_snps.py: made more modular
+
 2015-10-06
  * snvs.py: fixed path to filter_bam.py
  * added download_ref_db.py for easily downloading reference database
