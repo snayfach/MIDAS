@@ -109,9 +109,7 @@ def pangenome_arguments():
 	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
 	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
 
-	pipe = parser.add_argument_group('Pipeline')
-	pipe.add_argument('--all', action='store_true', dest='all',
-		default=False, help='Run entire pipeline')
+	pipe = parser.add_argument_group('Pipeline options (choose one or more; default=all)')
 	pipe.add_argument('--build_db', action='store_true', dest='build_db',
 		default=False, help='Build bowtie2 database of pangenomes')
 	pipe.add_argument('--align', action='store_true', dest='align',
@@ -119,11 +117,11 @@ def pangenome_arguments():
 	pipe.add_argument('--coverage', action='store_true', dest='cov',
 		default=False, help='Compute coverage of genes in pangenome database')
 
-	gc = parser.add_argument_group('Species to include in pangenome database')
+	gc = parser.add_argument_group('Species to target (choose one or more; default=all >= 3x coverage)')
 	gc.add_argument('--gc_topn', type=int, dest='gc_topn', help='Top N most abundant (None)')
 	gc.add_argument('--gc_cov', type=float, dest='gc_cov', help='Coverage threshold (None)')
 	gc.add_argument('--gc_rbun', type=float, dest='gc_rbun', help='Relative abundance threshold (None)')
-	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific genome cluster or comma-separated list of ids (None)')
+	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific species or comma-separated list of ids (None)')
 			
 	speed = parser.add_argument_group('Alignment speed')
 	speed.add_argument('-s', type=str, dest='speed', default='very-sensitive',
@@ -158,9 +156,7 @@ def snv_arguments():
 	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
 	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
 
-	pipe = parser.add_argument_group('Pipeline')
-	pipe.add_argument('--all', action='store_true', dest='all',
-		default=False, help='Run entire pipeline')
+	pipe = parser.add_argument_group('Pipeline options (choose one or more; default=all)')
 	pipe.add_argument('--build_db', action='store_true', dest='build_db',
 		default=False, help='Build bowtie2 database of pangenomes')
 	pipe.add_argument('--align', action='store_true', dest='align',
@@ -170,11 +166,11 @@ def snv_arguments():
 	pipe.add_argument('--call', action='store_true', dest='call',
 		default=False, help='Call SNPs and format output')
 		
-	gc = parser.add_argument_group('Species to include in representative genome database')
+	gc = parser.add_argument_group('Species to target (choose one or more; default=all >= 3x coverage)')
 	gc.add_argument('--gc_topn', type=int, dest='gc_topn', help='Top N most abundant (None)')
 	gc.add_argument('--gc_cov', type=float, dest='gc_cov', help='Coverage threshold (None)')
 	gc.add_argument('--gc_rbun', type=float, dest='gc_rbun', help='Relative abundance threshold (None)')
-	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific genome cluster or comma-separated list of ids (None)')
+	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific species or comma-separated list of ids (None)')
 			
 	speed = parser.add_argument_group('Alignment speed')
 	speed.add_argument('-s', type=str, dest='speed', default='very-sensitive',
@@ -198,27 +194,18 @@ def snv_arguments():
 
 def check_genes(args):
 	""" Check validity of command line arguments """
-	# pipeline options
-	if not any([args['all'], args['build_db'], args['align'], args['cov']]):
-		sys.exit("\nSpecify one or more pipeline option(s): --all, --build_db, --align, --cov")
-	# turn on entire pipeline
-	if args['all']:
+	# create output directory
+	if not os.path.isdir(args['out']):
+		os.makedirs(args['out'])
+	# turn on pipeline options
+	if not any([args['build_db'], args['align'], args['cov']]):
 		args['build_db'] = True
 		args['align'] = True
 		args['cov'] = True
-	# no genome cluster selection options, but building db
-	if (args['build_db']
-		and not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']])):
-		error = "\nTo build a pangenome database, you must specify genome-clusters."
-		error += "\nUse or or more of: --gc_id, --gc_topn, --gc_cov, and/or --gc_rbun"
-		sys.exit(error)
-	# genome cluster selection options, but not building db
-	if (not args['build_db']
-		and any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']])):
-		error = "\nYou've specify genome-clusters, but are not building a database."
-		error += "\nTry running with --build_db, or remove options: --gc_id, --gc_topn, --gc_cov, and --gc_rbun"
-		sys.exit(error)
-	# genome cluster selection options, but no no profile file
+	# set default species selection
+	if not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+		args['gc_cov'] = 3.0
+	# species selection options, but no no profile file
 	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile']:
 		sys.exit("\nTo specify genome-clusters with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
 	# no database but --align specified
@@ -253,28 +240,19 @@ def check_genes(args):
 
 def check_snvs(args):
 	""" Check validity of command line arguments """
+	# create output directory
+	if not os.path.isdir(args['out']):
+		os.makedirs(args['out'])
 	# pipeline options
-	if not any([args['all'], args['build_db'], args['align'], args['pileup'], args['call']]):
-		sys.exit("\nSpecify one or more pipeline option(s): --all, --build_db, --align, --pileup, --call")
-	# turn on entire pipeline
-	if args['all']:
+	if not any([args['build_db'], args['align'], args['pileup'], args['call']]):
 		args['build_db'] = True
 		args['align'] = True
 		args['pileup'] = True
 		args['call'] = True
-	# no genome cluster selection options, but building db
-	if (args['build_db']
-		and not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']])):
-		error = "\nTo build a genome database, you must specify genome-clusters."
-		error += "\nUse or or more of: --gc_id, --gc_topn, --gc_cov, and/or --gc_rbun"
-		sys.exit(error)
-	# genome cluster selection options, but not building db
-	if (not args['build_db']
-		and any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']])):
-		error = "\nYou've specify genome-clusters, but are not building a database."
-		error += "\nTry running with --build_db, or remove options: --gc_id, --gc_topn, --gc_cov, and --gc_rbun"
-		sys.exit(error)
-	# genome cluster selection options, but no no profile file
+	# set default species selection
+	if not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+		args['gc_cov'] = 3.0
+	# species selection options, but no no profile file
 	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile']:
 		sys.exit("\nTo specify genome-clusters with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
 	# no database but --align specified

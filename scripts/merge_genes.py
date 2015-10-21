@@ -21,7 +21,6 @@ def parse_arguments():
 	io.add_argument('-i', '--indir', type=str, dest='in', help='input directory', required=True)
 	io.add_argument('-o', '--outdir', type=str, dest='out', help='output directory', required=True)
 	io.add_argument('-g', '--genome_cluster', type=str,  help='genome cluster id', required=True)
-	io.add_argument('-D', '--db', type=str,  help='directory to genome-clusters database', required=True)
 	
 	sample = parser.add_argument_group('Sample filters')
 	sample.add_argument('--sample_list', dest='sample_list', type=str,
@@ -40,6 +39,7 @@ def parse_arguments():
 		help='Gene family percent identity. Small values => fewer, larger gene families. Large values => more, smaller gene families')
 	
 	args = vars(parser.parse_args())
+	args['db'] = '%s/ref_db/genome_clusters' % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 	
 	return args
 

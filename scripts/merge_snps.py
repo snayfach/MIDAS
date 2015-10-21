@@ -19,12 +19,11 @@ def parse_arguments():
 	io.add_argument('-g', '--genome_cluster', type=str,  help='genome cluster id', required=True)
 	io.add_argument('-m', '--matrix', type=str,  help='reference SNP matrix')
 	
-	pipe = parser.add_argument_group('Pipeline options')
-	io.add_argument('--all', default=False, action='store_true', help='run entire pipeline')
-	io.add_argument('--snps', default=False, action='store_true', help='identify and store list of hq snps')
-	io.add_argument('--freq', default=False, action='store_true', help='build allele frequency & depth matrixes')
-	io.add_argument('--cons', default=False, action='store_true', help='generate fasta file of consensus sequences')
-	io.add_argument('--tree', default=False, action='store_true', help='build phylogenetic tree')
+	pipe = parser.add_argument_group('Pipeline options (choose one or more; default=all)')
+	pipe.add_argument('--snps', default=False, action='store_true', help='identify and store list of hq snps')
+	pipe.add_argument('--freq', default=False, action='store_true', help='build allele frequency & depth matrixes')
+	pipe.add_argument('--cons', default=False, action='store_true', help='generate fasta file of consensus sequences')
+	pipe.add_argument('--tree', default=False, action='store_true', help='build phylogenetic tree')
 	
 	sample = parser.add_argument_group('Sample filters')
 	sample.add_argument('--sample_list', dest='sample_list', type=str,
@@ -45,16 +44,14 @@ def parse_arguments():
 		default=float('Inf'), help='only use <= MAX_SNPS (use all)')
 					
 	args = vars(parser.parse_args())
+	args['db'] = '%s/ref_db/genome_clusters' % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 	check_args(args)
 	return args
 
 def check_args(args):
 	""" Check validity of command line arguments """
-	# pipeline options
-	if not any([args['all'], args['snps'], args['freq'], args['cons'], args['tree']]):
-		sys.exit("\nSpecify one or more pipeline option(s): --all, --snps, --freq, --cons, --tree")
 	# turn on entire pipeline
-	if args['all']:
+	if not any([args['snps'], args['freq'], args['cons'], args['tree']]):
 		args['snps'] = True
 		args['freq'] = True
 		args['cons'] = True
