@@ -22,5 +22,5 @@ If you use this tool, please cite:
 Nayfach, S. and Pollard, KS. PhyloCNV: an integrated, high-resolution pipeline for quantifying strain-level variation from shotgun metagenomes (In Preparation).
 
 ## Pipeline
-Inline-style: 
-![alt text](https://github.com/snayfach/PhyloCNV/blob/master/images/pipeline.png)
+<img src="https://github.com/snayfach/PhyloCNV/blob/master/images/pipeline.pdf" width="700" height="500"/>
+
