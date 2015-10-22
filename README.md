@@ -29,7 +29,5 @@ If you use this tool, please cite:
 Nayfach, S. and Pollard, KS. PhyloCNV: an integrated, high-resolution pipeline for quantifying strain-level genomic variation from shotgun metagenomes (In Preparation).
 
 ## Pipeline
-<img src="https://github.com/snayfach/PhyloCNV/blob/master/images/pipeline.jpg"/>
-<sub>**An integrated pipeline for profiling species abundance and strain-level genomic variation from metagenomes** </sub>
-
+<img src="https://github.com/snayfach/PhyloCNV/blob/master/images/pipeline.jpg" width="600"/>  
 <sub>**A) Metagenome species profiling.** Reads from a metagenomic sample are aligned against a database of phylogenetic marker genes and are assigned to species groups. Mapped reads are used to estimate the genome-coverage and relative abundance of 5,952 genome-clusters. **B) Metagenome pan-genome profiling.** A pan-genome database is dynamically constructed based on the subset of species that are present at high coverage (e.g. >1x) in the metagenome. Reads are mapped to the gene database using Bowtie2. Mapped reads are used to infer gene copy number and gene presence/absence. **C) Single-nucleotide variant prediction.** A representative genome database is constructed, as described in (B). Reads are globally aligned to the genome database using Bowtie2. Mapped reads are used to identify variants, predict consensus alleles, and estimate allele frequencies. **D) Merge results.** For each species, results are merged across one or more samples to generate several outputs, including: a gene presence/absence matrix, an allele frequency matrix, an approximate maximum-likelihood phylogenetic tree.</sub>
