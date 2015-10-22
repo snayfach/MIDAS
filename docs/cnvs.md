@@ -55,9 +55,7 @@ Computing gene coverage:
 ## Example
 
 Run using defaults:  
-```
-run_phylo_cnv.py genes -1 sample_1.fq.gz -p sample_1.species -o cnvs/sample_1
-```
+`run_phylo_cnv.py genes -1 sample_1.fq.gz -p sample_1.species -o cnvs/sample_1`
 
 ## Output
 

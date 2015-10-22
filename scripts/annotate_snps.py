@@ -16,6 +16,7 @@ def parse_arguments():
 	parser.add_argument('-i', '--snp_list', dest='in', type=str, help='SNP list', required=True)
 	parser.add_argument('-o', '--annotations', dest='out', type=str, help='SNP annotations', required=True)
 	parser.add_argument('-m', '--max_snps', dest='max_snps', type=int, help='Maximum # of SNPs to annotate (all)')
+	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	return vars(parser.parse_args())
 
 
@@ -70,11 +71,8 @@ def check_genes(genes, genomes):
 		if not gene['accession'] in genome:
 			sys.exit("Incorrect scaffold id")
 		if (gene['end'] - gene['start'] + 1) % 3 != 0:
-			print gene
 			sys.exit("Incorrect gene length")
 		if gene['accession'] < last_gene['accession']:
-			print last_gene
-			print gene
 			sys.exit("Accessions not sorted")
 		last_gene = gene
 

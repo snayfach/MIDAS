@@ -45,3 +45,6 @@ This module generates the following outputs:
 
 ## Example
 
+## Next steps
+[Functionally annotate SNVs] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_snvs.md)
+

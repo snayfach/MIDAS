@@ -12,6 +12,8 @@ def parse_arguments():
 	""" Parse command line arguments """
 	
 	parser = argparse.ArgumentParser(usage='%s [options]' % os.path.basename(__file__))
+	parser.add_argument('-v', '--verbose', action='store_true', default=False, help='verbose')
+	
 		
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', '--indir', type=str, dest='in', help='input directory', required=True)
@@ -291,8 +293,8 @@ def build_tree(args):
 	"""	Use FastTree to build phylogenetic tree of consensus sequences """
 	inpath = '%s/%s.fasta' % (args['out'], args['genome_cluster'])
 	outpath = '%s/%s.tree' % (args['out'], args['genome_cluster'])
-	p = subprocess.Popen('FastTree -nt -boot 100 < %s > %s' % (inpath, outpath), shell=True)
-	p.wait()
+	p = subprocess.Popen('FastTree -nt -boot 100 < %s > %s' % (inpath, outpath), shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+	out, err = p.communicate()
 
 if __name__ == '__main__':
 
@@ -300,27 +302,27 @@ if __name__ == '__main__':
 	if not os.path.isdir(args['out']): os.mkdir(args['out'])
 
 	if True:
-		print("Identifying samples")
+		if args['verbose']: print("Identifying samples")
 		samples = identify_samples(args)
 
 	if args['snps']:
-		print("Identifying and writing hq snps")
+		if args['verbose']: print("Identifying and writing hq snps")
 		id_snps(args, samples)
 	
 	if args['freq']:
-		print("Writing allele frequencies & depths")
+		if args['verbose']: print("Writing allele frequencies & depths")
 		write_ref_freq(args, samples)
 
 	if args['cons']:
-		print("Writing consensus sequences")
+		if args['verbose']: print("Writing consensus sequences")
 		write_consensus(args, samples)
 
 	if args['matrix']:
-		print("Adding references sequences")
+		if args['verbose']: print("Adding references sequences")
 		add_ref_alleles(args)
 
 	if args['tree']:
-		print("Building phylogenetic tree")
+		if args['verbose']: print("Building phylogenetic tree")
 		build_tree(args)
 
 			

@@ -7,9 +7,13 @@ PhyloCNV is written in Python and runs on Linux and OSX  [read more...] (https:/
 You will need to first download the software are reference database [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)
 
 ### Run PhyloCNV
+
+Move to example directory:
+`cd PhyloCNV/example`  
+
 **Profile species abundances in each metagenome**  
-`run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.abundances`  
-`run_phylo_cnv.py species -1 sample_2.fq.gz -o sample_2.abundances`  
+`run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.species`
+`run_phylo_cnv.py species -1 sample_2.fq.gz -o sample_2.species`  
 This enables automatically profiling strain-level variation of all ~6,000 species in downstream modules.  
 [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/species.md)
 
@@ -31,8 +35,8 @@ For each sample, run:
 `run_phylo_cnv.py snvs -1 sample_2.fq.gz -p sample_2.species -o snvs/sample_2`  
 [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
 
-For each species, run:  
+Merge results for each species across samples:    
 `merge_snps.py -i snvs -o B_vulgatus -g 57955`   
 '57955' is the identifier of *Bacteroides vulgatus*, which was in sample_1 and sample_2   
-The main outputs are 1) SNV frequency matrix, 2) core-genome consensus sequences for strains, and 3) a core-genome phylogentic tree for strains
+The main outputs are 1) SNV frequency matrix, 2) core-genome consensus sequences for strains, and 3) a core-genome phylogentic tree for strains  
 [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)

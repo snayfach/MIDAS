@@ -92,7 +92,7 @@ Example variant table for one sample (ex: snps/57955.snps.gz):
 ## Speed
 * Speed will depend on the number of species you search and the number of sequenced reference genomes per species.
 * For a single species with 1 reference genome, expect ~16,000 reads/second
-* Use -n and -t to increase throughput
+* Use `-n` and `-t` to increase throughput
 
 ## Next step
 [Merge results across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)

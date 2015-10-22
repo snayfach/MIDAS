@@ -16,7 +16,8 @@ def parse_arguments():
 	""" Parse command line arguments """
 	
 	parser = argparse.ArgumentParser(usage='%s [options]' % os.path.basename(__file__))
-		
+	parser.add_argument('-v', '--verbose', default=False, action='store_true', help='verbose')
+	
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', '--indir', type=str, dest='in', help='input directory', required=True)
 	io.add_argument('-o', '--outdir', type=str, dest='out', help='output directory', required=True)
@@ -37,6 +38,7 @@ def parse_arguments():
 	gene.add_argument('--cluster_pid', type=str, dest='cluster_pid',
 		default='95', choices=['75', '80', '85', '90', '95', '99'],
 		help='Gene family percent identity. Small values => fewer, larger gene families. Large values => more, smaller gene families')
+	gene.add_argument('--add_ref', default=False, action='store_true', help='include gene presence/absence for reference genomes')
 	
 	args = vars(parser.parse_args())
 	args['db'] = '%s/ref_db/genome_clusters' % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -91,8 +93,6 @@ def parse_genes(inpath):
 	for line in infile:
 		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split())])
 
-
-
 def read_fam_map(args):
 	""" Read gene family map """
 	fam_map = {}
@@ -143,7 +143,7 @@ def presence_absence(copy_nums, min_copynum):
 	presabs = [1 if copy_num >= min_copynum else 0 for copy_num in copy_nums]
 	return presabs
 
-def write_results(samples, genome_ids, sample_copy_num, ref_copy_num, args):
+def write_with_ref(samples, genome_ids, sample_copy_num, ref_copy_num, args):
 	# open outfiles
 	outfiles = {}
 	outfiles['copynum'] = open('%s/%s.copynum' % (args['out'], args['genome_cluster']), 'w')
@@ -167,25 +167,50 @@ def write_results(samples, genome_ids, sample_copy_num, ref_copy_num, args):
 		outfiles['copynum'].write('\t'.join([str(_) for _ in copy_nums])+'\n') # write gene values
 		outfiles['presabs'].write('\t'.join([str(_) for _ in presabs])+'\n')
 
+def write_wo_ref(samples, sample_copy_num, args):
+	# open outfiles
+	outfiles = {}
+	outfiles['copynum'] = open('%s/%s.copynum' % (args['out'], args['genome_cluster']), 'w')
+	outfiles['presabs'] = open('%s/%s.presabs' % (args['out'], args['genome_cluster']), 'w')
+	# write headers
+	header = ['gene_id'] + samples
+	outfiles['copynum'].write('\t'.join(header)+'\n')
+	outfiles['presabs'].write('\t'.join(header)+'\n')
+	# write values
+	for gene_id in genes:
+		copy_nums = []
+		outfiles['copynum'].write('%s\t' % gene_id) # write gene id
+		outfiles['presabs'].write('%s\t' % gene_id)
+		for sample_id in samples:
+			try: copy_nums.append(sample_copy_num[sample_id][gene_id])
+			except: copy_nums.append(0.0)
+		presabs = presence_absence(copy_nums, args['min_copy'])
+		outfiles['copynum'].write('\t'.join([str(_) for _ in copy_nums])+'\n') # write gene values
+		outfiles['presabs'].write('\t'.join([str(_) for _ in presabs])+'\n')
+
 if __name__ == '__main__':
 
 	args = parse_arguments()
 	if not os.path.isdir(args['out']): os.mkdir(args['out'])
 
-	print("Mapping gene ids")
+	if args['verbose']: print("Mapping gene ids")
 	fam_map = read_fam_map(args) # map 99% gene ids to lower level
 	genes = set(fam_map.values())
 	
-	print("Computing gene copy numbers for samples")
+	if args['verbose']: print("Computing gene copy numbers for samples")
 	samples = identify_samples(args) # id samples with sufficient depth
 	sample_copy_num = compute_sample_copy_num(samples, args, fam_map) # gene copy numbers across samples
 	
-	print("Computing gene copy numbers for reference genomes")
-	genome_ids = read_genome_ids(args)
-	ref_copy_num = compute_ref_copy_num(genome_ids, args, fam_map) # gene copy numbers across reference genomes
+	if args['add_ref']:
+		if args['verbose']: print("Computing gene copy numbers for reference genomes")
+		genome_ids = read_genome_ids(args)
+		ref_copy_num = compute_ref_copy_num(genome_ids, args, fam_map)
 
-	print("Writing results")
-	write_results(samples, genome_ids, sample_copy_num, ref_copy_num, args)
+	if args['verbose']: print("Writing results")
+	if args['add_ref']:
+		write_with_ref(samples, genome_ids, sample_copy_num, ref_copy_num, args)
+	else:
+		write_wo_ref(samples, sample_copy_num, args)
 
 
 

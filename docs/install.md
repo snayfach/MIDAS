@@ -1,8 +1,9 @@
 ### Download the software
-Download the latest version of the software: https://github.com/snayfach/PhyloCNV/archive/v0.0.2.tar.gz  
-And unpack the project: `tar -zxvf PhyloCNV-0.0.2.tar.gz`
+Clone the latest version from GitHub: `git clone https://github.com/snayfach/PhyloCNV`
+This makes it easy to update the software as bugs are fixed and features are added
 
-Alternatively, clone directly from GitHub: `git clone https://github.com/snayfach/PhyloCNV`
+Alternatively, download the latest version of the software: https://github.com/snayfach/PhyloCNV/archive/master.zip
+And unpack the project: `unzip master.zip`
 
 ### Download the reference database
 Download the PhyloCNV reference database of marker genes, pangenomes, and representative genomes:    
