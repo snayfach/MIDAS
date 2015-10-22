@@ -1,11 +1,11 @@
-## Overview
-Use Bowtie2 to map metagenomic reads to a database of non-redundant genes from sequenced genomes.
-To increase throughput, PhyloCNV builds, and searches reads against, a database that only contains genes from species that are present and abundant in your metagenome.
+## Metagenomic pan-genome profiling
+Use Bowtie2 to map metagenomic reads to a pangenome database, which contains non-redundant genes from sequenced genomes, and estimate the coverage and copy number of these genes.
 
-This module has three main pipeline steps:
-* build_db: build bowtie2 database of genes from abundant species
-* align: map reads to bowtie2 database
-* coverage: compute normalized coverage of genes
+This module has three main pipeline steps:  
+
+* **build_db**: build bowtie2 pangenome database of non-redundant genes from abundant species  
+* **align**: map reads to bowtie2 database  
+* **coverage**: compute normalized coverage of genes
 
 ## Usage
 ```
@@ -52,38 +52,43 @@ Computing gene coverage:
                         covered by alignment (0.70)
 ```
 
-## Output
-* pangenome.bam (intermediate output): alignments of metagenomic reads versus genes
-* db (intermediate output): intermediate output that contains fasta and bowtie2 database containing genes
-* coverage (final output): directory containing gene coverages for each selected species
-  >each file is tab-delimited with a header and three fields: ref_id, raw_coverage, and normalized_coverage
-  >normalized coverages are computed by dividing raw_coverages by the median coverage across a panel of 15 universal single-copy genes
-  >normalized coverages can be thought of as the average copy number of a gene across a population of cells
-* Intermediate outputs can be automatically removed by using the --remove flag
-
 ## Example
 
-Estimate gene coverages only for the most abundant species
+Run using defaults:  
 ```
-run_phylo_cnv.py genes \
--1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
--o PhyloCNV/phylo_cnv/example/ex1 \
--p PhyloCNV/phylo_cnv/example/species_abundance.txt \
---all \
---gc_topn 1
+run_phylo_cnv.py genes -1 sample_1.fq.gz -p sample_1.species -o cnvs/sample_1
 ```
 
-Estimate gene coverages for all species with at least 0.5x coverage
-```
-run_phylo_cnv.py genes \
--1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
--o PhyloCNV/phylo_cnv/example/ex1 \
--p PhyloCNV/phylo_cnv/example/species_abundance.txt \
---all \
---gc_cov 0.5
-```
+## Output
+
+The output of this script is a directory with the following files:
+
+* **pangenome.bam** (*intermediate output*): alignments of metagenomic reads versus pangenome database
+* **db/** (*intermediate output*): directory that contains local fasta and bowtie2 pangenome 
+* **coverage** (*final output*): directory containing gene coverages for each selected species. File names indicate species identifiers.
+* intermediate outputs can be removed using `--remove`
+
+Example of gene coverage table for one sample (ex: coverage/57955.cov.gz):
+
+| ref_id      | raw_coverage      | normalized_coverage  |
+| :----------: |:-------------:| :------------------: |
+| 1235786.3.peg.1010         | 6.78        | 0.78              |
+| ...           | ...           |   ...               |
+| 997891.3.rna.48         | 3.99          |   0.46              |
+
+Field definitions:  
+
+* **ref_id**: gene identifer; `peg` and `rna` indicate coding & non-coding genes respectively
+* **raw_coverage**: (number of aligned base-pairs)/(gene length in base-pairs)
+* **normalized_coverage**: (raw_coverage of ref_id)/(median raw_coverage of 15 universal-single-copy genes)
+  * this is the estimated average copy number of the gene across the population of cells
+
 
 ## Speed
-* Speed, will depend on the number of species you search and the number of reference genomes sequenced per species. 
+* Speed will depend on the number of species you search and the number of reference genomes sequenced per species. 
 * For a single species with 1 reference genome, expect ~16,000 reads/second
-* Use -n and -t to increase throughput
+* Use `-n` and `-t` to increase throughput
+
+## Next step
+[Merge results across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_cnvs.md)
+

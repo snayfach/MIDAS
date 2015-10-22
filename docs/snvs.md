@@ -1,12 +1,11 @@
-## Overview
-Use Bowtie2 to map metagenomic reads to a database of sequenced genomes.
-To increase throughput, PhyloCNV builds, and searches reads against, a database that only contains representative genomes from species that are present and abundant in your metagenome.
+## Single-nucleotide-variant prediction
+Use Bowtie2 to map metagenomic reads to a genome database and use Samtools to call SNVs and estimate allele frequencies.
 
-This module has three main pipeline steps:
-* build_db: build bowtie2 database of genomes from abundant species
-* align: map reads to bowtie2 database
-* pileup: generate vcf file
-* call: parse vcf file and call SNVs for each species
+This module has four main pipeline steps:  
+* **build_db**: build bowtie2 database of genomes from abundant species  
+* **align**: map reads to bowtie2 database  
+* **pileup**: generate vcf file  
+* **call**: parse vcf file and call SNVs for each species  
 
 ## Usage
 ```
@@ -53,46 +52,47 @@ Read/base filters:
   --baseq BASEQ         Minimum base quality (20)
 ```
 
-## Output
-* genomes.bam (intermediate output): alignments of metagenomic reads versus representative genome(s)
-* db (intermediate output): contains fasta and bowtie2 database containing genomes
-* genomes.vcf (intermediate output): vcf file for all genomes
-* snps (final output): directory containing predicted SNVs for each selected species, each file is tab-delimited with a header the fields: 
- * ref_id: scaffold id
- * ref_pos: position on scaffold
- * ref_allele: reference allele
- * alt_allele: alternate allele
- * cons_allele: consensus allele
- * count_alleles: number of alleles observed in metagenome
- * count_ref: count reference alleles observed
- * count_alt: count alternate alleles observed
- * depth: count total reads at ref_pos
- * ref_freq: frequency (0.0 to 1.0) of reference allele
-* snps_summary_stats.txt: alignment summary statistics for each species
-* Intermediate outputs can be automatically removed by using the --remove flag
-
 ## Example
 
-Call SNVs only for the most abundant species
-```
-run_phylo_cnv.py snvs \
--1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
--o PhyloCNV/phylo_cnv/example/ex1 \
--p PhyloCNV/phylo_cnv/example/species_abundance.txt \
---all \
---gc_topn 1
-```
+Run using defaults:  
+`run_phylo_cnv.py snvs -1 sample_1.fq.gz -p sample_1.species -o snvs/sample_1`
 
-Call SNVs for all species with at least 0.5x coverage
-```
-run_phylo_cnv.py snvs \
--1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
--o PhyloCNV/phylo_cnv/example/ex1 \
--p PhyloCNV/phylo_cnv/example/species_abundance.txt \
---all \
---gc_cov 0.5
-```
+## Output
+
+The output of this script is a directory with the following files:  
+
+* **genomes.bam** (*intermediate output*): alignments of metagenomic reads versus representative genome(s)  
+* **db/** (*intermediate output*)): contains fasta and bowtie2 database containing genomes  
+* **genomes.vcf** (*intermediate output*): vcf file for all genomes  
+* **snps/** (*final output*): directory containing predicted SNVs for each selected species, 
+* Intermediate outputs can be automatically removed by using the --remove flag
+
+Example variant table for one sample (ex: snps/57955.snps.gz):
+
+| ref_id      | ...      | ref_freq  |
+| :----------: |:-------------:| :------------------: |
+| accn|...         | ...        | 0.20              |
+| ...           | ...           |   ...               |
+| accn|...         | ...          |   0.35              |
+
+
+* **ref_id**: scaffold id
+* **ref_pos**: position on scaffold
+* ref_allele: reference allele
+* alt_allele: alternate allele
+* cons_allele: consensus allele
+* count_alleles: number of alleles observed in metagenome
+* count_ref: count reference alleles observed
+* count_alt: count alternate alleles observed
+* depth: count total reads at ref_pos
+* ref_freq: frequency (0.0 to 1.0) of reference allele
+* snps_summary_stats.txt: alignment summary statistics for each species
+
+
 ## Speed
 * Speed will depend on the number of species you search and the number of sequenced reference genomes per species.
 * For a single species with 1 reference genome, expect ~16,000 reads/second
 * Use -n and -t to increase throughput
+
+## Next step
+[Merge results across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)

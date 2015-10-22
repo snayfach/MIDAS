@@ -1,5 +1,5 @@
-## Overview
-Use HS-BLASTN to map metagenomic reads to a panel of 15 universal, single-copy marker genes (88K total genes). 
+## Metagenomic species profiling
+Use HS-BLASTN to map metagenomic reads to a panel of 15 universal, single-copy marker genes. 
 These alignments are used to estimate the coverage and relative abundance of 5,952 bacterial species.
 Required for downstream steps if selecting species based on their coverage or relative abundance. 
 If you already have a list of species ids that you're interested, this step can be skipped.
@@ -24,20 +24,33 @@ optional arguments:
   -t THREADS           Number of threads to use
 ```
 
-## Output
-A tab delimited file with a header and three fields:
-* cluster_id: species (i.e. genome-cluster) identifier
-* coverage: estimated genome-coverage of species in metagenome
-* relative_abundance: estimated relative abundance of species in metagenome  
- * If using the option -m, then relative abundances are in terms of the proportion of cells. The total relative abundance across known species will be less than 1.0, and the difference indicates the estimated relative abundance of novel species.  
- * If not using -m, then relative abundances are in terms of the proportion of known species.
-
 ## Example
-```
-run_phylo_cnv.py species \
--1 PhyloCNV/phylo_cnv/example/example_1.fastq.gz \
--o PhyloCNV/phylo_cnv/example/species_abundance.txt
-```
+Run using defaults:  
+`run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.abundances`
+
+Run faster, using only 1M reads and utilizing 4 cores:  
+`run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.abundances -n 1000000 -t 4`
+
+Run with MicrobeCensus to normalize relative abundance:  
+`run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.abundances -m`
+
+
+## Output
+A tab delimited file with a header and three fields:  
+* **cluster_id**: species (i.e. genome-cluster) identifier  
+* **coverage**: estimated genome-coverage of species in metagenome  
+* **relative_abundance**: estimated relative abundance of species in metagenome  
+* If using the option `-m`, then relative abundances are in terms of the proportion of cells. The total relative abundance across known species will be less than 1.0, and the difference indicates the estimated relative abundance of novel species.  
+* If not using `-m`, then relative abundances are in terms of the proportion of known species.  
+        
+Example of species abundance table for one sample:
+
+| cluster_id      | coverage      | relative_abundance  |
+| :----------: |:-------------:| :------------------: |
+| 60140         | 100.67        | 0.45              |
+| ...           | ...           |   ...               |
+| 60415         | 5.05          |   0.09              |
+
 
 ## Speed
 * ~5,000 reads/second for 100-bp reads when using default parameters
