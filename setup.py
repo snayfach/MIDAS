@@ -19,10 +19,10 @@ class my_install_lib(install_lib.install_lib):
 setup(
 	name = 'PhyloCNV',
 	version = '0.0.2',
-	description = 'An integrated pipeline and for estimating the abundance, gene content, and phylogeny of microbial species from metagnomic data',
+	description = 'An integrated pipeline and for estimating species and strain-level genomic variation from metagenomic data',
 	packages = ['phylo_cnv'],
 	package_data={'phylo_cnv': ['data/*', 'bin/Darwin/*', 'bin/Linux/*', 'example/*']},
-	scripts=['scripts/run_phylo_cnv.py', 'scripts/merge_snps.py', 'scripts/merge_genes.py'],
+	#scripts=['scripts/run_phylo_cnv.py', 'scripts/merge_snps.py', 'scripts/merge_genes.py'],
 	license = 'GPL',
 	author = 'Stephen Nayfach',
 	author_email='snayfach@gmail.com',

@@ -91,9 +91,8 @@ def check_species(args):
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
 			sys.exit("\nInput file does not exist: '%s'" % args[arg])
-	if not os.path.isdir(os.path.dirname(args['out'])):
+	if not os.path.isdir(os.path.dirname(os.path.abspath(args['out']))):
 		sys.exit("\nOutput directory does not exist: '%s'" % os.path.dirname(args['out']))
-
 def pangenome_arguments():
 	""" Get arguments for metagenomic pangenome profiling """
 	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py genes [options]')

@@ -12,7 +12,8 @@ This may take several minutes to several hours, depending on your internet speed
 ### Install the software
 Run setup.py to install:  
 `python PhyloCNV/setup.py install` or  
-`sudo python PhyloCNV/setup.py install` to install as a superuser
+`sudo python PhyloCNV/setup.py install` to install as a superuser or
+`python PhyloCNV/setup.py install --user` to install locally (~/.local)  
 
 Alternatively, you can manually install the software.
 First, check that required python libraries are installed. You should be able to enter the following command in the python interpreter without getting an error:  
@@ -31,6 +32,7 @@ Finally, add the scripts directory to your PATH environmental variable:
 
 ### Testing
 You should be able to enter the command into your terminal without getting an error:  
-`PhyloCNV/scripts/run_phylo_cnv.py -h`
+`run_phylo_cnv.py -h`
 
-
+## Next step
+[Run PhyloCNV on an example dataset] (https://github.com/snayfach/PhyloCNV/blob/master/docs/tutorial.md)

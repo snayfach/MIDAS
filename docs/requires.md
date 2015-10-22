@@ -16,3 +16,6 @@ External packages (precompiled binaries are included with software):
 * hs-blastn (v0.0.4)
 
 Tested version numbers are indicated in parenthesis. Other versions may also work.
+
+## Next step
+[Download and install PhyloCNV] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)

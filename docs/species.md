@@ -58,3 +58,7 @@ Example of species abundance table for one sample:
 * Use -n and -t to increase throughput
 * Note than using -n will result in underestimates of species genome-coverage in the full metagenome
 * We found that about 1 million reads was sufficient to precisely estimate species relative abundance for a gut community
+
+## Next step
+[Call gene-copy number variants (CNVs) in species], or (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md)
+[Call single-nucleotide variants (SNVs) in species] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
