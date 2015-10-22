@@ -1,15 +1,15 @@
-# PhyloCNV: strain-level genomic variation
+# PhyloCNV
 
 ####Phylogenetic and gene-copy-number variation of microbial populations
 
 PhyloCNV is an integrated pipeline that estimates bacterial species abundance and strain-level genomic variation from shotgun metagnomes.  Also, population genetic and phylogenetic inferences are performed. PhyloCNV leverage a comprehensive database of ~6,000 bacterial species & ~30,000 genomes.   
 
 ## Applications
-* **Profile bacterial species abundance**: rapidly estimate the abundance of ~6,000 bacterial species
-* **Strain-level pan-genome profiling**: identify gene-copy-number variants (CNVs) of strains based on mapping to reference genomes
-* **Single-nucleotide-variant prediction**: identify single-nucleotide variants (SNVs) of strains based on mapping to reference genomes
-* **Phylogenetic inference**: reconstruct the phylogeny of strains from metagenomes and reference genomes
-* **Population genetic inference**: quantify strain-level diversity, differentiation, and selection within and between metagenomes
+1. **Profile bacterial species abundance**: rapidly estimate the abundance of ~6,000 bacterial species
+2. **Strain-level pan-genome profiling**: identify gene-copy-number variants (CNVs) of strains based on mapping to reference genomes
+3. **Single-nucleotide-variant prediction**: identify single-nucleotide variants (SNVs) of strains based on mapping to reference genomes
+4. **Phylogenetic inference**: reconstruct the phylogeny of strains from metagenomes and reference genomes
+5. **Population genetic inference**: quantify strain-level diversity, differentiation, and selection within and between metagenomes
 
 
 ## Table of Contents
@@ -30,6 +30,6 @@ Nayfach, S. and Pollard, KS. PhyloCNV: an integrated, high-resolution pipeline f
 
 ## Pipeline
 <img src="https://github.com/snayfach/PhyloCNV/blob/master/images/pipeline.jpg"/>
-**An integrated pipeline for profiling species abundance and strain-level genomic variation from metagenomes**  
+<sub>**An integrated pipeline for profiling species abundance and strain-level genomic variation from metagenomes** </sub>
 
-**A) Metagenome species profiling.** Reads from a metagenomic sample are aligned against a database of phylogenetic marker genes and are assigned to species groups. Mapped reads are used to estimate the genome-coverage and relative abundance of 5,952 genome-clusters. **B) Metagenome pan-genome profiling.** A pan-genome database is dynamically constructed based on the subset of species that are present at high coverage (e.g. >1x) in the metagenome. Reads are mapped to the gene database using Bowtie2. Mapped reads are used to infer gene copy number and gene presence/absence. **C) Single-nucleotide variant prediction.** A representative genome database is constructed, as described in (B). Reads are globally aligned to the genome database using Bowtie2. Mapped reads are used to identify variants, predict consensus alleles, and estimate allele frequencies. **D) Merge results.** For each species, results are merged across one or more samples to generate several outputs, including: a gene presence/absence matrix, an allele frequency matrix, an approximate maximum-likelihood phylogenetic tree.
+<sub>**A) Metagenome species profiling.** Reads from a metagenomic sample are aligned against a database of phylogenetic marker genes and are assigned to species groups. Mapped reads are used to estimate the genome-coverage and relative abundance of 5,952 genome-clusters. **B) Metagenome pan-genome profiling.** A pan-genome database is dynamically constructed based on the subset of species that are present at high coverage (e.g. >1x) in the metagenome. Reads are mapped to the gene database using Bowtie2. Mapped reads are used to infer gene copy number and gene presence/absence. **C) Single-nucleotide variant prediction.** A representative genome database is constructed, as described in (B). Reads are globally aligned to the genome database using Bowtie2. Mapped reads are used to identify variants, predict consensus alleles, and estimate allele frequencies. **D) Merge results.** For each species, results are merged across one or more samples to generate several outputs, including: a gene presence/absence matrix, an allele frequency matrix, an approximate maximum-likelihood phylogenetic tree.</sub>
