@@ -68,7 +68,7 @@ The output of this script is a directory with the following files:
 
 Example of gene coverage table for one sample (ex: coverage/57955.cov.gz):
 
-| ref_id      | raw_coverage      | normalized_coverage  |
+| gene_id      | raw_coverage      | normalized_coverage  |
 | :----------: |:-------------:| :------------------: |
 | 1235786.3.peg.1010         | 6.78        | 0.78              |
 | ...           | ...           |   ...               |
@@ -76,7 +76,7 @@ Example of gene coverage table for one sample (ex: coverage/57955.cov.gz):
 
 Field definitions:  
 
-* **ref_id**: gene identifer; `peg` and `rna` indicate coding & non-coding genes respectively
+* **gene_id**: gene identifer; `peg` and `rna` indicate coding & non-coding genes respectively
 * **raw_coverage**: (number of aligned base-pairs)/(gene length in base-pairs)
 * **normalized_coverage**: (raw_coverage of ref_id)/(median raw_coverage of 15 universal-single-copy genes)
   * this is the estimated average copy number of the gene across the population of cells

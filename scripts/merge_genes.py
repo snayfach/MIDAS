@@ -112,7 +112,7 @@ def compute_sample_copy_num(samples, args, fam_map):
 		d = defaultdict(float)
 		inpath = '%s/%s/coverage/%s.cov.gz' % (args['in'], sample_id, args['genome_cluster'])
 		for r in parse_genes(inpath):
-			fam_id = fam_map[r['ref_id']]
+			fam_id = fam_map[r['gene_id']]
 			d[fam_id] += float(r['normalized_coverage'])
 		fam_copy_num[sample_id] = d
 	return fam_copy_num

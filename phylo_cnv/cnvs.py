@@ -82,7 +82,7 @@ def pangenome_align(args):
 	#sys.stderr.write(err) # write to stderr: bowtie2 output
 
 def read_ref_to_cluster(args, type):
-	""" Read in map of scaffold id to genome-cluster id """
+	""" Read in map of gene id to genome-cluster id """
 	ref_to_cluster = {}
 	for line in open('/'.join([args['out'], 'db/%s.map' % type])):
 		ref_id, cluster_id = line.rstrip().split()
@@ -202,7 +202,7 @@ def compute_pangenome_coverage(args):
 	genome_clusters = set(ref_to_cluster.values())
 	for cluster_id in genome_clusters:
 		outfiles[cluster_id] = gzip.open('/'.join([outdir, '%s.cov.gz' % cluster_id]), 'w')
-		outfiles[cluster_id].write('\t'.join(['ref_id', 'raw_coverage', 'normalized_coverage'])+'\n')
+		outfiles[cluster_id].write('\t'.join(['gene_id', 'raw_coverage', 'normalized_coverage'])+'\n')
 	# parse bam into cov files for each cluster_id
 	ref_to_cov = count_mapped_bp(args)
 	# compute normalization factor
