@@ -23,6 +23,9 @@ PhyloCNV is an integrated pipeline that estimates bacterial species abundance an
 5. Scripts to merge results across samples:
  * [Merge copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_cnvs.md)
  * [Merge single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)
+6. Functionally annotate results:
+ * [Annotate copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_cnvs.md)
+ * [Annotate single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_snvs.md)
 
 ## Citation
 If you use this tool, please cite:

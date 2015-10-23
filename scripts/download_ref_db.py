@@ -51,11 +51,12 @@ if __name__ == '__main__':
 	refdb_dir = '%s/ref_db' % main_dir
 	if not os.path.isdir(refdb_dir): os.mkdir(refdb_dir)
 	os.chdir(refdb_dir)
-	files = ["README.txt", "annotations.txt", "membership.txt", "marker_genes.tar.gz", "genome_clusters.tar.gz", ]
+	files = ["README.txt", "annotations.txt", "membership.txt", "marker_genes.tar.gz", "genome_clusters.tar.gz", "ontologies.tar.gz"]
 	for file in files:
 		download('%s/%s' % (url_base, file), file, progress=True)
 	decompress("marker_genes.tar.gz", "marker_genes")
 	decompress("genome_clusters.tar.gz", "genome_clusters")
+	decompress("ontologies.tar.gz", "ontologies")
 
 
 

@@ -47,3 +47,7 @@ This module generates the following outputs:
 
 ## Example
 
+
+## Next steps
+[Functionally annotate CNVs] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_cnvs.md)
+

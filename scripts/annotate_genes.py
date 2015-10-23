@@ -39,7 +39,6 @@ def read_gene_map(args):
 			if gene_id not in gene_to_functions:
 				gene_to_functions[gene_id] = []
 			gene_to_functions[gene_id].append(function_id)
-		if index == 1000: break
 	return gene_to_functions
 
 def compute_abundances(args, gene_to_function):
