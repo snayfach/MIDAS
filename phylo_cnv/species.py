@@ -16,26 +16,20 @@ from tempfile import mkstemp
 def parse_relative_paths(args):
 	""" Identify relative file and directory paths """
 	paths = {}
-	if system() not in ['Linux', 'Darwin']:
-		sys.exit("Operating system '%s' not supported" % system())
-	else:
-		main_dir = os.path.dirname(os.path.abspath(__file__))
-		paths['hs-blastn'] = '/'.join([main_dir, 'bin', system(), 'hs-blastn'])
-		assert(os.path.isfile(paths['hs-blastn']))
-		paths['fa_to_fq'] = '/'.join([main_dir, 'fa_to_fq.py'])
-		assert(os.path.isfile(paths['fa_to_fq']))
-		paths['cluster_ids'] = '/'.join([main_dir,'data','cluster_annotations.txt'])
-		assert(os.path.isfile(paths['cluster_ids']))
-		paths['gene_length'] = '/'.join([main_dir,'data','gene_length.txt'])
-		assert(os.path.isfile(paths['gene_length']))
-		paths['marker_cutoffs'] = '/'.join([main_dir,'data','pid_cutoffs.txt'])
-		assert(os.path.isfile(paths['marker_cutoffs']))
-		
-		paths['tempfile'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.read_count')[1]
-		paths['blastout'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.m8')[1]
-
-		paths['db'] = '%s/ref_db/marker_genes' % os.path.dirname(main_dir)
-		assert(os.path.isdir(paths['db']))
+	main_dir = os.path.dirname(os.path.abspath(__file__))
+	paths['hs-blastn'] = '/'.join([main_dir, 'bin', system(), 'hs-blastn'])
+	assert(os.path.isfile(paths['hs-blastn']))
+	paths['fa_to_fq'] = '/'.join([main_dir, 'fa_to_fq.py'])
+	assert(os.path.isfile(paths['fa_to_fq']))
+	paths['cluster_ids'] = '/'.join([main_dir,'data','cluster_annotations.txt'])
+	assert(os.path.isfile(paths['cluster_ids']))
+	paths['gene_length'] = '/'.join([main_dir,'data','gene_length.txt'])
+	assert(os.path.isfile(paths['gene_length']))
+	paths['marker_cutoffs'] = '/'.join([main_dir,'data','pid_cutoffs.txt'])
+	assert(os.path.isfile(paths['marker_cutoffs']))
+	
+	paths['tempfile'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.read_count')[1]
+	paths['blastout'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.m8')[1]
 
 	return paths
 
@@ -50,7 +44,7 @@ def map_reads_hsblast(args, paths):
 	# hs-blastn
 	command += ' | %s align' % paths['hs-blastn']
 	if args['speed'] == 'sensitive': command += ' -word_size 18' # decrease word size for more sensisitve search
-	command += ' -query /dev/stdin -db %s/hs-blast' % paths['db'] # specify db
+	command += ' -query /dev/stdin -db %s/%s/hs-blast' % (args['db'], 'marker_genes') # specify db
 	command += ' -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
 	command += ' -out %s' % paths['blastout'] # output file
 	command += ' -evalue 1e-3' # %id for reporting hits
@@ -297,9 +291,10 @@ def select_genome_clusters(args):
 	# intersect sets of genome-clusters
 	my_clusters = list(set.intersection(*cluster_sets.values()))
 	# check that specified genome-clusters are valid
+	ref_db = os.path.join(args['db'], 'genome_clusters')
 	for cluster_id in my_clusters:
-		if cluster_id not in os.listdir(args['db']):
-			sys.exit("\nError: the specified genome_cluster '%s' was not found in the reference database (-D)\n" % cluster_id)
+		if cluster_id not in os.listdir(ref_db) :
+			sys.exit("\nError: the specified genome_cluster '%s' was not found in the reference database:\n%s\n" % (cluster_id, ref_db))
 	# remove bad cluster_ids
 	for line in open(args['bad_gcs']):
 		try: my_clusters.remove(line.rstrip())

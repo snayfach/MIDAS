@@ -21,17 +21,13 @@ from platform import system
 
 def add_paths(args):
 	""" Add paths to external files and binaries """
-	if system() not in ['Linux', 'Darwin']:
-		sys.exit("Operating system '%s' not supported" % system())
-	else:
-		main_dir = os.path.dirname(os.path.abspath(__file__))
-		args['bowtie2-build'] = '/'.join([main_dir, 'bin', system(), 'bowtie2-build'])
-		args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
-		args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
-		args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
-		args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
-		args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
-		args['db'] = '/'.join([os.path.dirname(main_dir), 'ref_db/genome_clusters'])
+	main_dir = os.path.dirname(os.path.abspath(__file__))
+	args['bowtie2-build'] = '/'.join([main_dir, 'bin', system(), 'bowtie2-build'])
+	args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
+	args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
+	args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
+	args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
+	args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
@@ -164,7 +160,7 @@ def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 	# read in map of gene to phyeco marker
 	ref_to_phyeco = {}
 	for cluster_id in genome_clusters:
-		inpath = '/'.join([args['db'], cluster_id, 'universal_genes.txt.gz'])
+		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'universal_genes.txt.gz'])
 		infile = gzip.open(inpath)
 		next(infile)
 		for line in infile:
@@ -232,7 +228,7 @@ def build_pangenome_db(args, genome_clusters):
 	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
 	for cluster_id in genome_clusters:
 		db_stats['genome_clusters'] += 1
-		inpath = '/'.join([args['db'], cluster_id, 'pangenome.fa.gz'])
+		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'pangenome.fa.gz'])
 		infile = gzip.open(inpath)
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
 			genome_id = '.'.join(r.id.split('.')[0:2])

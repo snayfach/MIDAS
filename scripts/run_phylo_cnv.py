@@ -7,6 +7,7 @@
 __version__ = '0.0.2'
 
 import argparse, sys, os
+import system
 
 #def print_copyright(args):
 #	# print out copyright information
@@ -44,6 +45,7 @@ def get_arguments(program):
 		args = snv_arguments()
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
+	args = add_ref_db(args)
 	return args
 
 def check_arguments(program, args):
@@ -56,6 +58,19 @@ def check_arguments(program, args):
 		check_snvs(args)
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
+	if platform.system() not in ['Linux', 'Darwin']:
+		sys.exit("Operating system '%s' not supported" % system())
+
+def add_ref_db(args):
+	""" Add path to reference database """
+	script_path = os.path.abspath(__file__)
+	script_dir = os.path.dirname(script_path)
+	main_dir = os.path.dirname(script_dir)
+	db_dir = '%s/ref_db' % main_dir
+	if not os.path.isdir(db_dir):
+		sys.exit("Could not locate reference database: %s" % args['db'])
+	args['db'] = db_dir
+	return args
 
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snvs) """
@@ -93,6 +108,7 @@ def check_species(args):
 			sys.exit("\nInput file does not exist: '%s'" % args[arg])
 	if not os.path.isdir(os.path.dirname(os.path.abspath(args['out']))):
 		sys.exit("\nOutput directory does not exist: '%s'" % os.path.dirname(args['out']))
+
 def pangenome_arguments():
 	""" Get arguments for metagenomic pangenome profiling """
 	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py genes [options]')

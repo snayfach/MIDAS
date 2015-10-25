@@ -9,6 +9,10 @@ IN PROGRESS
 
 CHANGES
 
+2015-10-25
+ * fixed path to reference database. now path is relative to /scripts directory. path added to args from run_phylo_cnv.py
+ * operating system now checked from run_phylo_cnv.py
+
 2015-10-24
  * added pairwise_distances.py
 

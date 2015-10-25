@@ -21,17 +21,13 @@ from platform import system
 
 def add_paths(args):
 	""" Add paths to external files and binaries """
-	if system() not in ['Linux', 'Darwin']:
-		sys.exit("Operating system '%s' not supported" % system())
-	else:
-		main_dir = os.path.dirname(os.path.abspath(__file__))
-		args['bowtie2-build'] = '/'.join([main_dir, 'bin', system(), 'bowtie2-build'])
-		args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
-		args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
-		args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
-		args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
-		args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
-		args['db'] = '/'.join([os.path.dirname(main_dir), 'ref_db/genome_clusters'])
+	main_dir = os.path.dirname(os.path.abspath(__file__))
+	args['bowtie2-build'] = '/'.join([main_dir, 'bin', system(), 'bowtie2-build'])
+	args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
+	args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
+	args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
+	args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
+	args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
@@ -133,7 +129,7 @@ def read_ref_bases(args, cluster_id):
 	""" Read in reference genome by position """
 	import Bio.SeqIO
 	ref = []
-	centroid_path = '/'.join([args['db'],cluster_id,'representative.fna.gz'])
+	centroid_path = '/'.join([args['db'], 'genome_clusters', cluster_id, 'representative.fna.gz'])
 	infile = gzip.open(centroid_path)
 	for rec in Bio.SeqIO.parse(infile, 'fasta'):
 		for pos in range(1, len(rec.seq)+1):
@@ -262,7 +258,7 @@ def max_mem_usage():
 
 def fetch_centroid(args, cluster_id):
 	""" Get the genome_id corresponding to cluster centroid """
-	inpath = '/'.join([args['db'], cluster_id, 'genomes.txt.gz'])
+	inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'genomes.txt.gz'])
 	infile = gzip.open(inpath)
 	for line in infile:
 		if line.split()[2] == 'Y':
@@ -280,7 +276,7 @@ def build_genome_db(args, genome_clusters):
 		if args['tax_mask'] and fetch_centroid(args, cluster_id) in args['tax_mask']:
 			continue
 		db_stats['genome_clusters'] += 1
-		inpath = '/'.join([args['db'], cluster_id, 'representative.fna.gz'])
+		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'representative.fna.gz'])
 		infile = gzip.open(inpath)
 		for line in infile:
 			genomes_fasta.write(line)
