@@ -1,5 +1,5 @@
 ## Annotate SNVs
-Functionally annotate genomic variants
+Functionally annotate genomic sites and variants
 
 ## Usage
 ```

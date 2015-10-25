@@ -8,7 +8,7 @@ This makes it easy to update the software in the future using `git pull` as bugs
 
 **Download the source code**: 
 https://github.com/snayfach/PhyloCNV/archive/master.zip  
-And unpack the project: `unzip master.zip`
+And unpack the project: `unzip PhyloCNV-master.zip`
 
 ### Install the software
 
