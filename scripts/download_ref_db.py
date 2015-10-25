@@ -1,3 +1,11 @@
+#!/usr/bin/python
+
+# PhyloCNV - estimation of single-nucleotide-variants and gene-copy-number from shotgun sequence data
+# Copyright (C) 2015 Stephen Nayfach
+# Freely distributed under the GNU General Public License (GPLv3
+
+__version__ = '0.0.2'
+
 import os
 import sys
 import urllib2

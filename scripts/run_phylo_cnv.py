@@ -7,7 +7,7 @@
 __version__ = '0.0.2'
 
 import argparse, sys, os
-import system
+import platform
 
 #def print_copyright(args):
 #	# print out copyright information
