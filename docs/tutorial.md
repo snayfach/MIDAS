@@ -4,7 +4,8 @@ This step-by-step tutorial will walk you through downloading, installing, and ru
 
 ### Download and installation
 PhyloCNV is written in Python and runs on Linux and OSX  [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/requires.md)  
-You will need to first download the software are reference database [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)
+Download and install the software [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)
+Download the reference database [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/ref_db.md)  
 
 ### Run PhyloCNV
 
@@ -12,7 +13,7 @@ Move to example directory:
 `cd PhyloCNV/example`  
 
 **Profile species abundances in each metagenome**  
-`run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.species`
+`run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.species`  
 `run_phylo_cnv.py species -1 sample_2.fq.gz -o sample_2.species`  
 This enables automatically profiling strain-level variation of all ~6,000 species in downstream modules.  
 [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/species.md)

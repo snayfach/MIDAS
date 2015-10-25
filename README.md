@@ -15,17 +15,20 @@ PhyloCNV is an integrated pipeline that estimates bacterial species abundance an
 ## Table of Contents
 1. [Requirements and Dependencies] (https://github.com/snayfach/PhyloCNV/blob/master/docs/requires.md)
 2. [Download, Installation, and Testing] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)
-3. [Tutorial] (https://github.com/snayfach/PhyloCNV/blob/master/docs/tutorial.md)
-4. Scripts to run PhyloCNV on a single sample:
+3. [Reference database] (https://github.com/snayfach/PhyloCNV/blob/master/docs/ref_db.md)
+4. [Tutorial] (https://github.com/snayfach/PhyloCNV/blob/master/docs/tutorial.md)
+5. Scripts to run PhyloCNV on a single sample:
  * [Estimate species abundance] (https://github.com/snayfach/PhyloCNV/blob/master/docs/species.md)
  * [Call gene copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md)
  * [Call single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
-5. Scripts to merge results across samples:
+6. Scripts to merge results across samples:
  * [Merge copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_cnvs.md)
  * [Merge single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)
-6. Functionally annotate results:
+7. Functionally annotate results:
  * [Annotate copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_cnvs.md)
  * [Annotate single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_snvs.md)
+8. [Compare phylogeny, gene-content, and SNPs across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/pairwise_distances.md)
+9. [Calculate population genetics statistics] (https://github.com/snayfach/PhyloCNV/blob/master/docs/popgen.md)
 
 ## Citation
 If you use this tool, please cite:

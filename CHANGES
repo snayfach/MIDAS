@@ -9,6 +9,9 @@ IN PROGRESS
 
 CHANGES
 
+2015-10-24
+ * added pairwise_distances.py
+
 2015-10-21
  * run_phylo_cnv.py: args['out'] created if not exists, args['all'] default, args['gc_cov'] == 3.0 default
 
