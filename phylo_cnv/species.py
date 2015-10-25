@@ -182,7 +182,7 @@ def estimate_abundance(args):
 	
 	# align reads
 	start = time()
-	if args['verbose']: print("\nAligning reads")
+	if args['verbose']: print("\nAligning reads to marker genes database")
 	map_reads_hsblast(args, paths)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
@@ -200,7 +200,7 @@ def estimate_abundance(args):
 	
 	# estimate genome cluster abundance
 	start = time()
-	if args['verbose']: print("\nEstimating cluster abundance")
+	if args['verbose']: print("\nEstimating species abundance")
 	total_gene_length = read_gene_lengths(paths)
 	cluster_abundance = normalize_counts(cluster_alns, total_gene_length)
 	if args['verbose']:
