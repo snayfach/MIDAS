@@ -2,39 +2,19 @@
 
 # PhyloCNV - estimation of single-nucleotide-variants and gene-copy-number from shotgun sequence data
 # Copyright (C) 2015 Stephen Nayfach
-# Freely distributed under the GNU General Public License (GPLv3
+# Freely distributed under the GNU General Public License (GPLv3)
 
 __version__ = '0.0.2'
 
 import os
 import sys
-import urllib2
 import subprocess
+import platform
 
 def download(url, outpath, progress=True):
-	openurl = urllib2.urlopen(url)
-	outfile = open(outpath, 'wb')
-	file_size = int(openurl.info().getheaders("Content-Length")[0])
-	print("Downloading: {0} Bytes: {1}".format(url, file_size))
-	file_size_dl = 0
-	block_sz = 8192
-	last_percent = 0.0
-	while True:
-		# read
-		buffer = openurl.read(block_sz)
-		if not buffer:
-			break
-		# write
-		outfile.write(buffer)
-		# print progress
-		file_size_dl += len(buffer)
-		p = float(file_size_dl)/file_size
-		if progress and (p - last_percent) > 0.0005:
-			status = r"{0}  [{1:.2%}]".format(file_size_dl, p)
-			status = status + chr(8)*(len(status)+1)
-			sys.stdout.write(status)
-			last_percent = p
-	outfile.close()
+	print("Downloading: %s" % url)
+	command = "curl %s > %s" % (url, outpath)
+	subprocess.call(command, shell=True)
 
 def decompress(tar, file, remove=True):
 	print("Decompressing: %s" % tar)
@@ -65,6 +45,4 @@ if __name__ == '__main__':
 	decompress("marker_genes.tar.gz", "marker_genes")
 	decompress("genome_clusters.tar.gz", "genome_clusters")
 	decompress("ontologies.tar.gz", "ontologies")
-
-
 

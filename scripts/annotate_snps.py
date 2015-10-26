@@ -144,12 +144,14 @@ def annotate_site_and_snp(snp, genome):
 	global genes
 	site_type = None # NC, NS, 2D, 3D, 4D
 	snp_type = None # SYN, NS, NA
+	gene = None
 	while True:
 		gene = genes[0]
 		# snp downstream of last gene
 		if len(genes) == 0:
 			site_type = 'NC'
 			snp_type = 'NA'
+			gene = 'NA'
 			break
 		# snp upstream of next gene
 		elif (snp['ref_id'] < gene['accession'] or
@@ -157,6 +159,7 @@ def annotate_site_and_snp(snp, genome):
 			  snp['ref_pos'] < gene['start'])):
 			site_type = 'NC'
 			snp_type = 'NA'
+			gene = 'NA'
 			break
 		# snp downstream previous gene
 		elif (snp['ref_id'] > gene['accession'] or
@@ -176,7 +179,7 @@ def annotate_site_and_snp(snp, genome):
 				alt_allele = snp['alt_allele'] if gene['strand'] == '+' else rev_comp(snp['alt_allele'])
 				snp_type = classify_snp(ref_codon, alt_allele, codon_pos)
 			break
-	return site_type, snp_type
+	return site_type, snp_type, gene
 
 def write_annotation(snp, outfile, fields):
 	""" Write record to output file """
@@ -188,12 +191,13 @@ if __name__ == '__main__':
 	genome = read_genome()
 	genes = read_genes()
 	outfile = open(args['out'], 'w')
-	fields = ['ref_id', 'ref_pos', 'count_alt', 'alt_allele', 'site_type', 'snp_type']
+	fields = ['ref_id', 'ref_pos', 'count_alt', 'alt_allele', 'site_type', 'snp_type', 'gene_id']
 	outfile.write('\t'.join(fields)+'\n')
 	for i, snp in enumerate(parse_snps(args['in'])):
-		site_type, snp_type = annotate_site_and_snp(snp, genome)
+		site_type, snp_type, gene_id = annotate_site_and_snp(snp, genome)
 		snp['site_type'] = site_type
 		snp['snp_type'] = snp_type
+		snp['gene_id'] = gene_id
 		write_annotation(snp, outfile, fields)
 		if args['max_snps'] and i >= args['max_snps']: break
 
