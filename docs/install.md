@@ -19,8 +19,7 @@ Options for installing the software:
 `sudo python PhyloCNV/setup.py install` to install as a superuser or  
 `python PhyloCNV/setup.py install --user` to install locally (~/.local)  
 
-**Manual install**  
-Some users may wish to manually install the software instead of running setup.py
+**Manual install (alternative to setup.py)**  
 
 First, check that required python libraries are installed. You should be able to enter the following command in the python interpreter without getting an error:  
 `>>> import Bio.SeqIO`  
@@ -29,15 +28,19 @@ First, check that required python libraries are installed. You should be able to
 `>>> import microbe_census`
 
 Update your PYTHONPATH environmental variable (replace '/path/to' with the appropriate path on your system):  
-`export PYTHONPATH=$PYTHONPATH:/path/to/PhyloCNV` or  
-`echo -e "\nexport PYTHONPATH=\$PYTHONPATH:/path/to/PhyloCNV" >> ~/.bash_profile` to avoid entering the command in the future
+`export PYTHONPATH=$PYTHONPATH:/path/to/PhyloCNV` 
+
+Add this to your .bash_profile to avoid entering the command in the future (you will need to open a new shell for this to take effect):  
+`echo -e "\nexport PYTHONPATH=\$PYTHONPATH:/path/to/PhyloCNV" >> ~/.bash_profile` 
 
 ### Update your PATH
 
 All of PhyloCNV's scripts are located in the directory PhyloCNV/scripts.  
-Add this directory to your PATH:  
-`export PATH=$PATH:/path/to/PhyloCNV/scripts` or  
-`echo -e "\nexport PATH=\$PATH:/path/to/PhyloCNV/scripts" >> ~/.bash_profile` to avoid entering the command in the future
+Add this directory to your PATH (replace '/path/to' with the appropriate path on your system):  
+`export PATH=$PATH:/path/to/PhyloCNV/scripts` 
+
+Add this to your .bash_profile to avoid entering the command in the future (you will need to open a new shell for this to take effect):  
+`echo -e "\nexport PATH=\$PATH:/path/to/PhyloCNV/scripts" >> ~/.bash_profile`  
 
 ### Testing
 You should be able to enter the command into your terminal without getting an error:  
