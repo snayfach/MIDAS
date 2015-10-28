@@ -11,44 +11,13 @@ __version__ = '0.0.2'
 import sys
 import os
 import subprocess
-import resource
 import gzip
 from time import time
-from platform import system
+import platform
+import misc
 
 # Functions
 # ---------
-
-def add_paths(args):
-	""" Add paths to external files and binaries """
-	main_dir = os.path.dirname(os.path.abspath(__file__))
-	args['bowtie2-build'] = '/'.join([main_dir, 'bin', system(), 'bowtie2-build'])
-	args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
-	args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
-	args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
-	args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
-	args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
-
-def auto_detect_file_type(inpath):
-	""" Detect file type [fasta or fastq] of <p_reads> """
-	for line in iopen(inpath):
-		if line[0] == '>': return 'fasta'
-		elif line[0] == '@': return 'fastq'
-		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
-
-def iopen(inpath):
-	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
-	ext = inpath.split('.')[-1]
-	# Python2
-	if sys.version_info[0] == 2:
-		if ext == 'gz': return gzip.open(inpath)
-		elif ext == 'bz2': return bz2.BZ2File(inpath)
-		else: return open(inpath)
-	# Python3
-	elif sys.version_info[0] == 3:
-		if ext == 'gz': return io.TextIOWrapper(gzip.open(inpath))
-		elif ext == 'bz2': return bz2.BZ2File(inpath)
-		else: return open(inpath)
 
 def pangenome_align(args):
 	""" Use Bowtie2 to map reads to all specified genome clusters """
@@ -85,20 +54,13 @@ def read_ref_to_cluster(args, type):
 		ref_to_cluster[ref_id] = cluster_id
 	return ref_to_cluster
 
-def parse_file(inpath):
-	""" Yields formatted records from SNPs output """
-	infile = gzip.open(inpath)
-	fields = next(infile).rstrip().split()
-	for line in infile:
-		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split())])
-
 def genes_summary(args):
 	""" Get summary of mapping statistics """
 	# store stats
 	stats = {}
 	for cluster_id in set(read_ref_to_cluster(args, 'pangenome').values()):
 		pangenome_size, covered_genes, total_coverage, phyeco_coverage = [0,0,0,0]
-		for r in parse_file('/'.join([args['out'], 'coverage/%s.cov.gz' % cluster_id])):
+		for r in misc.parse_file('/'.join([args['out'], 'coverage/%s.cov.gz' % cluster_id])):
 			pangenome_size += 1
 			coverage = float(r['raw_coverage'])
 			normcov = float(r['normalized_coverage'])
@@ -211,12 +173,6 @@ def compute_pangenome_coverage(args):
 		normcov = cov/cluster_to_norm[cluster_id] if cluster_to_norm[cluster_id] > 0 else 0
 		outfile.write('\t'.join([str(x) for x in [ref_id, cov, normcov]])+'\n')
 
-def max_mem_usage():
-	""" Return max mem usage (Gb) of self and child processes """
-	max_mem_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-	max_mem_child = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-	return round((max_mem_self + max_mem_child)/float(1e6), 2)
-
 def build_pangenome_db(args, genome_clusters):
 	""" Build FASTA and BT2 database from pangene cluster centroids """
 	import Bio.SeqIO
@@ -263,7 +219,8 @@ def remove_tmp(args):
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
-	add_paths(args) # Add paths to external files and binaries
+	misc.add_executables(args) # Add paths to external files and binaries
+	misc.add_data_files(args)
 	
 	# Build pangenome database for selected GCs
 	if args['build_db']:
@@ -274,17 +231,17 @@ def run_pipeline(args):
 		build_pangenome_db(args, genome_clusters)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % max_mem_usage()
+			print("  %s Gb maximum memory") % misc.max_mem_usage()
 
 	# Use bowtie2 to align reads to pangenome database
 	if args['align']:
 		start = time()
 		if args['verbose']: print("\nAligning reads to pangenomes")
-		args['file_type'] = auto_detect_file_type(args['m1'])
+		args['file_type'] = misc.auto_detect_file_type(args['m1'])
 		pangenome_align(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % max_mem_usage()
+			print("  %s Gb maximum memory") % misc.max_mem_usage()
 
 	# Compute pangenome coverage for each genome-cluster
 	if args['cov']:
@@ -294,7 +251,7 @@ def run_pipeline(args):
 		genes_summary(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % max_mem_usage()
+			print("  %s Gb maximum memory") % misc.max_mem_usage()
 
 	# Optionally remove temporary files
 	if args['remove']:

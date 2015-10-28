@@ -9,6 +9,15 @@ IN PROGRESS
 
 CHANGES
 
+2015-10-27
+ * switched to distutils in setup.py; this fixed an install bug
+ * fixed max_mem_usage() so that it works on OSX
+ * moved various utility functions used by multiple scripts to misc.py
+ * binaries are checked for executablility
+
+2015-10-26
+ * added --retry to download_ref_db.py
+
 2015-10-25
  * fixed path to reference database. now path is relative to /scripts directory. path added to args from run_phylo_cnv.py
  * operating system now checked from run_phylo_cnv.py

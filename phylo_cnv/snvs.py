@@ -11,44 +11,13 @@ __version__ = '0.0.2'
 import sys
 import os
 import subprocess
-import resource
 import gzip
 from time import time
-from platform import system
+import platform
+import misc
 
 # Functions
 # ---------
-
-def add_paths(args):
-	""" Add paths to external files and binaries """
-	main_dir = os.path.dirname(os.path.abspath(__file__))
-	args['bowtie2-build'] = '/'.join([main_dir, 'bin', system(), 'bowtie2-build'])
-	args['bowtie2'] = '/'.join([main_dir, 'bin', system(), 'bowtie2'])
-	args['samtools'] = '/'.join([main_dir, 'bin', system(), 'samtools'])
-	args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
-	args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
-	args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
-
-def auto_detect_file_type(inpath):
-	""" Detect file type [fasta or fastq] of <p_reads> """
-	for line in iopen(inpath):
-		if line[0] == '>': return 'fasta'
-		elif line[0] == '@': return 'fastq'
-		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
-
-def iopen(inpath):
-	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
-	ext = inpath.split('.')[-1]
-	# Python2
-	if sys.version_info[0] == 2:
-		if ext == 'gz': return gzip.open(inpath)
-		elif ext == 'bz2': return bz2.BZ2File(inpath)
-		else: return open(inpath)
-	# Python3
-	elif sys.version_info[0] == 3:
-		if ext == 'gz': return io.TextIOWrapper(gzip.open(inpath))
-		elif ext == 'bz2': return bz2.BZ2File(inpath)
-		else: return open(inpath)
 
 def genome_align(args):
 	""" Use Bowtie2 to map reads to representative genomes from each genome cluster
@@ -213,20 +182,13 @@ def parse_vcf(inpath):
 			   'ref_freq':'NA' if sum(counts) == 0 else sum(counts[0:2])/float(sum(counts))
 			   }
 
-def parse_file(inpath):
-	""" Yields formatted records from SNPs output """
-	infile = gzip.open(inpath)
-	fields = next(infile).rstrip().split()
-	for line in infile:
-		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split())])
-
 def snps_summary(args):
 	""" Get summary of mapping statistics """
 	# store stats
 	stats = {}
 	for cluster_id in set(read_ref_to_cluster(args, 'genomes').values()):
 		genome_length, covered_bases, total_depth, identity, maf = [0,0,0,0,0]
-		for r in parse_file('/'.join([args['out'], 'snps/%s.snps.gz' % cluster_id])):
+		for r in misc.parse_file('/'.join([args['out'], 'snps/%s.snps.gz' % cluster_id])):
 			genome_length += 1
 			depth = int(r['depth'])
 			if depth > 0:
@@ -249,12 +211,6 @@ def snps_summary(args):
 	for cluster_id in stats:
 		record = [cluster_id] + [str(stats[cluster_id][field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
-
-def max_mem_usage():
-	""" Return max mem usage (Gb) of self and child processes """
-	max_mem_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-	max_mem_child = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-	return round((max_mem_self + max_mem_child)/float(1e6), 2)
 
 def fetch_centroid(args, cluster_id):
 	""" Get the genome_id corresponding to cluster centroid """
@@ -316,7 +272,8 @@ def remove_tmp(args):
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
-	add_paths(args) # Add paths to external files and binaries
+	misc.add_executables(args) # Add paths to external files and binaries
+	misc.add_data_files(args)
 	
 	# Build genome database for selected GCs
 	if args['build_db']:
@@ -327,17 +284,17 @@ def run_pipeline(args):
 		build_genome_db(args, genome_clusters)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % max_mem_usage()
+			print("  %s Gb maximum memory") % misc.max_mem_usage()
 
 	# Use bowtie2 to map reads to a representative genome for each genome-cluster
 	if args['align']:
-		args['file_type'] = auto_detect_file_type(args['m1'])
+		args['file_type'] = misc.auto_detect_file_type(args['m1'])
 		if args['verbose']: print("\nMapping reads to representative genomes")
 		start = time()
 		genome_align(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % max_mem_usage()
+			print("  %s Gb maximum memory") % misc.max_mem_usage()
 
 	# Use mpileup to identify SNPs
 	if args['pileup']:
@@ -346,7 +303,7 @@ def run_pipeline(args):
 		pileup(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % max_mem_usage()
+			print("  %s Gb maximum memory") % misc.max_mem_usage()
 
 	# Split vcf into files for each GC, format, and report summary statistics
 	if args['call']:
@@ -357,7 +314,7 @@ def run_pipeline(args):
 		snps_summary(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % max_mem_usage()
+			print("  %s Gb maximum memory") % misc.max_mem_usage()
 
 	# Optionally remove temporary files
 	if args['remove']:

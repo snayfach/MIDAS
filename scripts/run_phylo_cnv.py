@@ -68,10 +68,10 @@ def add_ref_db(args):
 	main_dir = os.path.dirname(script_dir)
 	db_dir = '%s/ref_db' % main_dir
 	if not os.path.isdir(db_dir):
-		sys.exit("Could not locate reference database: %s" % args['db'])
+		sys.exit("Could not locate reference database: %s" % db_dir)
 	args['db'] = db_dir
 	return args
-
+	
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snvs) """
 	if program == 'species':

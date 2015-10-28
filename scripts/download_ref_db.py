@@ -4,6 +4,10 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
+# Notes
+# Ran into issues when using '-C -' to resume partially downloaded files
+# '--retry' will restart download if it stalls or the internet goes down temporarily
+
 __version__ = '0.0.2'
 
 import os
@@ -11,9 +15,9 @@ import sys
 import subprocess
 import platform
 
-def download(url, outpath, progress=True):
+def download(url, progress=True):
 	print("Downloading: %s" % url)
-	command = "curl %s > %s" % (url, outpath)
+	command = "curl --retry 20 --speed-time 60 --speed-limit 10000 %s -O" % url
 	subprocess.call(command, shell=True)
 
 def decompress(tar, file, remove=True):
@@ -32,17 +36,19 @@ if __name__ == '__main__':
 	
 	# examples
 	file = "example.tar.gz"
-	download('%s/%s' % (url_base, file), file, progress=True)
+	download(os.path.join(url_base, file), progress=True)
 	decompress("example.tar.gz", "example")
-	
+
 	# reference database
 	refdb_dir = '%s/ref_db' % main_dir
 	if not os.path.isdir(refdb_dir): os.mkdir(refdb_dir)
 	os.chdir(refdb_dir)
 	files = ["README.txt", "annotations.txt", "membership.txt", "marker_genes.tar.gz", "genome_clusters.tar.gz", "ontologies.tar.gz"]
 	for file in files:
-		download('%s/%s' % (url_base, file), file, progress=True)
+		download(os.path.join(url_base, file), progress=True)
 	decompress("marker_genes.tar.gz", "marker_genes")
 	decompress("genome_clusters.tar.gz", "genome_clusters")
 	decompress("ontologies.tar.gz", "ontologies")
+
+
 

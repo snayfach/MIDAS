@@ -3,54 +3,39 @@
 # Libraries
 # ---------
 import sys, os, subprocess
-from random import sample
+import random
 import numpy as np
 from time import time
-from platform import system
-import resource
-from tempfile import mkstemp
+import platform
+import tempfile
+import misc
 
 # Functions
 # ---------
 
-def parse_relative_paths(args):
+def add_tempfiles(args):
 	""" Identify relative file and directory paths """
-	paths = {}
-	main_dir = os.path.dirname(os.path.abspath(__file__))
-	paths['hs-blastn'] = '/'.join([main_dir, 'bin', system(), 'hs-blastn'])
-	assert(os.path.isfile(paths['hs-blastn']))
-	paths['fa_to_fq'] = '/'.join([main_dir, 'fa_to_fq.py'])
-	assert(os.path.isfile(paths['fa_to_fq']))
-	paths['cluster_ids'] = '/'.join([main_dir,'data','cluster_annotations.txt'])
-	assert(os.path.isfile(paths['cluster_ids']))
-	paths['gene_length'] = '/'.join([main_dir,'data','gene_length.txt'])
-	assert(os.path.isfile(paths['gene_length']))
-	paths['marker_cutoffs'] = '/'.join([main_dir,'data','pid_cutoffs.txt'])
-	assert(os.path.isfile(paths['marker_cutoffs']))
-	
-	paths['tempfile'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.read_count')[1]
-	paths['blastout'] = mkstemp(dir=os.path.dirname(args['out']), suffix='.m8')[1]
+	args['tempfile'] = tempfile.mkstemp(dir=os.path.dirname(args['out']), suffix='.read_count')[1]
+	args['blastout'] = tempfile.mkstemp(dir=os.path.dirname(args['out']), suffix='.m8')[1]
 
-	return paths
 
-def map_reads_hsblast(args, paths):
+def map_reads_hsblast(args):
 	""" Use hs-blastn to map reads in fasta file to marker database """
 	# fasta to fastq
-	command = 'python %s' % paths['fa_to_fq']
+	command = 'python %s' % args['fa_to_fq']
 	command += ' %s' % args['m1'] # fastq
 	if args['m2']: command += ',%s' % args['m2'] # and mate if specified
 	if args['reads']: command += ' %s' % args['reads'] # number of reads if specified
-	command += ' 2> %s' % paths['tempfile'] # tmpfile to store # of reads, bp sampled
+	command += ' 2> %s' % args['tempfile'] # tmpfile to store # of reads, bp sampled
 	# hs-blastn
-	command += ' | %s align' % paths['hs-blastn']
+	command += ' | %s align' % args['hs-blastn']
 	if args['speed'] == 'sensitive': command += ' -word_size 18' # decrease word size for more sensisitve search
 	command += ' -query /dev/stdin -db %s/%s/hs-blast' % (args['db'], 'marker_genes') # specify db
 	command += ' -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
-	command += ' -out %s' % paths['blastout'] # output file
+	command += ' -out %s' % args['blastout'] # output file
 	command += ' -evalue 1e-3' # %id for reporting hits
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	stdout, stderr = process.communicate()
-	#print stdout, stderr
 
 def parse_blast(inpath):
 	""" Yield formatted record from BLAST m8 file """
@@ -64,13 +49,13 @@ def query_coverage(aln):
 	""" Compute alignment coverage of query """
 	return float(aln['aln'])/int(aln['query'].split('_')[-1])
 
-def find_best_hits(paths, args):
+def find_best_hits(args):
 	""" Find top scoring alignment for each read """
 	best_hits = {}
-	marker_cutoffs = get_markers(paths)
+	marker_cutoffs = get_markers(args)
 	i = 0
 	qcovs = []
-	for aln in parse_blast(paths['blastout']):
+	for aln in parse_blast(args['blastout']):
 		i += 1
 		marker_id = aln['target'].split('_')[-1]
 		if aln['pid'] < marker_cutoffs[marker_id]: # does not meet marker cutoff
@@ -86,9 +71,9 @@ def find_best_hits(paths, args):
 	if args['verbose']: print("  total alignments: %s" % i)
 	return best_hits.values()
 
-def assign_unique(args, paths, alns):
+def assign_unique(args, alns):
 	""" Count the number of uniquely mapped reads to each genome cluster """
-	unique_alns = dict([(x.rstrip().split()[0],[]) for x in open(paths['cluster_ids']).readlines()])
+	unique_alns = dict([(x.rstrip().split()[0],[]) for x in open(args['cluster_ids']).readlines()])
 	unique = 0
 	non_unique = 0
 	for aln in alns:
@@ -103,7 +88,7 @@ def assign_unique(args, paths, alns):
 		print("  ambiguously mapped reads: %s" % non_unique)
 	return unique_alns
 
-def assign_non_unique(args, paths, alns, unique_alns):
+def assign_non_unique(args, alns, unique_alns):
 	""" Probabalistically assign ambiguously mapped reads """
 	total_alns = unique_alns.copy()
 	for aln in alns:
@@ -111,25 +96,25 @@ def assign_non_unique(args, paths, alns, unique_alns):
 			clusters = [x['target'].split('_')[0] for x in aln]
 			counts = [len(unique_alns[x]) for x in clusters]
 			if sum(counts) == 0:
-				cluster_id = sample(clusters, 1)[0]
+				cluster_id = random.sample(clusters, 1)[0]
 			else:
 				probs = [float(count)/sum(counts) for count in counts]
 				cluster_id = np.random.choice(clusters, 1, p=probs)[0]
 			total_alns[cluster_id].append(aln[clusters.index(cluster_id)])
 	return total_alns
 
-def get_markers(paths):
+def get_markers(args):
 	""" Read in optimal mapping parameters for marker genes """
 	marker_cutoffs = {}
-	infile = open(paths['marker_cutoffs'])
+	infile = open(args['pid_cutoffs'])
 	for line in infile:
 		marker_id, min_pid = line.rstrip().split()
 		marker_cutoffs[marker_id] = float(min_pid)
 	return marker_cutoffs
 
-def estimate_mix_props(alns, paths):
+def estimate_mix_props(alns, args):
 	""" Count the number of uniquely mapped reads to each genome cluster """
-	unique_counts = dict([(x.rstrip().split()[0],0) for x in open(paths['cluster_ids']).readlines()])
+	unique_counts = dict([(x.rstrip().split()[0],0) for x in open(args['cluster_ids']).readlines()])
 	unique = 0
 	non_unique = 0
 	for aln in alns:
@@ -144,10 +129,10 @@ def estimate_mix_props(alns, paths):
 		print("Ambiguously mapped reads: %s" % non_unique)
 	return unique_counts
 
-def read_gene_lengths(paths):
+def read_gene_lengths(args):
 	""" Read in total gene length per cluster_id """
-	total_gene_length = dict([(x.rstrip().split()[0],0) for x in open(paths['cluster_ids']).readlines()])
-	for line in open(paths['gene_length']):
+	total_gene_length = dict([(x.rstrip().split()[0],0) for x in open(args['cluster_ids']).readlines()])
+	for line in open(args['gene_length']):
 		cluster_id = line.split()[0].split('_')[0]
 		gene_length = int(line.rstrip().split()[1])
 		total_gene_length[cluster_id] += gene_length
@@ -178,34 +163,36 @@ def estimate_abundance(args):
 	
 	""" Run entire pipeline """
 	# impute missing args & get relative file paths
-	paths = parse_relative_paths(args)
+	add_tempfiles(args)
+	misc.add_executables(args)
+	misc.add_data_files(args)
 	
 	# align reads
 	start = time()
 	if args['verbose']: print("\nAligning reads to marker genes database")
-	map_reads_hsblast(args, paths)
+	map_reads_hsblast(args)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % max_mem_usage()
+		print("  %s Gb maximum memory") % misc.max_mem_usage()
 	
 	# find best hit for each read
 	start = time()
 	if args['verbose']: print("\nClassifying reads")
-	best_hits = find_best_hits(paths, args)
-	unique_alns = assign_unique(args, paths, best_hits)
-	cluster_alns = assign_non_unique(args, paths, best_hits, unique_alns)
+	best_hits = find_best_hits(args)
+	unique_alns = assign_unique(args, best_hits)
+	cluster_alns = assign_non_unique(args, best_hits, unique_alns)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % max_mem_usage()
+		print("  %s Gb maximum memory") % misc.max_mem_usage()
 	
 	# estimate genome cluster abundance
 	start = time()
 	if args['verbose']: print("\nEstimating species abundance")
-	total_gene_length = read_gene_lengths(paths)
+	total_gene_length = read_gene_lengths(args)
 	cluster_abundance = normalize_counts(cluster_alns, total_gene_length)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % max_mem_usage()
+		print("  %s Gb maximum memory") % misc.max_mem_usage()
 	
 	# convert to cellular relative abundances
 	if args['norm']:
@@ -213,7 +200,7 @@ def estimate_abundance(args):
 		if args['verbose']: print("\nConverting to cellular relative abundances")
 		from microbe_census import microbe_census
 		ags = microbe_census.run_pipeline({'seqfile':args['m1']})[0]
-		reads, bp = [int(x) for x in open(paths['tempfile']).read().rstrip().split()]
+		reads, bp = [int(x) for x in open(args['tempfile']).read().rstrip().split()]
 		genomes = bp/float(ags)
 		for cluster_id in cluster_abundance:
 			cov = cluster_abundance[cluster_id]['cov']
@@ -223,15 +210,15 @@ def estimate_abundance(args):
 			print("  total bp sampled: %s" % bp)
 			print("  total genome coverage: %s" % round(genomes,2))
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % max_mem_usage()
+			print("  %s Gb maximum memory") % misc.max_mem_usage()
 
 	# write results
 	write_abundance(args['out'], cluster_abundance)
 
 	# clean up
 	if not args['keep_temp']:
-		os.remove(paths['tempfile'])
-		os.remove(paths['blastout'])
+		os.remove(args['tempfile'])
+		os.remove(args['blastout'])
 
 def write_abundance(outpath, cluster_abundance):
 	""" Write cluster results to specified output file """
@@ -304,8 +291,3 @@ def select_genome_clusters(args):
 		sys.exit("\nError: no genome-clusters sastisfied your selection criteria. \n")
 	return my_clusters
 
-def max_mem_usage():
-	""" Return max mem usage (Gb) of self and child processes """
-	max_mem_self = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-	max_mem_child = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-	return round((max_mem_self + max_mem_child)/float(1e6), 2)
