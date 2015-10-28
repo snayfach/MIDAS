@@ -28,10 +28,13 @@ optional arguments:
 Run using defaults:  
 `run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.abundances`
 
-Run faster, using only 1M reads and utilizing 4 cores:  
+Paired-end reads:
+`run_phylo_cnv.py species -1 sample_1.forward.fq.gz -2 sample_1.reverse.fq.gz -o sample_1.abundances`
+
+Faster, using only 1M reads and utilizing 4 cores (note: this will underestimate coverage in the full metagenome):
 `run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.abundances -n 1000000 -t 4`
 
-Run with MicrobeCensus to normalize relative abundance:  
+Normalize relative abundances using MicrobeCensus (i.e. cellular relative abundance):
 `run_phylo_cnv.py species -1 sample_1.fq.gz -o sample_1.abundances -m`
 
 
@@ -60,5 +63,4 @@ Example of species abundance table for one sample:
 * We found that about 1 million reads was sufficient to precisely estimate species relative abundance for a gut community
 
 ## Next step
-[Call gene-copy number variants (CNVs) in species] (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md), or  
-[Call single-nucleotide variants (SNVs) in species] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
+[Merge species abundance across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_species.md)

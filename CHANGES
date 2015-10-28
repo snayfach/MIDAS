@@ -9,6 +9,10 @@ IN PROGRESS
 
 CHANGES
 
+2015-10-28
+ * added merge_species.py
+ * added merge_species.md
+
 2015-10-27
  * switched to distutils in setup.py; this fixed an install bug
  * fixed max_mem_usage() so that it works on OSX

@@ -14,7 +14,7 @@ PhyloCNV is an integrated pipeline that estimates bacterial species abundance an
 
 ## Table of Contents
 1. [Requirements and Dependencies] (https://github.com/snayfach/PhyloCNV/blob/master/docs/requires.md)
-2. [Download, Installation, and Testing] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)
+2. [Download, Installation, Testing, and Updating] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)
 3. [Reference database] (https://github.com/snayfach/PhyloCNV/blob/master/docs/ref_db.md)
 4. [Tutorial] (https://github.com/snayfach/PhyloCNV/blob/master/docs/tutorial.md)
 5. Scripts to run PhyloCNV on a single sample:

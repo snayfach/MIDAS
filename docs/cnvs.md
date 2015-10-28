@@ -57,6 +57,10 @@ Computing gene coverage:
 Run using defaults:  
 `run_phylo_cnv.py genes -1 sample_1.fq.gz -p sample_1.species -o cnvs/sample_1`
 
+Paired-end reads:
+`run_phylo_cnv.py genes -1 sample_1.forward.fq.gz -2 sample_1.reverse.fq.gz -p sample_1.species -o cnvs/sample_1`
+
+
 ## Output
 
 The output of this script is a directory with the following files:
