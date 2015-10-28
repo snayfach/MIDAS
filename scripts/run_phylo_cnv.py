@@ -9,14 +9,14 @@ __version__ = '0.0.2'
 import argparse, sys, os
 import platform
 
-#def print_copyright(args):
-#	# print out copyright information
-#	print ("-------------------------------------------------------------------------")
-#	print ("PhyloCNV - estimating the abundance, gene-content, and phylogeny of microbes from metagenomes")
-#	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
-#	print ("Copyright (C) 2015 Stephen Nayfach")
-#	print ("Freely distributed under the GNU General Public License (GPLv3)")
-#	print ("-------------------------------------------------------------------------")
+def print_copyright():
+	# print out copyright information
+	print ("-------------------------------------------------------------------------")
+	print ("PhyloCNV: species abundance and strain-level genomic variation from metagenomes")
+	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
+	print ("Copyright (C) 2015 Stephen Nayfach")
+	print ("Freely distributed under the GNU General Public License (GPLv3)")
+	print ("-------------------------------------------------------------------------")
 
 def get_program():
 	""" Get program specified by user (species, genes, or snvs) """
@@ -314,6 +314,7 @@ if __name__ == '__main__':
 	program = get_program()
 	args = get_arguments(program)
 	check_arguments(program, args)
+	if args['verbose']: print_copyright()
 	run_program(program, args)
 	
 
