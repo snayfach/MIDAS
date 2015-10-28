@@ -169,7 +169,7 @@ def estimate_abundance(args):
 	
 	# align reads
 	start = time()
-	if args['verbose']: print("\nAligning reads to marker genes database")
+	if args['verbose']: print("\nAligning reads to marker-genes database")
 	map_reads_hsblast(args)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
