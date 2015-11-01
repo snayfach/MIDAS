@@ -38,13 +38,13 @@ For each sample, run:
 * [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/species.md)
 
 Merge results across samples:  
-`merge_species.py -i species -o test`  
+`merge_species.py -i species -o merged`
 
 * `-i` is the directory containing \<sample_id>.species files
 * `-o` is the basename for output files:
-  * \<basename>.species_prevalence
-  * \<basename>.species_abundance
-  * \<basename>.species_coverage
+  * \<basename>.species_prevalence: table mapping species ids to species names & the frequency of each species across samples
+  * \<basename>.species_abundance: matrix of samples x species
+  * \<basename>.species_coverage: matrix of samples x species
 * [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_species.md)
 
 ####Profile strain-level gene content of abundant species 
@@ -65,7 +65,8 @@ Merge results for each species across samples:
 `merge_genes.py -i cnvs -o Bacteroides_vulgatus -g 57955`  
 
 * this script takes a directory as input, where subdirectories correspond to sample_ids 
-* '57955' is the identifier of *Bacteroides vulgatus*, which was in sample_1 and sample_2  
+* '57955' is the identifier of *Bacteroides vulgatus*, which was in sample_1 and sample_2   
+  * See merged.species_prevalence for a table listing common species in samples 1 and 2
 * The main output, stored in the directory 'Bacteroides_vulgatus', is a gene presence/absence matrix  
 * [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_cnvs.md)
 
@@ -83,6 +84,7 @@ Merge results for each species across samples:
 `merge_snps.py -i snvs -o Bacteroides_vulgatus -g 57955`   
 
 * '57955' is the identifier of *Bacteroides vulgatus*, which was in sample_1 and sample_2   
+  * See merged.species_prevalence for a table listing common species in samples 1 and 2
 * The main outputs, stored in the directory 'Bacteroides_vulgatus', are: 
   * SNV frequency matrix
   * Core-genome consensus sequences for strains

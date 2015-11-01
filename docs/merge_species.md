@@ -20,14 +20,14 @@ Run using default parameters:
 `merge_species.py -i species -o test`
 
 * `species` is a directory that contains results from `run_phylo_cnv species`
-* the name of each file should correspond to a sample_id: <sample_id>.species
+* the name of each file should correspond to a sample_id: \<sample_id>.species
 
 ## Outputs
 This script generates three output files:
 
-* **<out_base>.species_abundance**: relative abundance matrix (columns are samples, rows are species)
-* **<out_base>.species_coverage**: genome coverage matrix (columns are samples, rows are species)
-* **<out_base>.species_prevalence**: summary statistics for each species across samples
+* **\<out_base>.species_abundance**: relative abundance matrix (columns are samples, rows are species)
+* **\<out_base>.species_coverage**: genome coverage matrix (columns are samples, rows are species)
+* **\<out_base>.species_prevalence**: summary statistics for each species across samples
 
 
 Example species_prevalence output:

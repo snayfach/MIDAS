@@ -22,6 +22,7 @@ PhyloCNV is an integrated pipeline that estimates bacterial species abundance an
  * [Call gene copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md)
  * [Call single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
 6. Scripts to merge results across samples:
+ * [Merge species abundance] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_species.md)  
  * [Merge copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_cnvs.md)
  * [Merge single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)
 7. Functionally annotate results:
@@ -42,4 +43,4 @@ Nayfach, S. and Pollard, KS. PhyloCNV: an integrated, high-resolution pipeline f
 ## Examples
 <img src="https://github.com/snayfach/PhyloCNV/blob/master/images/enrichment.jpg" width="600" align="middle"/>  
 **Comparative genomics of *Bacteroides ovatus* strains across host microbiomes**  
-<sub> **A)** Presence or absence of genes in the *Bacteroides ovatus* pangenome across human faecal metagenomes. Column colors indicate whether a gene is core (blue; occurs in >95% of samples), auxiliary (red; occurs in 1-95% of samples ), or absent (green; occurs in < 1% of samples). **B)**Gene set enrichment analysis identifies functions overrepresented in the core genome, auxiliary genome, and genes that only occur in reference genomes.</sub>
+<sub> **A)** Presence or absence of genes in the *Bacteroides ovatus* pangenome across human faecal metagenomes. Column colors indicate whether a gene is core (blue; occurs in >95% of samples), auxiliary (red; occurs in 1-95% of samples ), or absent (green; occurs in < 1% of samples). **B)** Gene set enrichment analysis identifies functions overrepresented in the core genome, auxiliary genome, and genes that only occur in reference genomes.</sub>
