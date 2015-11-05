@@ -74,7 +74,7 @@ Predict gene presence/absence with higher specificity & lower sensitivity:
 ## Outputs
 This module generates three output files: 
 
-* **{species_id}.depth**: coverage (i.e. read depth) of each reference gene
+* **{species_id}.gene_depth**: coverage (i.e. read depth) of each reference gene
 * **{species_id}.copy_num**: gene copy-number matrix 
   * gene-coverages normalized by the coverage of universal-single-copy genes
 * **{species_id}.presabs**: gene presence absence matrix 

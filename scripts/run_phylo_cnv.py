@@ -147,7 +147,7 @@ def pangenome_arguments():
 	
 	map = parser.add_argument_group('Computing gene coverage')
 	map.add_argument('--mapid', type=float, dest='mapid',
-		default=93.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (93.0)')
+		default=94.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (94.0)')
 	map.add_argument('--aln_cov', type=float, dest='aln_cov',
 		default=0.70, help='Discard alignments where read coverage < ALN_COV. Higher values indicate that reads must be globally covered by alignment (0.70)')
 
@@ -196,11 +196,11 @@ def snv_arguments():
 	
 	map = parser.add_argument_group('Read/base filters')
 	map.add_argument('--mapid', type=float, dest='mapid',
-		default=93.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (93.0)')
-	map.add_argument('--mapq', type=str, dest='mapq',
+		default=94.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (94.0)')
+	map.add_argument('--mapq', type=int, dest='mapq',
 		default=20, help='Minimum map quality (20)')
-	map.add_argument('--baseq', type=str, dest='baseq',
-		default=20, help='Minimum base quality (20)')
+	map.add_argument('--baseq', type=int, dest='baseq',
+		default=25, help='Minimum base quality (25)')
 
 	args = vars(parser.parse_args())
 	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')

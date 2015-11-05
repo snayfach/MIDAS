@@ -109,13 +109,25 @@ def compute_sample_copy_num(samples, args, fam_map):
 	""" Compute gene copy numbers for samples """
 	fam_copy_num = {}
 	for sample_id in samples:
-		d = defaultdict(float)
+		copy_num = defaultdict(float)
 		inpath = '%s/%s/coverage/%s.cov.gz' % (args['in'], sample_id, args['genome_cluster'])
 		for r in parse_genes(inpath):
 			fam_id = fam_map[r['gene_id']]
-			d[fam_id] += float(r['normalized_coverage'])
-		fam_copy_num[sample_id] = d
+			copy_num[fam_id] += float(r['normalized_coverage'])
+		fam_copy_num[sample_id] = copy_num
 	return fam_copy_num
+
+def compute_sample_read_depth(samples, args, fam_map):
+	""" Compute gene read depth for samples """
+	fam_read_depth = {}
+	for sample_id in samples:
+		read_depth = defaultdict(float)
+		inpath = '%s/%s/coverage/%s.cov.gz' % (args['in'], sample_id, args['genome_cluster'])
+		for r in parse_genes(inpath):
+			fam_id = fam_map[r['gene_id']]
+			read_depth[fam_id] += float(r['raw_coverage'])
+		fam_read_depth[sample_id] = read_depth
+	return fam_read_depth
 
 def read_genome_ids(args):
 	""" Read in genome ids for genome cluster """
@@ -188,6 +200,18 @@ def write_wo_ref(samples, sample_copy_num, args):
 		outfiles['copynum'].write('\t'.join([str(_) for _ in copy_nums])+'\n') # write gene values
 		outfiles['presabs'].write('\t'.join([str(_) for _ in presabs])+'\n')
 
+def write_read_depth(samples, sample_read_depth, args):
+	# open outfile
+	outfile = open('%s/%s.gene_depth' % (args['out'], args['genome_cluster']), 'w')
+	outfile.write('\t'.join(['gene_id'] + samples)+'\n')
+	# write values
+	for gene_id in genes:
+		outfile.write(gene_id)
+		for sample_id in samples:
+			read_depth = sample_read_depth[sample_id][gene_id]
+			outfile.write('\t%s' % str(read_depth))
+		outfile.write('\n')
+
 if __name__ == '__main__':
 
 	args = parse_arguments()
@@ -200,6 +224,7 @@ if __name__ == '__main__':
 	if args['verbose']: print("Computing gene copy numbers for samples")
 	samples = identify_samples(args) # id samples with sufficient depth
 	sample_copy_num = compute_sample_copy_num(samples, args, fam_map) # gene copy numbers across samples
+	sample_read_depth = compute_sample_read_depth(samples, args, fam_map)
 	
 	if args['add_ref']:
 		if args['verbose']: print("Computing gene copy numbers for reference genomes")
@@ -207,6 +232,7 @@ if __name__ == '__main__':
 		ref_copy_num = compute_ref_copy_num(genome_ids, args, fam_map)
 
 	if args['verbose']: print("Writing results")
+	write_read_depth(samples, sample_read_depth, args)
 	if args['add_ref']:
 		write_with_ref(samples, genome_ids, sample_copy_num, ref_copy_num, args)
 	else:

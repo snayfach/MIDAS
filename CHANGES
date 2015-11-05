@@ -1,13 +1,10 @@
-TO DO
- * add script to automatically run all pipeline steps on multiple samples
- * followup on MicrobeCensus crashing issue
- * determine ideal word size for sensitive search
- * determine ideal alignment coverage (currently at 0.75)
- * determine if sensitive settings chage the % unclassified in real datasets
-
-IN PROGRESS
-
 CHANGES
+
+2015-11-05
+ * fixed bug in merge_genes.py: now writes <species>.gene_depth
+ * copyright now printed
+ * changed defaults for run_phylo_cnv.py snvs (map_id=0.94, mapq=20, baseq=20)
+ * fixed bug when specifying mapq & baseq in run_phylo_cnv.py snvs
 
 2015-10-28
  * added merge_species.py
