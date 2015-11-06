@@ -4,46 +4,88 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-## TO DO
-# exclude genes (?)
-
 __version__ = '0.0.2'
 
 import argparse, sys, os, gzip
 from collections import defaultdict
 
+def print_copyright():
+	print ("")
+	print ("PhyloCNV: species abundance and strain-level genomic variation from metagenomes")
+	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
+	print ("Copyright (C) 2015 Stephen Nayfach")
+	print ("Freely distributed under the GNU General Public License (GPLv3)")
+	print ("")
+
 def parse_arguments():
 	""" Parse command line arguments """
 	
-	parser = argparse.ArgumentParser(usage='%s [options]' % os.path.basename(__file__))
+	parser = argparse.ArgumentParser(
+		usage='%s [options]' % os.path.basename(__file__),
+		description="""Merge gene copy-number variants for an individual species across samples.
+			Outputs include: a gene copy-number matrix, a gene presence/absence matrix, and a gene read-depth matrix""")
 	parser.add_argument('-v', '--verbose', default=False, action='store_true', help='verbose')
 	
 	io = parser.add_argument_group('Input/Output')
-	io.add_argument('-i', '--indir', type=str, dest='in', help='input directory', required=True)
-	io.add_argument('-o', '--outdir', type=str, dest='out', help='output directory', required=True)
-	io.add_argument('-g', '--genome_cluster', type=str,  help='genome cluster id', required=True)
+	io.add_argument('-i', type=str, dest='indir', required=True,
+		help="""input directory.
+			each subdirectory should correspond to a sample_id and should contain the results of running 'run_phylo_cnv.py genes'.
+			for example: <indir>/<sample_1>, <indir>/<sample_2>""")
+	io.add_argument('-s', dest='species_id', type=str, required=True,
+		help="""species identifier.
+			a list of prevalent species can be obtained by running 'scripts/merge_species.py'. 
+			a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
+	io.add_argument('-o', type=str, dest='outdir', required=True,
+		help="""output directory.
+			output files: <outdir>/<species_id>.copynum, <outdir>/<species_id>.presabs, <outdir>/<species_id>.gene_depth""")
 	
-	sample = parser.add_argument_group('Sample filters')
-	sample.add_argument('--sample_list', dest='sample_list', type=str,
-		default=None, help='file of sample ids to include; each line should contain one id')
-	sample.add_argument('--marker_coverage', type=float,
-		default=1.0, help='min read depth per sample across 15 phylogenetic marker genes (1.0)')
-	sample.add_argument('--gene_coverage', type=float,
-		default=0.0, help='min read depth per sample across all genes with non-zero coverage (0.0)')
-	sample.add_argument('--max_samples', type=int, help='maximum number of samples to process; useful for testing (use all)')
+	sample = parser.add_argument_group('Sample filters\n(determine which samples in <indir> are included in output)')
+	sample.add_argument('--marker_coverage', type=float, default=3.0,
+		help="""minimum read depth per sample across 15 phylogenetic marker genes (3.0)""")
+	sample.add_argument('--gene_coverage', type=float, default=0.0,
+		help="""minimum read depth per sample across all genes with non-zero coverage (0.0)""")
+	sample.add_argument('--max_samples', type=int,
+		help="""maximum number of samples to process. useful for testing (use all)""")
+	sample.add_argument('--sample_list', dest='sample_list', type=str, default=None,
+		help="""file of sample ids to include. each line should contain one id.
+			each id should correspond to a subdirectory under <indir>""")
 
 	gene = parser.add_argument_group('Presence/Absence')
-	gene.add_argument('--min_copy', type=float,
-		default=0.35, help='genes >= MIN_COPY: classified as present in sample genes < MIN_COPY: classified as absent in sample (0.35)')
-	gene.add_argument('--cluster_pid', type=str, dest='cluster_pid',
-		default='95', choices=['75', '80', '85', '90', '95', '99'],
-		help='Gene family percent identity. Small values => fewer, larger gene families. Large values => more, smaller gene families')
-	gene.add_argument('--add_ref', default=False, action='store_true', help='include gene presence/absence for reference genomes')
+	gene.add_argument('--min_copy', type=float, default=0.35,
+		help="""genes >= MIN_COPY are classified as present and genes < MIN_COPY are classified as absent (0.35)""")
+	gene.add_argument('--cluster_pid', type=str, dest='cluster_pid', default='95', choices=['75', '80', '85', '90', '95', '99'],
+		help="""gene family percent identity. small values: fewer, larger gene families. large values: more, smaller gene families (95)""")
+	gene.add_argument('--add_ref', default=False, action='store_true',
+		help="""include gene presence/absence for reference genomes""")
 	
 	args = vars(parser.parse_args())
 	args['db'] = '%s/ref_db/genome_clusters' % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 	
 	return args
+
+def print_arguments(args):
+	print ("-------------------------------------------------------")
+	print ("Merge Genes Parameters:")
+	print ("Input directory: %s" % args['indir'])
+	print ("Output directory: %s" % args['outdir'])
+	print ("Species identifier: %s" % args['species_id'])
+	print ("Sample selection criteria:")
+	if args['sample_list']:
+		print ("  sample list: %s" % args['sample_list'])
+	if args['marker_coverage']:
+		print ("  >=%s average coverage across 15 universal-single-copy genes" % args['marker_coverage'])
+	if args['gene_coverage']:
+		print ("  >=%s average coverage across all genes with non-zero coverage" % args['gene_coverage'])
+	if args['max_samples']:
+		print ("  analyze up to %s samples" % args['max_samples'])
+	print ("Gene presence/absence criterea:")
+	print ("  present (1): genes with copy number >=%s" % args['min_copy'])
+	print ("  absent (0): genes with copy number <%s" % args['min_copy'])
+	print ("  cluster genes at %s percent identity" % args['cluster_pid'])
+	if args['add_ref']:
+		print ("  adding gene presence/absences for reference genomes")
+	print ("-------------------------------------------------------")
+	print ("")
 
 def read_file(inpath):
 	""" Read in summary snp statistics for genome-clusters """
@@ -60,9 +102,9 @@ def identify_samples(args):
 	""" Identify samples with sufficient depth for target genome-cluster """
 	samples = []
 	sample_list = [x.rstrip() for x in open(args['sample_list']).readlines()] if args['sample_list'] else None
-	for sample_id in os.listdir(args['in']):
+	for sample_id in os.listdir(args['indir']):
 		# read in summary stats for sample across genome-clusters
-		indir = '/'.join([args['in'], sample_id])
+		indir = '/'.join([args['indir'], sample_id])
 		inpath = '/'.join([indir, 'genes_summary_stats.txt'])
 		if not os.path.isfile(inpath):
 			continue
@@ -71,11 +113,11 @@ def identify_samples(args):
 		# check whether sample passes QC
 		if args['sample_list'] and sample_id not in sample_list:
 			continue
-		elif args['genome_cluster'] not in genes_summary:
+		elif args['species_id'] not in genes_summary:
 			continue
-		elif float(genes_summary[args['genome_cluster']]['phyeco_coverage']) < args['marker_coverage']:
+		elif float(genes_summary[args['species_id']]['phyeco_coverage']) < args['marker_coverage']:
 			continue
-		elif float(genes_summary[args['genome_cluster']]['mean_coverage']) < args['gene_coverage']:
+		elif float(genes_summary[args['species_id']]['mean_coverage']) < args['gene_coverage']:
 			continue
 		# sample passes qc
 		else:
@@ -96,7 +138,7 @@ def parse_genes(inpath):
 def read_fam_map(args):
 	""" Read gene family map """
 	fam_map = {}
-	inpath = '%s/%s/gene_family_map.txt.gz' % (args['db'], args['genome_cluster'])
+	inpath = '%s/%s/gene_family_map.txt.gz' % (args['db'], args['species_id'])
 	infile = gzip.open(inpath)
 	fields = next(infile).rstrip().split()
 	for line in infile:
@@ -110,7 +152,7 @@ def compute_sample_copy_num(samples, args, fam_map):
 	fam_copy_num = {}
 	for sample_id in samples:
 		copy_num = defaultdict(float)
-		inpath = '%s/%s/coverage/%s.cov.gz' % (args['in'], sample_id, args['genome_cluster'])
+		inpath = '%s/%s/coverage/%s.cov.gz' % (args['indir'], sample_id, args['species_id'])
 		for r in parse_genes(inpath):
 			fam_id = fam_map[r['gene_id']]
 			copy_num[fam_id] += float(r['normalized_coverage'])
@@ -122,7 +164,7 @@ def compute_sample_read_depth(samples, args, fam_map):
 	fam_read_depth = {}
 	for sample_id in samples:
 		read_depth = defaultdict(float)
-		inpath = '%s/%s/coverage/%s.cov.gz' % (args['in'], sample_id, args['genome_cluster'])
+		inpath = '%s/%s/coverage/%s.cov.gz' % (args['indir'], sample_id, args['species_id'])
 		for r in parse_genes(inpath):
 			fam_id = fam_map[r['gene_id']]
 			read_depth[fam_id] += float(r['raw_coverage'])
@@ -132,7 +174,7 @@ def compute_sample_read_depth(samples, args, fam_map):
 def read_genome_ids(args):
 	""" Read in genome ids for genome cluster """
 	genome_ids = set([])
-	inpath = '%s/%s/genomes.txt.gz' % (args['db'], args['genome_cluster'])
+	inpath = '%s/%s/genomes.txt.gz' % (args['db'], args['species_id'])
 	infile = gzip.open(inpath); next(infile)
 	for line in infile:
 		genome_id = line.split('\t')[1]
@@ -142,7 +184,7 @@ def read_genome_ids(args):
 def compute_ref_copy_num(genome_ids, args, fam_map):
 	""" Compute gene copy numbers for reference genomes """
 	ref_copy_num = dict([(_,defaultdict(float)) for _ in genome_ids])
-	inpath = '%s/%s/ref_copy_num.txt.gz' % (args['db'], args['genome_cluster'])
+	inpath = '%s/%s/ref_copy_num.txt.gz' % (args['db'], args['species_id'])
 	infile = gzip.open(inpath); next(infile)
 	for line in infile:
 		genome_id, gene_id, copy_number = line.rstrip().split()
@@ -158,8 +200,8 @@ def presence_absence(copy_nums, min_copynum):
 def write_with_ref(samples, genome_ids, sample_copy_num, ref_copy_num, args):
 	# open outfiles
 	outfiles = {}
-	outfiles['copynum'] = open('%s/%s.copynum' % (args['out'], args['genome_cluster']), 'w')
-	outfiles['presabs'] = open('%s/%s.presabs' % (args['out'], args['genome_cluster']), 'w')
+	outfiles['copynum'] = open('%s/%s.copynum' % (args['outdir'], args['species_id']), 'w')
+	outfiles['presabs'] = open('%s/%s.presabs' % (args['outdir'], args['species_id']), 'w')
 	# write headers
 	header = ['gene_id'] + samples + genome_ids
 	outfiles['copynum'].write('\t'.join(header)+'\n')
@@ -182,8 +224,8 @@ def write_with_ref(samples, genome_ids, sample_copy_num, ref_copy_num, args):
 def write_wo_ref(samples, sample_copy_num, args):
 	# open outfiles
 	outfiles = {}
-	outfiles['copynum'] = open('%s/%s.copynum' % (args['out'], args['genome_cluster']), 'w')
-	outfiles['presabs'] = open('%s/%s.presabs' % (args['out'], args['genome_cluster']), 'w')
+	outfiles['copynum'] = open('%s/%s.copynum' % (args['outdir'], args['species_id']), 'w')
+	outfiles['presabs'] = open('%s/%s.presabs' % (args['outdir'], args['species_id']), 'w')
 	# write headers
 	header = ['gene_id'] + samples
 	outfiles['copynum'].write('\t'.join(header)+'\n')
@@ -202,7 +244,7 @@ def write_wo_ref(samples, sample_copy_num, args):
 
 def write_read_depth(samples, sample_read_depth, args):
 	# open outfile
-	outfile = open('%s/%s.gene_depth' % (args['out'], args['genome_cluster']), 'w')
+	outfile = open('%s/%s.gene_depth' % (args['outdir'], args['species_id']), 'w')
 	outfile.write('\t'.join(['gene_id'] + samples)+'\n')
 	# write values
 	for gene_id in genes:
@@ -215,7 +257,9 @@ def write_read_depth(samples, sample_read_depth, args):
 if __name__ == '__main__':
 
 	args = parse_arguments()
-	if not os.path.isdir(args['out']): os.mkdir(args['out'])
+	if args['verbose']: print_copyright()
+	if args['verbose']: print_arguments(args)
+	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
 
 	if args['verbose']: print("Mapping gene ids")
 	fam_map = read_fam_map(args) # map 99% gene ids to lower level

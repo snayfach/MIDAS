@@ -5,13 +5,19 @@ Merge species abundance across samples
 ```
 usage: merge_species.py [options]
 
+Merge species abundance files across samples. Outputs include: a relative
+abundance matrix, a genome-coverage matrix, and a table summarizing species
+prevalence and abundance across samples
+
 optional arguments:
-  -h, --help   show this help message and exit
-  -i IN_DIR    Input directory of species abundance files. Filenames should
-               have the format: <in_dir>/<sample_id>.species
-  -o OUT_BASE  Basename for output files: <out_base>.species_abundance,
-               <out_base>.species_coverage, <out_base>.species_prevalence
-  -m MIN_COV   Minimum genome-coverage for estimating species prevalence (1.0)
+  -h, --help     show this help message and exit
+  -v, --verbose  verbose
+  -i INDIR       input directory of species abundance files. filenames should
+                 have the format: <indir>/<sample_id>.species
+  -o OUTBASE     basename for output files: <outbase>.species_abundance,
+                 <outbase>.species_coverage, <outbase>.species_prevalence
+  -m MIN_COV     minimum genome-coverage for estimating species prevalence
+                 (1.0)
 ```
 
 ## Examples
@@ -37,6 +43,9 @@ Example species_prevalence output:
 | 58035       | Bacteroides ovatus   | 2.32          | 2.41             | 0.21           | 0.25             | 2.0        |
 | ...         | ...                  | ...           | ...              | ...            | ...              | ...        |
 | 54507       | Bacteroides fragilis | 1.44          | 1.44             | 0.12           | 0.12             | 1.0        |
+
+## Memory usage  
+* This step takes an insignificant amount of memory  
 
 ## Next steps
 [Profile strain-level CNVs of species] (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md)

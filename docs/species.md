@@ -55,6 +55,9 @@ Example of species abundance table for one sample:
 | 60415         | 5.05          |   0.09              |
 
 
+## Memory usage
+* < 1.5 Gb for most samples
+
 ## Speed
 * ~5,000 reads/second for 100-bp reads when using default parameters
 * Using `-m` will add an additional 20 minutes to runtime

@@ -10,13 +10,12 @@ import argparse, sys, os
 import platform
 
 def print_copyright():
-	# print out copyright information
-	print ("-------------------------------------------------------------------------")
+	print ("")
 	print ("PhyloCNV: species abundance and strain-level genomic variation from metagenomes")
 	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
 	print ("Copyright (C) 2015 Stephen Nayfach")
 	print ("Freely distributed under the GNU General Public License (GPLv3)")
-	print ("-------------------------------------------------------------------------")
+	print ("")
 
 def get_program():
 	""" Get program specified by user (species, genes, or snvs) """
@@ -61,6 +60,17 @@ def check_arguments(program, args):
 	if platform.system() not in ['Linux', 'Darwin']:
 		sys.exit("Operating system '%s' not supported" % system())
 
+def print_arguments(program, args):
+	""" Run program specified by user (species, genes, or snvs) """
+	if program == 'species':
+		print_species_arguments(args)
+	elif program == 'genes':
+		print_pangenome_arguments(args)
+	elif program == 'snvs':
+		print_snv_arguments(args)
+	else:
+		sys.error("Unrecognized program: '%s'" % program)
+
 def add_ref_db(args):
 	""" Add path to reference database """
 	script_path = os.path.abspath(__file__)
@@ -102,6 +112,19 @@ def species_arguments():
 	args = vars(parser.parse_args())
 	return args
 
+def print_species_arguments(args):
+	print ("-------------------------------------------------------")
+	print ("Metagenomic Species Profiling Parameters:")
+	print ("Input FASTA/FASTQ file (1st mate): %s" % args['m1'])
+	print ("Input FASTA/FASTQ file (2nd mate): %s" % args['m2'])
+	print ("Output species abundance file: %s" % args['out'])
+	print ("Keep temporary files: %s" % args['keep_temp'])
+	print ("Normalize species abundances: %s" % args['norm'])
+	print ("Alignment speed/sensitivity: %s" % args['speed'])
+	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
+	print ("Number of threads for database search: %s" % args['threads'])
+	print ("-------------------------------------------------------")
+
 def check_species(args):
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
@@ -114,9 +137,9 @@ def pangenome_arguments():
 	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py genes [options]')
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
-	parser.add_argument('--debug', action='store_true', default=False, help='Print out shell commands for debugging purposes')
 	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
-	parser.add_argument('--remove', choices=['bowtie2_db', 'bam'], nargs='*', help='Remove specified temporary files')
+	parser.add_argument('--keep_temp', dest='keep_temp', default=False, action='store_true',
+		help="""keep temporary files. useful for rerunning pipeline with different parameters without repeating ealier steps""")
 	
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
@@ -156,15 +179,46 @@ def pangenome_arguments():
 	
 	return args
 
+def print_pangenome_arguments(args):
+	print ("-------------------------------------------------------")
+	print ("Metagenomic Pan-genome Profiling Parameters:")
+	print ("Input FASTA/FASTQ file (1st mate): %s" % args['m1'])
+	if args['m2']: print ("Input FASTA/FASTQ file (2nd mate): %s" % args['m2'])
+	print ("Input species abundance file: %s" % args['profile'])
+	print ("Output directory: %s" % args['out'])
+	print ("Keep temporary files: %s" % args['keep_temp'])
+	print ("Pipeline options:")
+	if args['build_db']:
+		print ("  -build bowtie2 database of pangenomes")
+	if args['align']:
+		print ("  -align reads to pangenome database")
+	if args['cov']:
+		print ("  -estimate gene read-depth and copy-number")
+	print ("Species selection criterea:")
+	if args['gc_topn']:
+		print ("  -top %s most abundant species" % args['gc_topn'])
+	if args['gc_cov']:
+		print ("  -all species with >=%sX genome coverage" % args['gc_cov'])
+	if args['gc_rbun']:
+		print ("  -all species with >=%s relative abundance" % args['gc_rbun'])
+	if args['gc_id']:
+		print ("  -specified species id(s): %s" % args['gc_id'])
+	print ("Alignment speed/sensitivity: %s" % args['speed'])
+	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
+	print ("Number of threads for database search: %s" % args['threads'])
+	print ("Minimum alignment percent identity: %s" % args['mapid'])
+	print ("Minimum alignment coverage of reads: %s" % args['aln_cov'])
+	print ("-------------------------------------------------------")
+
 def snv_arguments():
 	""" Get arguments for metagenomic pangenome profiling """
 	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py snvs [options]')
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
-	parser.add_argument('--debug', action='store_true', default=False, help='Print out shell commands for debugging purposes')
 	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
-	parser.add_argument('--remove', choices=['bowtie2_db', 'bam', 'vcf'], nargs='*', help='Remove specified temporary files')
-	
+	parser.add_argument('--keep_temp', dest='keep_temp', default=False, action='store_true',
+		help="""keep temporary files. useful for rerunning pipeline with different parameters without repeating ealier steps""")
+			
 	io = parser.add_argument_group('Input/Output (required)')
 	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
 	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
@@ -206,6 +260,40 @@ def snv_arguments():
 	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
 	
 	return args
+
+def print_snv_arguments(args):
+	print ("-------------------------------------------------------")
+	print ("Single Nucleotide Variant Parameters:")
+	print ("Input FASTA/FASTQ file (1st mate): %s" % args['m1'])
+	if args['m2']: print ("Input FASTA/FASTQ file (2nd mate): %s" % args['m2'])
+	print ("Input species abundance file: %s" % args['profile'])
+	print ("Output directory: %s" % args['out'])
+	print ("Keep temporary files: %s" % args['keep_temp'])
+	print ("Pipeline options:")
+	if args['build_db']:
+		print ("  -build bowtie2 database of genomes")
+	if args['align']:
+		print ("  -align reads to genome database")
+	if args['pileup']:
+		print ("  -use samtools to generate pileups")
+	if args['call']:
+		print ("  -parse output, call variants, and estimate allele frequencies")
+	print ("Species selection criterea:")
+	if args['gc_topn']:
+		print ("  -top %s most abundant species" % args['gc_topn'])
+	if args['gc_cov']:
+		print ("  -all species with >=%sX genome coverage" % args['gc_cov'])
+	if args['gc_rbun']:
+		print ("  -all species with >=%s relative abundance" % args['gc_rbun'])
+	if args['gc_id']:
+		print ("  -specified species id(s): %s" % args['gc_id'])
+	print ("Alignment speed/sensitivity: %s" % args['speed'])
+	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
+	print ("Number of threads for database search: %s" % args['threads'])
+	print ("Minimum alignment percent identity: %s" % args['mapid'])
+	print ("Minimum mapping quality score: %s" % args['mapq'])
+	print ("Minimum phred quality score: %s" % args['baseq'])
+	print ("-------------------------------------------------------")
 
 def check_genes(args):
 	""" Check validity of command line arguments """
@@ -315,6 +403,7 @@ if __name__ == '__main__':
 	args = get_arguments(program)
 	check_arguments(program, args)
 	if args['verbose']: print_copyright()
+	if args['verbose']: print_arguments(program, args)
 	run_program(program, args)
 	
 

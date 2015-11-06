@@ -30,7 +30,7 @@ Create a directory to store species abundance files:
 `mkdir species`
 
 For each sample, run:  
-`run_phylo_cnv.py species -1 sample_1.fq.gz -o species/sample_1.species --verbose`  
+`run_phylo_cnv.py species -1 sample_1.fq.gz -o species/sample_1.species --verbose`
 `run_phylo_cnv.py species -1 sample_2.fq.gz -o species/sample_2.species --verbose`  
 
 * This enables automatically profiling strain-level variation of all ~6,000 species in downstream modules.  
@@ -62,7 +62,7 @@ For each sample, run:
 * [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md)
 
 Merge results for each species across samples:  
-`merge_genes.py -i cnvs -o Bacteroides_vulgatus -g 57955`  
+`merge_genes.py -i cnvs -o Bacteroides_vulgatus -s 57955`
 
 * this script takes a directory as input, where subdirectories correspond to sample_ids 
 * '57955' is the identifier of *Bacteroides vulgatus*, which was in sample_1 and sample_2   
@@ -81,7 +81,7 @@ For each sample, run:
 * [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
 
 Merge results for each species across samples:    
-`merge_snps.py -i snvs -o Bacteroides_vulgatus -g 57955`   
+`merge_snps.py -i snvs -o Bacteroides_vulgatus -s 57955`   
 
 * '57955' is the identifier of *Bacteroides vulgatus*, which was in sample_1 and sample_2   
   * See merged.species_prevalence for a table listing common species in samples 1 and 2

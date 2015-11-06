@@ -5,17 +5,27 @@ Merge SNPs across samples for a given species
 ```
 usage: merge_snps.py [options]
 
+Merge single-nucleotide variants for an individual species across samples.
+Outputs include: a list of high-quality sites, an allele frequency matrix,
+consensus sequences for each sample, and a phylogenetic tree
+
 optional arguments:
   -h, --help            show this help message and exit
   -v, --verbose         verbose
 
 Input/Output:
-  -i IN, --indir IN     input directory
-  -o OUT, --outdir OUT  output directory
-  -g GENOME_CLUSTER, --genome_cluster GENOME_CLUSTER
-                        genome cluster id
-  -m MATRIX, --matrix MATRIX
-                        reference SNP matrix
+  -i INDIR              input directory. each subdirectory should correspond
+                        to a different sample_id
+  -s SPECIES_ID         species identifier. a list of prevalent species can be
+                        obtained by running 'scripts/merge_species.py'. A map
+                        of species ids to species names can be found in
+                        'ref_db/annotations.txt'
+  -o OUTDIR             output directory. output files:
+                        <outdir>/<species_id>.hq_snps,
+                        <outdir>/<species_id>.ref_freq,
+                        <outdir>/<species_id>.depth,
+                        <outdir>/<species_id>.fasta,
+                        <outdir>/<species_id>.tree
 
 Pipeline options (choose one or more; default=all):
   --snps                identify and store list of hq snps
@@ -23,49 +33,65 @@ Pipeline options (choose one or more; default=all):
   --cons                generate fasta file of consensus sequences
   --tree                build phylogenetic tree
 
-Sample filters:
-  --sample_list SAMPLE_LIST
-                        file of sample ids to include; each line should
-                        contain one id
+Sample filters
+(determine which samples in <indir> are included in output):
   --sample_depth SAMPLE_DEPTH
-                        min average read depth per sample (2.0)
-  --ref_coverage REF_COVERAGE
-                        min coverage of reference genome per sample (0.4)
+                        minimum average read depth per sample (5.0)
+  --fract_cov FRACT_COV
+                        fraction of reference sites covered by at least 1 read
+                        (0.4)
+  --max_samples MAX_SAMPLES
+                        maximum number of samples to process. useful for quick
+                        tests (use all)
+  --sample_list SAMPLE_LIST
+                        file of sample ids to include. each line should
+                        contain one id. each id should correspond to a
+                        subdirectory under <indir>
 
-SNP filters:
-  --snp_prev MIN_PREV   min fraction of samples that contain SNP (1.0)
-  --snp_depth SNP_DEPTH
-                        min # of reads supporting SNP per sample (1)
-  --no_fixed            exclude SNPs with the same consensus allele across
-                        samples (False)
-  --max_snps MAX_SNPS   only use <= MAX_SNPS (use all)
+Site filters
+(determine which reference-genome positions are included in output):
+  --site_depth SITE_DEPTH
+                        minimum number of mapped reads per site. a high value
+                        like 20 will result in accurate allele frequencies,
+                        but may discard many sites. a low value like 1 will
+                        retain many sites but may not result in accurate
+                        allele frequencies (3)
+  --site_prev MIN_PREV  site has at least <site_depth> coverage in at least
+                        <site_prev> proportion of samples. a value of 1.0 will
+                        select sites that have sufficent coverage in all
+                        samples. a value of 0.0 will select all sites,
+                        including those with low coverage in many samples
+                        (0.95)
+  --no_fixed            exclude sites with the same consensus allele across
+                        samples. this can be useful to reduce the size of the
+                        output datasets while retaining most of the
+                        information (False)
+  --max_sites MAX_SNPS  maximum number of sites to include in output. useful
+                        for quick tests (use all)
 ```
 
 ## Examples
 Use default parameters and run entire pipeline:  
-`merge_snps.py -i snvs -o B_vulgatus -g 57955`  
+`merge_snps.py -i snvs -o B_vulgatus -s 57955`
 
 * `snvs` is a directory that contains results from `run_phylo_cnv snvs`
 * the name of each subdirectory should correspond to a sample_id
 * `57955` is the species identifier for Bacteroides vulgatus
 
 Filter out low-coverage samples (<10x):  
-`merge_snps.py -i snvs -o B_vulgatus -g 57955 --sample_depth 10.0`  
+`merge_snps.py -i snvs -o B_vulgatus -s 57955 --sample_depth 10.0`
 
 Exclude variants that have the same consensus allele across all samples:  
-`merge_snps.py -i snvs -o B_vulgatus -g 57955 --no_fixed`  
-
-Exclude variants that have the same consensus allele across all samples:  
-`merge_snps.py -i snvs -o B_vulgatus -g 57955 --no_fixed`  
+`merge_snps.py -i snvs -o B_vulgatus -s 57955 --no_fixed`
 
 Keep variants with missing data in 5% of samples:  
-`merge_snps.py -i snvs -o B_vulgatus -g 57955 --snp_prev 0.95`  
+`merge_snps.py -i snvs -o B_vulgatus -s 57955 --snp_prev 0.95`
 
 Identify snps and build allele frequency matrix only:  
-`merge_snps.py -i snvs -o B_vulgatus -g 57955 ---snps --freq`  
+`merge_snps.py -i snvs -o B_vulgatus -s 57955 ---snps --freq`
 
 Identify consensus sequences and build phylogenetic tree only:  
-`merge_snps.py -i snvs -o B_vulgatus -g 57955 ---cons --tree` 
+`merge_snps.py -i snvs -o B_vulgatus -s 57955 ---cons --tree` 
  
 
 ## Outputs
@@ -76,6 +102,10 @@ This module generates the following output files:
 * **{species_id}.depth**: read depth matrix (snps x samples)
 * **{species_id}.fasta**: fasta file containing consensus sequences for species in each sample 
 * **{species_id}.tree**: maximum-likelihood phylogenetic tree built from consensus sequences
+
+## Memory usage  
+* Memory usage will depend on the number of sites and samples in the resulting output files
+* Phylogenetic tree building is the most memory-intensive step. For more info, see: http://www.microbesonline.org/fasttree/#GenomeWide
 
 ## Next steps
 [Functionally annotate SNVs] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_snvs.md)

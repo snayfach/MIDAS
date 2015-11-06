@@ -91,6 +91,9 @@ Example variant table for one sample (ex: snps/57955.snps.gz):
 * ref_freq: frequency (0.0 to 1.0) of reference allele
 * snps_summary_stats.txt: alignment summary statistics for each species
 
+## Memory usage  
+* Memory usage will depend on the number of species you search and the number of reference genomes sequenced per species.
+* In practice, peak memory usage will not exceed 3.5 Gb for most samples
 
 ## Speed
 * Speed will depend on the number of species you search and the number of sequenced reference genomes per species.

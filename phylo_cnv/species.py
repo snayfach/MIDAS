@@ -8,7 +8,7 @@ import numpy as np
 from time import time
 import platform
 import tempfile
-import misc
+import utility
 
 # Functions
 # ---------
@@ -35,7 +35,7 @@ def map_reads_hsblast(args):
 	command += ' -out %s' % args['blastout'] # output file
 	command += ' -evalue 1e-3' # %id for reporting hits
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	stdout, stderr = process.communicate()
+	utility.check_exit_code(process, command)
 
 def parse_blast(inpath):
 	""" Yield formatted record from BLAST m8 file """
@@ -164,8 +164,8 @@ def estimate_abundance(args):
 	""" Run entire pipeline """
 	# impute missing args & get relative file paths
 	add_tempfiles(args)
-	misc.add_executables(args)
-	misc.add_data_files(args)
+	utility.add_executables(args)
+	utility.add_data_files(args)
 	
 	# align reads
 	start = time()
@@ -173,7 +173,7 @@ def estimate_abundance(args):
 	map_reads_hsblast(args)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % misc.max_mem_usage()
+		print("  %s Gb maximum memory") % utility.max_mem_usage()
 	
 	# find best hit for each read
 	start = time()
@@ -183,7 +183,7 @@ def estimate_abundance(args):
 	cluster_alns = assign_non_unique(args, best_hits, unique_alns)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % misc.max_mem_usage()
+		print("  %s Gb maximum memory") % utility.max_mem_usage()
 	
 	# estimate genome cluster abundance
 	start = time()
@@ -192,7 +192,7 @@ def estimate_abundance(args):
 	cluster_abundance = normalize_counts(cluster_alns, total_gene_length)
 	if args['verbose']:
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % misc.max_mem_usage()
+		print("  %s Gb maximum memory") % utility.max_mem_usage()
 	
 	# convert to cellular relative abundances
 	if args['norm']:
@@ -210,7 +210,7 @@ def estimate_abundance(args):
 			print("  total bp sampled: %s" % bp)
 			print("  total genome coverage: %s" % round(genomes,2))
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % misc.max_mem_usage()
+			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# write results
 	write_abundance(args['out'], cluster_abundance)
@@ -232,7 +232,7 @@ def write_abundance(outpath, cluster_abundance):
 def read_abundance(inpath):
 	""" Parse output from PhyloSpecies """
 	if not os.path.isfile(inpath):
-		sys.exit("Could not locate species profile: %s\nTry rerunning with --species_profile" % inpath)
+		sys.exit("\nCould not locate species profile: %s\nTry rerunning with --species_profile" % inpath)
 	dict = {}
 	fields = [('cluster_id', str), ('cov', float), ('rel_abun', float)]
 	infile = open(inpath)
@@ -281,13 +281,13 @@ def select_genome_clusters(args):
 	ref_db = os.path.join(args['db'], 'genome_clusters')
 	for cluster_id in my_clusters:
 		if cluster_id not in os.listdir(ref_db) :
-			sys.exit("\nError: the specified genome_cluster '%s' was not found in the reference database:\n%s\n" % (cluster_id, ref_db))
+			sys.exit("\nError: the specified species_id '%s' was not found in the reference database:\n%s\n" % (cluster_id, ref_db))
 	# remove bad cluster_ids
 	for line in open(args['bad_gcs']):
 		try: my_clusters.remove(line.rstrip())
 		except: pass
 	# check that at least one genome-cluster was selected
 	if len(my_clusters) == 0:
-		sys.exit("\nError: no genome-clusters sastisfied your selection criteria. \n")
+		sys.exit("\nError: no species sastisfied your selection criteria. \n")
 	return my_clusters
 

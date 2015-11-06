@@ -85,6 +85,9 @@ Field definitions:
 * **normalized_coverage**: (raw_coverage of ref_id)/(median raw_coverage of 15 universal-single-copy genes)
   * this is the estimated average copy number of the gene across the population of cells
 
+## Memory usage  
+* Memory usage will depend on the number of species you search and the number of reference genomes sequenced per species.
+* In practice, peak memory usage will not exceed 1 Gb for most samples
 
 ## Speed
 * Speed will depend on the number of species you search and the number of reference genomes sequenced per species. 

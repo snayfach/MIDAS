@@ -14,7 +14,7 @@ import subprocess
 import gzip
 from time import time
 import platform
-import misc
+import utility
 
 # Functions
 # ---------
@@ -44,9 +44,8 @@ def genome_align(args):
 	#   sort bam
 	command += '| %s sort -f - %s ' % (args['samtools'], os.path.join(args['out'], 'genomes.bam'))
 	# Run command
-	if args['debug']: print("  running: %s") % command
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = process.communicate()
+	utility.check_exit_code(process, command)
 
 def pileup(args):
 	""" Filter alignments by % id, use samtools to create pileup, filter low quality bases, and write results to VCF file """
@@ -64,9 +63,8 @@ def pileup(args):
 	#   output vcf file
 	command += '> %s ' % ('%s/genomes.vcf' % args['out'])
 	# Run command
-	if args['debug']: print("  running: %s") % command
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = process.communicate()
+	utility.check_exit_code(process, command)
 
 def read_ref_to_cluster(args, type):
 	""" Read in map of scaffold id to genome-cluster id """
@@ -188,7 +186,7 @@ def snps_summary(args):
 	stats = {}
 	for cluster_id in set(read_ref_to_cluster(args, 'genomes').values()):
 		genome_length, covered_bases, total_depth, identity, maf = [0,0,0,0,0]
-		for r in misc.parse_file('/'.join([args['out'], 'snps/%s.snps.gz' % cluster_id])):
+		for r in utility.parse_file('/'.join([args['out'], 'snps/%s.snps.gz' % cluster_id])):
 			genome_length += 1
 			depth = int(r['depth'])
 			if depth > 0:
@@ -250,30 +248,22 @@ def build_genome_db(args, genome_clusters):
 	inpath = '/'.join([args['out'], 'db', 'genomes.fa'])
 	outpath = '/'.join([args['out'], 'db', 'genomes'])
 	command = ' '.join([args['bowtie2-build'], inpath, outpath])
-	if args['debug']: print("  running: %s" % command)
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = process.communicate()
+	utility.check_exit_code(process, command)
 
 def remove_tmp(args):
-	""" Remove specified tmp files """
-	if 'bowtie2_db' in args['remove']:
-		os.remove('/'.join([args['out'], 'db/genomes.fa']))
-		os.remove('/'.join([args['out'], 'db/genomes.fa.fai']))
-		for file in os.listdir('%s/db' % args['out']):
-			if file.split('.')[-1] == 'bt2' and file.split('.')[0] == 'genomes':
-				os.remove('%s/db/%s' % (args['out'], file))
-	if 'bam'in args['remove']:
-		os.remove('%s/genomes.bam' % args['out'])
-	if 'vcf'in args['remove']:
-		import shutil
-		shutil.rmtree('%s/vcf' % args['out'])
-		os.remove('%s/genomes.vcf' % args['out'])
+	""" Remove specified temporary files """
+	import shutil
+	shutil.rmtree('/'.join([args['out'], 'db']))
+	os.remove('%s/genomes.bam' % args['out'])
+	shutil.rmtree('%s/vcf' % args['out'])
+	os.remove('%s/genomes.vcf' % args['out'])
 
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
-	misc.add_executables(args) # Add paths to external files and binaries
-	misc.add_data_files(args)
+	utility.add_executables(args) # Add paths to external files and binaries
+	utility.add_data_files(args)
 	
 	# Build genome database for selected GCs
 	if args['build_db']:
@@ -284,17 +274,17 @@ def run_pipeline(args):
 		build_genome_db(args, genome_clusters)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % misc.max_mem_usage()
+			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Use bowtie2 to map reads to a representative genome for each genome-cluster
 	if args['align']:
-		args['file_type'] = misc.auto_detect_file_type(args['m1'])
+		args['file_type'] = utility.auto_detect_file_type(args['m1'])
 		if args['verbose']: print("\nMapping reads to representative genomes")
 		start = time()
 		genome_align(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % misc.max_mem_usage()
+			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Use mpileup to identify SNPs
 	if args['pileup']:
@@ -303,7 +293,7 @@ def run_pipeline(args):
 		pileup(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % misc.max_mem_usage()
+			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Split vcf into files for each GC, format, and report summary statistics
 	if args['call']:
@@ -314,9 +304,8 @@ def run_pipeline(args):
 		snps_summary(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % misc.max_mem_usage()
+			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Optionally remove temporary files
-	if args['remove']:
-		 remove_tmp(args)
+	if not args['keep']: remove_tmp(args)
 

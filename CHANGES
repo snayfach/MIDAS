@@ -1,10 +1,23 @@
 CHANGES
 
+2015-11-06
+ * added more help text to merge_species.py, merge_genes.py, and merge_snps.py
+ * parameters now printed to stdout for run_phylo_cnv.py and merging scripts
+ * made removal of temp files default, replaces --remove with --keep_temp flag
+ * changed several flag names including:
+   * replaced -g GENOME_CLUSTER with -s SPECIES_ID in merge_genes.py and merge_snps.py
+   * replaced --ref_coverage with --fract_cov in merge_snps.py
+   * replaced the term snp with site in merge_snps.py
+
 2015-11-05
  * fixed bug in merge_genes.py: now writes <species>.gene_depth
  * copyright now printed
  * changed defaults for run_phylo_cnv.py snvs (map_id=0.94, mapq=20, baseq=20)
  * fixed bug when specifying mapq & baseq in run_phylo_cnv.py snvs
+ * removed --debug flag
+ * renamed misc.py to utility.py
+ * now checking for non-zero exit status for all shell commands
+
 
 2015-10-28
  * added merge_species.py

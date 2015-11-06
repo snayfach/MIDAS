@@ -14,7 +14,7 @@ import subprocess
 import gzip
 from time import time
 import platform
-import misc
+import utility
 
 # Functions
 # ---------
@@ -41,10 +41,8 @@ def pangenome_align(args):
 	bampath = '/'.join([args['out'], 'pangenome.bam'])
 	command += '| %s view -b - > %s' % (args['samtools'], bampath)
 	# Run command
-	if args['debug']: print("  running: %s") % command
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = process.communicate()
-	#sys.stderr.write(err) # write to stderr: bowtie2 output
+	utility.check_exit_code(process, command)
 
 def read_ref_to_cluster(args, type):
 	""" Read in map of gene id to genome-cluster id """
@@ -60,7 +58,7 @@ def genes_summary(args):
 	stats = {}
 	for cluster_id in set(read_ref_to_cluster(args, 'pangenome').values()):
 		pangenome_size, covered_genes, total_coverage, phyeco_coverage = [0,0,0,0]
-		for r in misc.parse_file('/'.join([args['out'], 'coverage/%s.cov.gz' % cluster_id])):
+		for r in utility.parse_file('/'.join([args['out'], 'coverage/%s.cov.gz' % cluster_id])):
 			pangenome_size += 1
 			coverage = float(r['raw_coverage'])
 			normcov = float(r['normalized_coverage'])
@@ -202,25 +200,20 @@ def build_pangenome_db(args, genome_clusters):
 	inpath = '/'.join([args['out'], 'db/pangenomes.fa'])
 	outpath = '/'.join([args['out'], 'db/pangenomes'])
 	command = ' '.join([args['bowtie2-build'], inpath, outpath])
-	if args['debug']: print("  running: %s" % command)
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	out, err = process.communicate()
+	utility.check_exit_code(process, command)
 
 def remove_tmp(args):
-	""" Optionally remove specified temporary files """
-	if 'bowtie2_db' in args['remove']:
-		os.remove('/'.join([args['out'], 'db/pangenomes.fa']))
-		for file in os.listdir('%s/db' % args['out']):
-			if file.split('.')[-1] == 'bt2' and file.split('.')[0] == 'pangenomes':
-				os.remove('%s/db/%s' % (args['out'], file))
-	if 'bam'in args['remove']:
-		os.remove('%s/pangenome.bam' % args['out'])
+	""" Remove specified temporary files """
+	import shutil
+	shutil.rmtree('/'.join([args['out'], 'db']))
+	os.remove('%s/pangenome.bam' % args['out'])
 		
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
-	misc.add_executables(args) # Add paths to external files and binaries
-	misc.add_data_files(args)
+	utility.add_executables(args) # Add paths to external files and binaries
+	utility.add_data_files(args)
 	
 	# Build pangenome database for selected GCs
 	if args['build_db']:
@@ -231,17 +224,17 @@ def run_pipeline(args):
 		build_pangenome_db(args, genome_clusters)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % misc.max_mem_usage()
+			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Use bowtie2 to align reads to pangenome database
 	if args['align']:
 		start = time()
 		if args['verbose']: print("\nAligning reads to pangenomes")
-		args['file_type'] = misc.auto_detect_file_type(args['m1'])
+		args['file_type'] = utility.auto_detect_file_type(args['m1'])
 		pangenome_align(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % misc.max_mem_usage()
+			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Compute pangenome coverage for each genome-cluster
 	if args['cov']:
@@ -251,11 +244,10 @@ def run_pipeline(args):
 		genes_summary(args)
 		if args['verbose']:
 			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % misc.max_mem_usage()
+			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Optionally remove temporary files
-	if args['remove']:
-		remove_tmp(args)
+	if not args['keep']: remove_tmp(args)
 
 		
 
