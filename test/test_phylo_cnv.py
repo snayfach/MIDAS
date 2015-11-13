@@ -7,14 +7,29 @@ import os
 import subprocess
 
 def check_exit_code(command):
-	""" Capture stdout, stderr. Check unix exit code """
+	""" run shell command & return unix exit code """
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
 	return(process.returncode)
 
+class ImportDependencies(unittest.TestCase):
+	""" test that all dependencies can be imported """
+	def setUp(self):
+		try:
+			import numpy
+			import pysam
+			import microbe_census
+			import Bio.SeqIO
+			import phylo_cnv
+			self.success = True
+		except Exception:
+			self.success = False
+	def test_dependencies(self):
+		self.assertTrue(self.success,
+		msg="""\n\nOne or more dependencies failed to import.\nMake sure that dependencies have been properly installed""")
+
 class HelpText(unittest.TestCase):
 	""" check help text for all scripts """
-
 	def setUp(self):
 		self.scripts = [
 			'../scripts/annotate_genes.py -h',
@@ -28,29 +43,36 @@ class HelpText(unittest.TestCase):
 			'../scripts/run_phylo_cnv.py genes -h',
 			'../scripts/run_phylo_cnv.py snvs -h']
 		self.exit_codes = [check_exit_code(_) for _ in self.scripts]
-
 	def test_help_text(self):
 		self.assertTrue(all([_ == 0 for _ in self.exit_codes]))
 
-#class ReadList(unittest.TestCase):
-#	""" check whether file is read into list properly """
-#	
-#	def setUp(self): # create test files in tmp directory
-#		self.exp_values = range(10)
-#		self.dir = tempfile.mkdtemp()
-#		self.inpath = os.path.join(self.dir, 'tmp.txt')
-#		for i in range(10):
-#			open(self.inpath, 'a').write(str(i)+'\n')
-#		
-#	def test_read_list(self):
-#		obs_values = microbe_census.read_list(self.inpath, header=False, dtype='int')
-#		for exp, obs in zip(self.exp_values, obs_values):
-#			self.assertEqual(exp, obs)
-#
-#	def tearDown(self): # clean up tmp directory
-#		shutil.rmtree(self.dir)
-#
-#
+class RunSpecies(unittest.TestCase):
+	""" test run_phylo_cnv.py species """
+	def setUp(self):
+		self.command = '../scripts/run_phylo_cnv.py species -1 ./test.fq.gz -o ./species.txt -n 100'
+	def test_help_text(self):
+		self.assertTrue(check_exit_code(self.command)==0)
+	def tearDown(self):
+		os.remove('species.txt')
+
+class RunCNVs(unittest.TestCase):
+	""" test run_phylo_cnv.py genes """
+	def setUp(self):
+		self.command = '../scripts/run_phylo_cnv.py genes -1 ./test.fq.gz -o ./test -n 100 --gc_id 57955'
+	def test_help_text(self):
+		self.assertTrue(check_exit_code(self.command)==0)
+	def tearDown(self):
+		shutil.rmtree('test')
+
+class RunSNVs(unittest.TestCase):
+	""" test run_phylo_cnv.py snvs """
+	def setUp(self):
+		self.command = '../scripts/run_phylo_cnv.py snvs -1 ./test.fq.gz -o ./test -n 100 --gc_id 57955'
+	def test_help_text(self):
+		self.assertTrue(check_exit_code(self.command)==0)
+	def tearDown(self):
+		shutil.rmtree('test')
+
 #class FileType(unittest.TestCase):
 #	""" check whether filetype is correctly determined """
 #
@@ -87,42 +109,6 @@ class HelpText(unittest.TestCase):
 #
 #	def tearDown(self): # clean up tmp directory
 #		shutil.rmtree(self.dir)
-#
-#
-#class QualEncode(unittest.TestCase):
-#	""" check whether fastq quality encoding is correctly determined """
-#
-#	def setUp(self): # create test files in tmp directory
-#		self.dir = tempfile.mkdtemp()
-#		self.values = [['file.sanger', 'fastq-sanger',
-#		               ("""@HWUSI-EAS574_102539073:1:100:10000:12882/1""",
-#						"""AGCTCTTCCAGCGATACAATACCATCGTTCCTTCGGTAGCATC""",
-#						"""+HWUSI-EAS574_102539073:1:100:10000:12882/1""",
-#						"""!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIII""")],
-#					   ['file.solexa', 'fastq-solexa',
-#		               ("""@HWUSI-EAS574_102539073:1:100:10000:12882/1""",
-#						"""AGCTCTTCCAGCGATACAATACCATCGTTCCTTCGGTAGCATC""",
-#						"""+HWUSI-EAS574_102539073:1:100:10000:12882/1""",
-#						""";<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcde""")],
-#					   ['file.illumina', 'fastq-illumina',
-#		               ("""@HWUSI-EAS574_102539073:1:100:10000:12882""",
-#						"""AGCTCTTCCAGCGATACAATACCATCGTTCCTTCGGTAGCA""",
-#						"""+HWUSI-EAS574_102539073:1:100:10000:12882""",
-#						"""@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefgh""")]]
-#		for name, type, values in self.values:
-#			inpath = os.path.join(self.dir, name)
-#			infile = open(inpath, 'w')
-#			for value in values: infile.write(value+'\n')
-#
-#	def test_detect_qualtype(self):
-#		for filename, exptype, seqs in self.values:
-#			inpath = os.path.join(self.dir, filename)
-#			obstype = microbe_census.auto_detect_fastq_format(inpath)
-#			self.assertEqual(obstype, exptype)
-#
-#	def tearDown(self): # clean up tmp directory
-#		shutil.rmtree(self.dir)
-
 
 if __name__ == '__main__':
 	unittest.main()

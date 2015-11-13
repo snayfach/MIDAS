@@ -42,12 +42,13 @@ def genome_align(args):
 	#   convert to bam
 	command += '| %s view -b - ' % args['samtools']
 	#   sort bam
-	command += '| %s sort -f - %s ' % (args['samtools'], os.path.join(args['out'], 'genomes.bam'))
+	bam_path = os.path.join(args['out'], 'genomes.bam')
+	command += '| %s sort -f - %s ' % (args['samtools'], bam_path)
 	# Run command
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	# Check for errors
 	utility.check_exit_code(process, command)
-	utility.check_bamfile(args, bampath)
+	utility.check_bamfile(args, bam_path)
 
 def pileup(args):
 	""" Filter alignments by % id, use samtools to create pileup, filter low quality bases, and write results to VCF file """

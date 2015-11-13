@@ -1,5 +1,9 @@
 CHANGES
 
+2015-11-13
+ * fixed bug in snvs.py: line 50: bam_path was not defined
+ * added more unit tests
+
 2015-11-12
  * added /test/test_phylo_cnv.py for unit testing
 
