@@ -18,19 +18,19 @@ parser$add_argument("-i", type="character", required=T, dest="inpath",
 	help="Path to matrix of species relative abundances or coverage",
 	metavar="filepath")
 parser$add_argument("-m", type="character", required=T, dest="metapath",
-	help="Path to tab-delimited metadata file",
+	help="Path to tab-delimited metadata file. Should contain at least two columns. The first column are sample ids. The remaining columns are categorical variables.",
 	metavar="filepath")
 parser$add_argument("-o", type="character", required=T, default=1, dest="outpath",
 	help="Path to output PDF",
 	metavar="filepath")
 parser$add_argument("-f", type="integer", default=1, dest="field",
-	help="Column number in metadata file to use [1]",
+	help="Column number in metadata file to use for plotting; 1 indicates the first non-sample-id field [1]",
 	metavar="number")
 parser$add_argument("-c", type="double", default=0, dest="cutoff",
-	help="Abundance cutoff to use for determining species presence/absence [0]",
+	help="Cutoff to use for determining species prevalence. Indicates genome coverage if '-i' is a coverage matrix; indicates relative abundance if '-i' is an abundance matrix [0]",
 	metavar="number")
 parser$add_argument("-n", type="integer", default=20, dest="nspecies",
-	help="Number of species to display [20]",
+	help="Number of species to display in plot [20]",
 	metavar="number")
 
 # get command line options
