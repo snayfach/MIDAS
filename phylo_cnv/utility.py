@@ -4,6 +4,7 @@ import sys
 import resource
 import gzip
 import platform
+import subprocess
 
 def is_executable(f):
 	""" Check if file is executable by all """
@@ -89,4 +90,13 @@ def check_exit_code(process, command):
 	out, err = process.communicate()
 	if process.returncode != 0:
 		err_message = "\nError encountered executing:\n%s\n\nError message:\n%s" % (command, err)
+		sys.exit(err_message)
+
+def check_bamfile(args, bampath):
+	""" Use samtools to check bamfile integrity """
+	command = '%s view %s > /dev/null' % (args['samtools'], bampath)
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out, err = process.communicate()
+	if err != '':
+		err_message = "\nWarning, bamfile may be corrupt: %s\nSamtools reported this error: %s\nTry rerunning with --align" % (bampath, err.rstrip())
 		sys.exit(err_message)

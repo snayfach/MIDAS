@@ -10,23 +10,33 @@ abundance matrix, a genome-coverage matrix, and a table summarizing species
 prevalence and abundance across samples
 
 optional arguments:
-  -h, --help     show this help message and exit
-  -v, --verbose  verbose
-  -i INDIR       input directory of species abundance files. filenames should
-                 have the format: <indir>/<sample_id>.species
-  -o OUTBASE     basename for output files: <outbase>.species_abundance,
-                 <outbase>.species_coverage, <outbase>.species_prevalence
-  -m MIN_COV     minimum genome-coverage for estimating species prevalence
-                 (1.0)
+  -h, --help          show this help message and exit
+  -v, --verbose       verbose
+  -i INPUT            input to results from 'run_phylo_cnv.py species'. see
+                      <intype> for details
+  -t {dir,file,list}  input type. 'dir': directory containing species
+                      abundance files. example:
+                      <directory>/<sample_id>.species 'file': file containing
+                      paths to species abundance files. each line in the file
+                      should contain the full path to the results for a
+                      sample_id. 'list': comma-separated list of paths to
+                      phylo_cnv results.
+  -o OUTBASE          basename for output files: <outbase>.species_abundance,
+                      <outbase>.species_coverage, <outbase>.species_prevalence
+  -m MIN_COV          minimum genome-coverage for estimating species
+                      prevalence (1.0)                     
 ```
 
 ## Examples
 
 Run using default parameters:  
-`merge_species.py -i species -o test`
+`merge_species.py -i species -t dir -o outbase`
 
 * `species` is a directory that contains results from `run_phylo_cnv species`
 * the name of each file should correspond to a sample_id: \<sample_id>.species
+
+Provide list of file paths:
+`merge_species.py -i species/sample_1.species,species/sample_2.species -t list -o outbase`
 
 ## Outputs
 This script generates three output files:

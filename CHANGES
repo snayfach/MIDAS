@@ -1,5 +1,21 @@
 CHANGES
 
+2015-11-12
+ * added /test/test_phylo_cnv.py for unit testing
+
+2015-11-10
+ * fixed bug with --keep_temp flag
+ * run_phylo_cnv.py genes & snvs: checks if bamfile is corrupt
+ * only need profile if building database: run_phylo_cnv.py
+
+2015-11-08
+ * made default alignment coverage 0.75 in run_phylo_cnv.py genes
+ * merge_genes.py, merge_species.py, merge_snps.py:
+   * replaced -i <indir> with -i <input> and -t <intype>
+
+2015-11-07
+ * more help text to run_phylo_cnv.py
+
 2015-11-06
  * added more help text to merge_species.py, merge_genes.py, and merge_snps.py
  * parameters now printed to stdout for run_phylo_cnv.py and merging scripts
@@ -18,7 +34,10 @@ CHANGES
  * renamed misc.py to utility.py
  * now checking for non-zero exit status for all shell commands
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> 1d34f131328cc55c46df8148f4feeb421c61e24d
 2015-10-28
  * added merge_species.py
  * added merge_species.md

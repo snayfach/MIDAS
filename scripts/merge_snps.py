@@ -26,9 +26,18 @@ def parse_arguments():
 	parser.add_argument('-v', '--verbose', action='store_true', default=False, help='verbose')
 	
 	io = parser.add_argument_group('Input/Output')
-	io.add_argument('-i', dest='indir', type=str, required=True,
-		help="""input directory. 
-			each subdirectory should correspond to a different sample_id""")
+#	io.add_argument('-i', dest='indir', type=str, required=True,
+#		help="""input directory.
+#			each subdirectory should correspond to a different sample_id""")
+	io.add_argument('-i', type=str, dest='input', required=True,
+		help="""input to results from 'run_phylo_cnv.py snvs'.
+			see <intype> for details""")
+	io.add_argument('-t', choices=['dir', 'file', 'list'], dest='intype', required=True,
+		help="""input type.
+			'dir': directory containing phylo_cnv results. each subdirectory should correspond to a different sample_id. for example: <directory>/<sample_id>
+			'file': file containing paths to phylo_cnv results.	each line in the file should contain the full path to the results for a sample_id.
+			'list': comma-separated list of paths to phylo_cnv results.
+			""")
 	io.add_argument('-s', dest='species_id', type=str, required=True,
 		help="""species identifier. 
 			a list of prevalent species can be obtained by running 'scripts/merge_species.py'.
@@ -44,15 +53,13 @@ def parse_arguments():
 	pipe.add_argument('--cons', default=False, action='store_true', help='generate fasta file of consensus sequences')
 	pipe.add_argument('--tree', default=False, action='store_true', help='build phylogenetic tree')
 	
-	sample = parser.add_argument_group('Sample filters\n(determine which samples in <indir> are included in output)')
+	sample = parser.add_argument_group('Sample filters\n(determine which samples are included in output)')
 	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=5.0,
 		help='minimum average read depth per sample (5.0)')
 	sample.add_argument('--fract_cov', dest='fract_cov', type=float, default=0.4,
 		help='fraction of reference sites covered by at least 1 read (0.4)')
 	sample.add_argument('--max_samples', type=int,
 		help='maximum number of samples to process. useful for quick tests (use all)')
-	sample.add_argument('--sample_list', dest='sample_list', type=str, default=None,
-		help='file of sample ids to include. each line should contain one id. each id should correspond to a subdirectory under <indir>')
 				
 	snps = parser.add_argument_group('Site filters\n(determine which reference-genome positions are included in output)')
 	snps.add_argument('--site_depth', dest='site_depth', type=int, default=3,
@@ -83,8 +90,9 @@ def check_args(args):
 
 def print_arguments(args):
 	print ("-------------------------------------------------------")
-	print ("Merge SNVs Parameters:")
-	print ("Input directory: %s" % args['indir'])
+	print ("Merge SNVs Parameters")
+	print ("Input: %s" % args['input'])
+	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
 	print ("Species identifier: %s" % args['species_id'])
 	print ("Pipeline options:")
@@ -93,8 +101,6 @@ def print_arguments(args):
 	if args['cons']: print ("  call consensus sequences")
 	if args['tree']: print ("  build phylogenetic tree")
 	print ("Sample selection criteria:")
-	if args['sample_list']:
-		print ("  sample list: %s" % args['sample_list'])
 	if args['sample_depth']:
 		print ("  keep samples with >=%s average coverage across reference genome" % args['sample_depth'])
 	if args['fract_cov']:
@@ -121,35 +127,47 @@ def parse_snps_summary(inpath):
 		snps_summary[rec['cluster_id']] = rec
 	return snps_summary
 
+def list_samples(input, intype):
+	if intype == 'dir':
+		if not os.path.isdir(input):
+			sys.exit("\nSpecified input directory does not exist:\n%s" % input)
+		else:
+			return([os.path.join(input, _) for _ in os.listdir(input)])
+	elif intype == 'file':
+		if not os.path.isfile(input):
+			sys.exit("\nSpecified input file does not exist:\n%s" % input)
+		else:
+			return([x.rstrip() for x in open(input).readlines()])
+	elif intype == 'list':
+		return(input.split(','))
+
 def identify_samples(args):
 	""" Identify samples with sufficient depth for target genome-cluster """
-	samples = []
-	sample_list = [x.rstrip() for x in open(args['sample_list']).readlines()] if args['sample_list'] else None
-	for sample_id in os.listdir(args['indir']):
+	samples_dirs = []
+	for sample_dir in list_samples(args['input'], args['intype']):
 		# read in summary stats for sample across genome-clusters
-		indir = '/'.join([args['indir'], sample_id])
-		inpath = '/'.join([indir, 'snps_summary_stats.txt'])
+		inpath = '/'.join([sample_dir, 'snps_summary_stats.txt'])
+		sample_id = os.path.basename(sample_dir)
 		if not os.path.isfile(inpath):
+			print("  warning: no data for sample_id %s" % sample_id)
 			continue
-		else:
-			snps_summary = parse_snps_summary(inpath)
+		snps_summary = parse_snps_summary(inpath)
 		# check whether sample passes QC
-		if args['sample_list'] and sample_id not in sample_list:
-			continue
-		elif args['species_id'] not in snps_summary:
+		if args['species_id'] not in snps_summary:
 			continue
 		elif float(snps_summary[args['species_id']]['average_depth']) < args['sample_depth']:
 			continue
 		elif float(snps_summary[args['species_id']]['fraction_covered']) < args['fract_cov']:
 			continue
-		elif not os.path.isfile('%s/snps/%s.snps.gz' % (indir, args['species_id'])):
-			continue
-		# keep sample
+		# sample passes qc
 		else:
-			samples.append(sample_id)
-	if len(samples) == 0:
-		sys.exit("Error: no samples met selection criteria!")
-	return samples
+			samples_dirs.append(sample_dir)
+			# only keep max_samples if specified
+			if args['max_samples'] and len(samples_dirs) >= args['max_samples']:
+				break
+	if len(samples_dirs) == 0:
+		sys.exit("Error: species_id failed to pass quality-control in all samples")
+	return samples_dirs
 
 def parse_snps(inpath):
 	""" Yields formatted records from SNPs output """
@@ -160,18 +178,18 @@ def parse_snps(inpath):
 	for line in infile:
 		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split())])
 
-def open_infiles(args, samples):
+def open_infiles(args, sample_dirs, sample_ids):
 	""" Open SNP files for genome-cluster across all samples """
 	infiles = {}
-	for sample_id in samples:
-		inpath = '%s/%s/snps/%s.snps.gz' % (args['indir'], sample_id, args['species_id'])
+	for sample_dir, sample_id in zip(sample_dirs, sample_ids):
+		inpath = '%s/snps/%s.snps.gz' % (sample_dir, args['species_id'])
 		infiles[sample_id] = parse_snps(inpath)
 	return infiles
 
-def fetch_snp(snpfiles, samples):
+def fetch_snp(snpfiles, sample_ids):
 	""" Fetch SNP data across samples """
 	snp = []
-	for sample_id in samples:
+	for sample_id in sample_ids:
 		snp.append(next(snpfiles[sample_id]))
 	return snp
 
@@ -216,23 +234,22 @@ def prevalence(list):
 	""" Count fraction of True in list """
 	return float(sum(list))/len(list)
 
-def write_ref_freq(args, samples):
+def write_ref_freq(args, sample_dirs, sample_ids):
 	""" Write reference allele frequencies """
 	# open output files
 	outfiles = {}
 	outfiles['freq_matrix'] = open('%s/%s.ref_freq' % (args['outdir'], args['species_id']), 'w')
 	outfiles['depth_matrix'] = open('%s/%s.depth' % (args['outdir'], args['species_id']), 'w')
-	outfiles['freq_matrix'].write('\t'.join(['ref_id', 'ref_pos'] + samples)+'\n')
-	outfiles['depth_matrix'].write('\t'.join(['ref_id', 'ref_pos'] + samples)+'\n')
-	snpfiles = open_infiles(args, samples) # open all input files
+	outfiles['freq_matrix'].write('\t'.join(['ref_id', 'ref_pos'] + sample_ids)+'\n')
+	outfiles['depth_matrix'].write('\t'.join(['ref_id', 'ref_pos'] + sample_ids)+'\n')
+	snpfiles = open_infiles(args, sample_dirs, sample_ids) # open all input files
 	hq_snps = read_hq_snps(args) # read in list of hq snps
 	n = len(hq_snps)
 	i = 0 # index position in hq_snps
-	inpath = '%s/%s/snps/%s.snps.gz' % (args['indir'], snpfiles.keys()[0], args['species_id'])
-	dummyfile = gzip.open(inpath)
+	dummyfile = gzip.open('%s/snps/%s.snps.gz' % (sample_dirs[0], args['species_id']))
 	next(dummyfile)
 	for line in dummyfile: # outer loop: stop when eof reached
-		snp = fetch_snp(snpfiles, samples) # inner loop: get data for snp across all samples
+		snp = fetch_snp(snpfiles, sample_ids) # inner loop: get data for snp across all samples
 		id = [snp[0]['ref_id'], snp[0]['ref_pos']]
 		if i == n: # no more snps
 			break
@@ -243,17 +260,16 @@ def write_ref_freq(args, samples):
 			outfiles['depth_matrix'].write('\t'.join(id+[str(s['depth']) for s in snp])+'\n')
 			i += 1
 
-def id_snps(args, samples):
+def id_snps(args, sample_dirs, sample_ids):
 	""" Identify SNPs that pass QC """
-	snpfiles = open_infiles(args, samples) # open all input files
+	snpfiles = open_infiles(args, sample_dirs, sample_ids) # open all input files
 	outfile = open('%s/%s.hq_snps' % (args['outdir'], args['species_id']), 'w')
 	outfile.write('\t'.join(['ref_id', 'ref_pos', 'alt_allele', 'count_alt'])+'\n')
 	hq_snps = []
-	inpath = '%s/%s/snps/%s.snps.gz' % (args['indir'], snpfiles.keys()[0], args['species_id'])
-	dummyfile = gzip.open(inpath)
+	dummyfile = gzip.open('%s/snps/%s.snps.gz' % (sample_dirs[0], args['species_id']))
 	next(dummyfile)
 	for line in dummyfile: # outer loop: stop when eof reached
-		snp = fetch_snp(snpfiles, samples) # inner loop: get data for snp across all samples
+		snp = fetch_snp(snpfiles, sample_ids) # inner loop: get data for snp across all samples
 		pass_qc = snp_qc(snp, args) # True/False depending if sample passed/failed QC for SNP
 		if prevalence(pass_qc) < args['min_prev']: # skip snps that do not occur in enough samples
 			continue
@@ -270,15 +286,15 @@ def id_snps(args, samples):
 			break
 	outfile.close()
 
-def write_consensus(args, samples):
+def write_consensus(args, sample_dirs, sample_ids):
 	""" Write consensus sequences from samples """
 	outfile = open('%s/%s.fasta' % (args['outdir'], args['species_id']), 'w')
 	hq_snps = read_hq_snps(args) # get snp list
 	n = len(hq_snps)
-	for sample_id in samples:
+	for sample_dir, sample_id in zip(sample_dirs, sample_ids):
 		i = 0 # index position in hq_snps
 		outfile.write('>%s\n' % sample_id) # sequence header
-		inpath = '%s/%s/snps/%s.snps.gz' % (args['indir'], sample_id, args['species_id'])
+		inpath = '%s/snps/%s.snps.gz' % (sample_dir, args['species_id'])
 		for snp in parse_snps(inpath):
 			if i == n: # no more snps in list
 				break
@@ -354,25 +370,26 @@ if __name__ == '__main__':
 	if args['verbose']: print_arguments(args)
 	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
 
-	if True:
-		if args['verbose']: print("Identifying samples")
-		samples = identify_samples(args)
+	if args['verbose']: print("Identifying samples with species")
+	sample_dirs = identify_samples(args) # id samples with sufficient depth
+	sample_ids = [os.path.basename(_) for _ in sample_dirs]
+	if args['verbose']: print("  %s samples with species" % len(sample_ids))
 
 	if args['snps']:
 		if args['verbose']: print("Identifying and writing hq snps")
-		id_snps(args, samples)
+		id_snps(args, sample_dirs, sample_ids)
 	
 	if args['freq']:
 		if args['verbose']: print("Writing allele frequencies & depths")
-		write_ref_freq(args, samples)
+		write_ref_freq(args, sample_dirs, sample_ids)
 
 	if args['cons']:
 		if args['verbose']: print("Writing consensus sequences")
-		write_consensus(args, samples)
+		write_consensus(args, sample_dirs, sample_ids)
 
-	if args['matrix']:
-		if args['verbose']: print("Adding references sequences")
-		add_ref_alleles(args)
+#	if args['matrix']:
+#		if args['verbose']: print("Adding references sequences")
+#		add_ref_alleles(args)
 
 	if args['tree']:
 		if args['verbose']: print("Building phylogenetic tree")

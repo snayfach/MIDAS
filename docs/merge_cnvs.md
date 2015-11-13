@@ -14,10 +14,16 @@ optional arguments:
   -v, --verbose         verbose
 
 Input/Output:
-  -i INDIR              input directory. each subdirectory should correspond
-                        to a sample_id and should contain the results of
-                        running 'run_phylo_cnv.py genes'. for example:
-                        <indir>/<sample_1>, <indir>/<sample_2>
+  -i INPUT              input to results from 'run_phylo_cnv.py genes'. see
+                        <intype> for details
+  -t {dir,file,list}    input type. 'dir': directory containing phylo_cnv
+                        results. each subdirectory should correspond to a
+                        different sample_id. for example:
+                        <directory>/<sample_id> 'file': file containing paths
+                        to phylo_cnv results. each line in the file should
+                        contain the full path to the results for a sample_id.
+                        'list': comma-separated list of paths to phylo_cnv
+                        results.
   -s SPECIES_ID         species identifier. a list of prevalent species can be
                         obtained by running 'scripts/merge_species.py'. a map
                         of species ids to species names can be found in
@@ -28,7 +34,7 @@ Input/Output:
                         <outdir>/<species_id>.gene_depth
 
 Sample filters
-(determine which samples in <indir> are included in output):
+(determine which samples are included in output):
   --marker_coverage MARKER_COVERAGE
                         minimum read depth per sample across 15 phylogenetic
                         marker genes (3.0)
@@ -51,26 +57,29 @@ Presence/Absence:
                         larger gene families. large values: more, smaller gene
                         families (95)
   --add_ref             include gene presence/absence for reference genomes
-```
+ ```
 
 ## Examples
 
-Run using default parameters:  
-`merge_genes.py -i cnvs -o B_vulgatus -s 57955`
+Run using default parameters:
+`merge_genes.py -i cnvs -t dir -o Bacteroides_vulgatus -s 57955`
 
 * `cnvs` is a directory that contains results from `run_phylo_cnv genes`
 * the name of each subdirectory should correspond to a sample_id
 * `57955` is the species identifier for Bacteroides vulgatus
 
+Provide list of sample directories:  
+`merge_genes.py -i cnvs/sample_1,cnvs/sample_2 -t list -o Bacteroides_vulgatus -s 57955`
+
 Add reference genome pan-genome profiles in output:  
-`merge_genes.py -i cnvs -o B_vulgatus -s 57955 --add_ref`
+`merge_genes.py -i cnvs -t dir -o Bacteroides_vulgatus -s 57955 --add_ref`
 
 * There will be additional columns in output matrix that correspond to reference genomes
 * Enables estimating gene-sharing with reference genomes
 * Enables comparison of gene-content variation between metagenomic samples to variation between reference genomes
 
 Adjust the size and diversity of gene-families in output:  
-`merge_genes.py -i cnvs -o B_vulgatus -s 57955 --cluster_pid 90`
+`merge_genes.py -i cnvs -t dir -o Bacteroides_vulgatus -s 57955 --cluster_pid 90`
 
 * Higher values (i.e. 95, 99) will result in additional gene-families in output matrix
 * This will result in lower gene-sharing between metagenomes
@@ -78,10 +87,10 @@ Adjust the size and diversity of gene-families in output:
 * This will result in higher gene-sharing between metagenomes
 
 Predict gene presence/absence with higher sensitivity & lower specificity:  
-`merge_genes.py -i cnvs -o B_vulgatus -s 57955 --min_copy 0.20`
+`merge_genes.py -i cnvs -t dir -o Bacteroides_vulgatus -s 57955 --min_copy 0.20`
 
 Predict gene presence/absence with higher specificity & lower sensitivity:  
-`merge_genes.py -i cnvs -o B_vulgatus -s 57955 --min_copy 0.50`
+`merge_genes.py -i cnvs -t dir -o Bacteroides_vulgatuss -s 57955 --min_copy 0.50`
 
 ## Outputs
 This module generates three output files: 

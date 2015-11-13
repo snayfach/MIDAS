@@ -21,12 +21,14 @@ def get_program():
 	""" Get program specified by user (species, genes, or snvs) """
 	if len(sys.argv) == 1 or sys.argv[1] in ['-h', '--help']:
 		print('')
-		print('Usage: run_phylo_cnv.py command [options]')
+		print('Usage: run_phylo_cnv.py <command> [options]')
+		print('')
+		print('Note: use run_phylo_cnv.py <command> -h to view usage for a specific command')
 		print('')
 		print('Commands:')
-		print('\tspecies\t rapidly estimate the abundance of genome-clusters')
-		print('\tgenes\t map reads to pangenomes of abundant genome-clusters')
-		print('\tsnvs\t map reads to representative genomes and call SNVs')
+		print('\tspecies\t estimate the abundance of ~6,000 bacterial species')
+		print('\tgenes\t identify gene copy number variants in abundant species')
+		print('\tsnvs\t identify single nucleotide variants in abundant species')
 		quit()
 	elif sys.argv[1] not in ['species', 'genes', 'snvs']:
 		sys.exit("Unrecognized command: '%s'" % sys.argv[1])
@@ -172,7 +174,7 @@ def pangenome_arguments():
 	map.add_argument('--mapid', type=float, dest='mapid',
 		default=94.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (94.0)')
 	map.add_argument('--aln_cov', type=float, dest='aln_cov',
-		default=0.70, help='Discard alignments where read coverage < ALN_COV. Higher values indicate that reads must be globally covered by alignment (0.70)')
+		default=0.75, help='Discard alignments where read coverage < ALN_COV. Higher values indicate that reads must be globally covered by alignment (0.75)')
 
 	args = vars(parser.parse_args())
 	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
@@ -309,8 +311,8 @@ def check_genes(args):
 	if not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
 		args['gc_cov'] = 3.0
 	# species selection options, but no no profile file
-	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile']:
-		sys.exit("\nTo specify genome-clusters with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
+	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile'] and args['build_db']:
+		sys.exit("\nTo specify species with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
@@ -356,8 +358,8 @@ def check_snvs(args):
 	if not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
 		args['gc_cov'] = 3.0
 	# species selection options, but no no profile file
-	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile']:
-		sys.exit("\nTo specify genome-clusters with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
+	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile'] and args['build_db']:
+		sys.exit("\nTo specify species with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']

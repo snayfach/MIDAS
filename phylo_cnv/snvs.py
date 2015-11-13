@@ -45,7 +45,9 @@ def genome_align(args):
 	command += '| %s sort -f - %s ' % (args['samtools'], os.path.join(args['out'], 'genomes.bam'))
 	# Run command
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	# Check for errors
 	utility.check_exit_code(process, command)
+	utility.check_bamfile(args, bampath)
 
 def pileup(args):
 	""" Filter alignments by % id, use samtools to create pileup, filter low quality bases, and write results to VCF file """
@@ -307,5 +309,5 @@ def run_pipeline(args):
 			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Optionally remove temporary files
-	if not args['keep']: remove_tmp(args)
+	if not args['keep_temp']: remove_tmp(args)
 

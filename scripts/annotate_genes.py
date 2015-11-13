@@ -9,7 +9,12 @@ __version__ = '0.0.2'
 import argparse, sys, os, gzip
 
 def parse_arguments():
-	parser = argparse.ArgumentParser(usage='%s [options]' % os.path.basename(__file__))
+	parser = argparse.ArgumentParser(usage='%s [options]' % os.path.basename(__file__),
+		description="""
+			Transform a pan-genome matrix, where rows are genes, to a function matrix, where rows are functions. 
+			Types of functions include KEGG Pathways, FIGFam gene families, Gene Ontology terms, or reactions from the Enzyme Commision database. 
+			The abundances of genes (presence/absence or copy number) are summed by function_id. 
+			Genes that have no annotated function are dropped.""")
 	parser.add_argument('-i', dest='cnv_matrix', type=str, required=True,
 						help='Gene CNV matrix. Expected file name: {species_id}.presabs or {species_id}.copynum')
 	parser.add_argument('-o', dest='function_matrix', type=str, required=True,

@@ -24,8 +24,15 @@ def parse_arguments():
 				Outputs include: a relative abundance matrix, a genome-coverage matrix, 
 				and a table summarizing species prevalence and abundance across samples""")
 	parser.add_argument('-v', '--verbose', action='store_true', default=False, help='verbose')
-	parser.add_argument('-i', dest='indir', type=str, required=True,
-		help="""input directory of species abundance files. filenames should have the format: <indir>/<sample_id>.species""")
+	parser.add_argument('-i', type=str, dest='input', required=True,
+		help="""input to results from 'run_phylo_cnv.py species'.
+			see <intype> for details""")
+	parser.add_argument('-t', choices=['dir', 'file', 'list'], dest='intype', required=True,
+		help="""input type.
+			'dir': directory containing species abundance files. example: <directory>/<sample_id>.species
+			'file': file containing paths to species abundance files. each line in the file should contain the full path to the results for a sample_id.
+			'list': comma-separated list of paths to phylo_cnv results.
+			""")
 	parser.add_argument('-o', dest='outbase', type=str, required=True,
 		help="""basename for output files: <outbase>.species_abundance, <outbase>.species_coverage, <outbase>.species_prevalence""")
 	parser.add_argument('-m', dest='min_cov', type=float, required=False, default=1.0,
@@ -37,21 +44,37 @@ def parse_arguments():
 
 def print_arguments(args):
 	print ("-------------------------------------------------------")
-	print ("Merge Species Parameters:")
-	print ("Input directory: %s" % args['indir'])
+	print ("Merge Species Parameters")
+	print ("Input: %s" % args['input'])
+	print ("Input type: %s" % args['intype'])
 	print ("Output basename: %s" % args['outbase'])
 	print ("Minimum coverage for estimating prevalence: %s" % args['min_cov'])
 	print ("-------------------------------------------------------")
 	print ("")
 
 def check_args(args):
-	if not os.path.isdir(args['indir']):
-		sys.exit("Input directory (-i) not found:\n%s" % os.path.abspath(args['indir']))
 	base_dir = os.path.dirname(os.path.abspath(args['outbase']))
 	if not os.path.isdir(base_dir):
 		sys.exit("Output directory of base name (-o) not found:\n%s" % base_dir)
 	if not os.path.isfile(args['annotations']):
 		sys.exit("Species annotation file not found:\n%s" % os.path.abspath(args['annotations']))
+
+def list_files(input, intype):
+	if intype == 'dir':
+		if not os.path.isdir(input):
+			sys.exit("\nSpecified input directory does not exist:\n%s" % input)
+		else:
+			return([os.path.join(input, _) for _ in os.listdir(input)])
+	elif intype == 'file':
+		if not os.path.isfile(input):
+			sys.exit("\nSpecified input file does not exist:\n%s" % input)
+		else:
+			return([x.rstrip() for x in open(input).readlines()])
+	elif intype == 'list':
+		return(input.split(','))
+
+def list_samples(files):
+	return([os.path.basename(_).split('.species',1)[0] for _ in files])
 
 def add_annotations(args):
 	maindir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -64,30 +87,18 @@ def parse_phylo_species(inpath):
 		values = line.rstrip().split()
 		yield dict([(name,value) for name,value in zip(names,values)])
 
-def list_samples(args):
-	samples = []
-	for file in os.listdir(args['indir']):
-		x = file.split('.')
-		if len(x) > 1 and x[-1] == 'species':
-			samples.append('.'.join(x[0:-1]))
-	if len(samples) == 0:
-		sys.exit("No <sample_id>.species files found in:\n%s" % os.path.abspath(indir))
-	return(samples)
-
-def list_species(args, samples):
+def list_species(args, files):
 	species_ids = []
-	inpath = '%s/%s.species' % (args['indir'], samples[0])
-	for r in parse_phylo_species(inpath):
+	for r in parse_phylo_species(files[0]):
 		species_ids.append(r['cluster_id'])
 	return species_ids
 
-def store_data(args, sample_ids, species_ids):
+def store_data(args, sample_files, sample_ids, species_ids):
 	data = {}
 	for species in species_ids:
 		data[species] = {'abundance':[], 'coverage':[]}
-	for sample in sample_ids:
-		inpath = '%s/%s.species' % (args['indir'], sample)
-		for r in parse_phylo_species(inpath):
+	for file in sample_files:
+		for r in parse_phylo_species(file):
 			data[r['cluster_id']]['abundance'].append(float(r['relative_abundance']))
 			data[r['cluster_id']]['coverage'].append(float(r['coverage']))
 	return data
@@ -163,12 +174,13 @@ if __name__ == "__main__":
 	if args['verbose']: print_arguments(args)
 	
 	# list samples and species
-	sample_ids = list_samples(args)
-	species_ids = list_species(args, sample_ids)
+	sample_files = list_files(args['input'], args['intype'])
+	sample_ids = list_samples(sample_files)
+	species_ids = list_species(args, sample_files)
 	annotations = read_annotations(args)
 	
 	# read in data & compute stats
-	data = store_data(args, sample_ids, species_ids)
+	data = store_data(args, sample_files, sample_ids, species_ids)
 	stats = compute_stats(args, data)
 
 	# write results

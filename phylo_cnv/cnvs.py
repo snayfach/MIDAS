@@ -42,7 +42,9 @@ def pangenome_align(args):
 	command += '| %s view -b - > %s' % (args['samtools'], bampath)
 	# Run command
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	# Check for errors
 	utility.check_exit_code(process, command)
+	utility.check_bamfile(args, bampath)
 
 def read_ref_to_cluster(args, type):
 	""" Read in map of gene id to genome-cluster id """
@@ -97,16 +99,20 @@ def count_mapped_bp(args):
 	aln_file = pysam.AlignmentFile(bam_path, "rb")
 	ref_to_length = dict([(i,j) for i,j in zip(aln_file.references, aln_file.lengths)])
 	ref_to_cov = dict([(i,0.0) for i in aln_file.references])
-	for aln in aln_file.fetch(until_eof = True):
-		query = aln.query_name
-		if compute_perc_id(aln) < args['mapid']:
-			continue
-		elif compute_aln_cov(aln) < args['aln_cov']:
-			continue
-		else:
-			ref_id = aln_file.getrname(aln.reference_id)
-			cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
-			ref_to_cov[ref_id] += cov
+	for index, aln in enumerate(aln_file.fetch(until_eof = True)):
+		try:
+			query = aln.query_name
+			if compute_perc_id(aln) < args['mapid']:
+				continue
+			elif compute_aln_cov(aln) < args['aln_cov']:
+				continue
+			else:
+				ref_id = aln_file.getrname(aln.reference_id)
+				cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
+				ref_to_cov[ref_id] += cov
+		except Exception:
+			print index
+			quit()
 	return ref_to_cov
 
 def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
@@ -247,8 +253,7 @@ def run_pipeline(args):
 			print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Optionally remove temporary files
-	if not args['keep']: remove_tmp(args)
-
+	if not args['keep_temp']: remove_tmp(args)
 		
 
 

@@ -14,8 +14,16 @@ optional arguments:
   -v, --verbose         verbose
 
 Input/Output:
-  -i INDIR              input directory. each subdirectory should correspond
-                        to a different sample_id
+  -i INPUT              input to results from 'run_phylo_cnv.py snvs'. see
+                        <intype> for details
+  -t {dir,file,list}    input type. 'dir': directory containing phylo_cnv
+                        results. each subdirectory should correspond to a
+                        different sample_id. for example:
+                        <directory>/<sample_id> 'file': file containing paths
+                        to phylo_cnv results. each line in the file should
+                        contain the full path to the results for a sample_id.
+                        'list': comma-separated list of paths to phylo_cnv
+                        results.
   -s SPECIES_ID         species identifier. a list of prevalent species can be
                         obtained by running 'scripts/merge_species.py'. A map
                         of species ids to species names can be found in
@@ -34,7 +42,7 @@ Pipeline options (choose one or more; default=all):
   --tree                build phylogenetic tree
 
 Sample filters
-(determine which samples in <indir> are included in output):
+(determine which samples are included in output):
   --sample_depth SAMPLE_DEPTH
                         minimum average read depth per sample (5.0)
   --fract_cov FRACT_COV
@@ -43,10 +51,6 @@ Sample filters
   --max_samples MAX_SAMPLES
                         maximum number of samples to process. useful for quick
                         tests (use all)
-  --sample_list SAMPLE_LIST
-                        file of sample ids to include. each line should
-                        contain one id. each id should correspond to a
-                        subdirectory under <indir>
 
 Site filters
 (determine which reference-genome positions are included in output):
@@ -72,27 +76,29 @@ Site filters
 
 ## Examples
 Use default parameters and run entire pipeline:  
-`merge_snps.py -i snvs -o B_vulgatus -s 57955`
+`merge_snps.py -i snvs -t dir -o Bacteroides_vulgatus -s 57955`
 
 * `snvs` is a directory that contains results from `run_phylo_cnv snvs`
 * the name of each subdirectory should correspond to a sample_id
 * `57955` is the species identifier for Bacteroides vulgatus
 
+Provide list of sample directories:
+`merge_snps.py -i snvs/sample_1,snvs/sample_2 -t list -o Bacteroides_vulgatus -s 57955`
+
 Filter out low-coverage samples (<10x):  
-`merge_snps.py -i snvs -o B_vulgatus -s 57955 --sample_depth 10.0`
+`merge_snps.py -i snvs -t dir -o Bacteroides_vulgatus -s 57955 --sample_depth 10.0`
 
 Exclude variants that have the same consensus allele across all samples:  
-`merge_snps.py -i snvs -o B_vulgatus -s 57955 --no_fixed`
+`merge_snps.py -i snvs -t dir -o Bacteroides_vulgatus -s 57955 --no_fixed`
 
 Keep variants with missing data in 5% of samples:  
-`merge_snps.py -i snvs -o B_vulgatus -s 57955 --snp_prev 0.95`
+`merge_snps.py -i snvs -t dir -o Bacteroides_vulgatus -s 57955 --snp_prev 0.95`
 
 Identify snps and build allele frequency matrix only:  
-`merge_snps.py -i snvs -o B_vulgatus -s 57955 ---snps --freq`
+`merge_snps.py -i snvs -t dir -o Bacteroides_vulgatus -s 57955 ---snps --freq`
 
 Identify consensus sequences and build phylogenetic tree only:  
-`merge_snps.py -i snvs -o B_vulgatus -s 57955 ---cons --tree` 
- 
+`merge_snps.py -i snvs -t dir -o Bacteroides_vulgatus -s 57955 ---cons --tree` 
 
 ## Outputs
 This module generates the following output files: 
