@@ -100,17 +100,36 @@ def run_program(program, args):
 		
 def species_arguments():
 	""" Get arguments for metagenomic species profiling """
-	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py species [options]')
+	parser = argparse.ArgumentParser(usage="run_phylo_cnv.py species [options]")
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
-	parser.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads', required=True)
-	parser.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
-	parser.add_argument('-o', type=str, dest='out', help='Path to output file', required=True)
-	parser.add_argument('-k', dest='keep_temp', default=False, action='store_true', help='Keep temporary files, including BLAST output')
-	parser.add_argument('-m', action='store_true', default=False, dest='norm', help='Estimate cellular relative abundance. Requires running MicrobeCensus and takes 20-30 minutes longer to complete.')
-	parser.add_argument('-s', type=str, dest='speed', default='fast', choices=['fast','sensitive'], help='Alignment speed/sensitivity (fast)')
-	parser.add_argument('-n', type=int, dest='reads', help='# reads to use from input file(s) (use all)')
-	parser.add_argument('-t', dest='threads', default=1, help='Number of threads to use')
+	parser.add_argument('-1', type=str, dest='m1', required=True,
+		help="FASTA/FASTQ file containing 1st mate if paired or unpaired reads")
+	parser.add_argument('-2', type=str, dest='m2',
+		help="FASTA/FASTQ file containing 2nd mate if paired")
+	parser.add_argument('-o', type=str, dest='out', required=True,
+		help="Path to output file of species abundances")
+	parser.add_argument('-d', dest='db_type', choices=['phyeco', 'ssuRNA'], default='phyeco',
+		help="""Reference database to use for read mapping.
+				'phyeco': database of 15 universal-single-copy gene families (default)
+				'ssuRNA': database of 16S ribosomal rna genes""")
+	parser.add_argument('-k', dest='keep_temp', default=False, action='store_true',
+		help="Keep temporary files, including BLAST output")
+	parser.add_argument('-w', type=int, dest='word_size', default=28,
+		help="""Word size for BLAST search (28).
+				Smaller word sizes will result in greater sensitivity to detect alignments with more mismatches.
+				Use word sizes > 16 for greatest efficiency.""")
+	parser.add_argument('-n', type=int, dest='reads',
+		help="# reads to use from input file(s) (use all)")
+	parser.add_argument('-t', dest='threads', default=1,
+		help="Number of threads to use for database search (1)")
+	parser.add_argument('-m', action='store_true', default=False, dest='norm',
+		help="""Estimate *cellular* relative abundance of species. 
+				Accounts for differences in the proportion of novel species between communities.
+				Useful if you wish to accurately compare species abundances between metagenomes.
+				Requires running MicrobeCensus and takes 20-30 minutes longer to complete.""")
+	
+	
 	args = vars(parser.parse_args())
 	return args
 
@@ -120,9 +139,10 @@ def print_species_arguments(args):
 	print ("Input FASTA/FASTQ file (1st mate): %s" % args['m1'])
 	print ("Input FASTA/FASTQ file (2nd mate): %s" % args['m2'])
 	print ("Output species abundance file: %s" % args['out'])
+	print ("Database type: %s" % args['db_type'])
 	print ("Keep temporary files: %s" % args['keep_temp'])
 	print ("Normalize species abundances: %s" % args['norm'])
-	print ("Alignment speed/sensitivity: %s" % args['speed'])
+	print ("BLAST word size for database search: %s" % args['word_size'])
 	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
 	print ("Number of threads for database search: %s" % args['threads'])
 	print ("-------------------------------------------------------")
@@ -133,6 +153,8 @@ def check_species(args):
 			sys.exit("\nInput file does not exist: '%s'" % args[arg])
 	if not os.path.isdir(os.path.dirname(os.path.abspath(args['out']))):
 		sys.exit("\nOutput directory does not exist: '%s'" % os.path.dirname(args['out']))
+	if os.path.isdir(args['out']):
+		sys.exit("\nSpecified output is a directory: '%s'" % args['out'])
 
 def pangenome_arguments():
 	""" Get arguments for metagenomic pangenome profiling """

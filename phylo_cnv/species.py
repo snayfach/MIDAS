@@ -7,17 +7,10 @@ import random
 import numpy as np
 from time import time
 import platform
-import tempfile
 import utility
 
 # Functions
 # ---------
-
-def add_tempfiles(args):
-	""" Identify relative file and directory paths """
-	args['tempfile'] = tempfile.mkstemp(dir=os.path.dirname(args['out']), suffix='.read_count')[1]
-	args['blastout'] = tempfile.mkstemp(dir=os.path.dirname(args['out']), suffix='.m8')[1]
-
 
 def map_reads_hsblast(args):
 	""" Use hs-blastn to map reads in fasta file to marker database """
@@ -26,13 +19,13 @@ def map_reads_hsblast(args):
 	command += ' %s' % args['m1'] # fastq
 	if args['m2']: command += ',%s' % args['m2'] # and mate if specified
 	if args['reads']: command += ' %s' % args['reads'] # number of reads if specified
-	command += ' 2> %s' % args['tempfile'] # tmpfile to store # of reads, bp sampled
+	command += ' 2> %s.read_count' % args['out'] # tmpfile to store # of reads, bp sampled
 	# hs-blastn
 	command += ' | %s align' % args['hs-blastn']
-	if args['speed'] == 'sensitive': command += ' -word_size 18' # decrease word size for more sensisitve search
-	command += ' -query /dev/stdin -db %s/%s/hs-blast' % (args['db'], 'marker_genes') # specify db
+	command += ' -word_size %s' % args['word_size']
+	command += ' -query /dev/stdin -db %s/%s/%s' % (args['db'], 'marker_genes', args['db_type']) # specify db
 	command += ' -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
-	command += ' -out %s' % args['blastout'] # output file
+	command += ' -out %s.m8' % args['out'] # output file
 	command += ' -evalue 1e-3' # %id for reporting hits
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
@@ -55,7 +48,7 @@ def find_best_hits(args):
 	marker_cutoffs = get_markers(args)
 	i = 0
 	qcovs = []
-	for aln in parse_blast(args['blastout']):
+	for aln in parse_blast('%s.m8' % args['out']):
 		i += 1
 		marker_id = aln['target'].split('_')[-1]
 		if aln['pid'] < marker_cutoffs[marker_id]: # does not meet marker cutoff
@@ -133,9 +126,10 @@ def read_gene_lengths(args):
 	""" Read in total gene length per cluster_id """
 	total_gene_length = dict([(x.rstrip().split()[0],0) for x in open(args['cluster_ids']).readlines()])
 	for line in open(args['gene_length']):
-		cluster_id = line.split()[0].split('_')[0]
-		gene_length = int(line.rstrip().split()[1])
-		total_gene_length[cluster_id] += gene_length
+		gene_id, gene_length, db_type = line.rstrip().split()
+		cluster_id = gene_id.split('_')[0]
+		if db_type == args['db_type']:
+			total_gene_length[cluster_id] += int(gene_length)
 	return total_gene_length
 
 def normalize_counts(cluster_alns, total_gene_length):
@@ -163,7 +157,6 @@ def estimate_abundance(args):
 	
 	""" Run entire pipeline """
 	# impute missing args & get relative file paths
-	add_tempfiles(args)
 	utility.add_executables(args)
 	utility.add_data_files(args)
 	
@@ -200,7 +193,7 @@ def estimate_abundance(args):
 		if args['verbose']: print("\nConverting to cellular relative abundances")
 		from microbe_census import microbe_census
 		ags = microbe_census.run_pipeline({'seqfile':args['m1']})[0]
-		reads, bp = [int(x) for x in open(args['tempfile']).read().rstrip().split()]
+		reads, bp = [int(x) for x in open('%s.read_count' % args['out']).read().rstrip().split()]
 		genomes = bp/float(ags)
 		for cluster_id in cluster_abundance:
 			cov = cluster_abundance[cluster_id]['cov']
@@ -217,8 +210,8 @@ def estimate_abundance(args):
 
 	# clean up
 	if not args['keep_temp']:
-		os.remove(args['tempfile'])
-		os.remove(args['blastout'])
+		os.remove('%s.read_count' % args['out'])
+		os.remove('%s.m8' % args['out'])
 
 def write_abundance(outpath, cluster_abundance):
 	""" Write cluster results to specified output file """

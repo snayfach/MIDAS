@@ -1,5 +1,15 @@
 CHANGES
 
+2015-11-14
+ * major changes to species module:
+   * added -d db_type to allow for search against ssuRNA database
+   * modified data files: pid_cutoffs.txt, gene_length.txt for ssuRNA genes
+   * changed name of marker genes database (hs-blastn to phyeco) and added ssuRNA database
+   * added word size as an option
+   * renamed temporary files : <out>.m8 and <out>.read_counts
+   * added check that <out> is not a directory
+   * scp'ed new marker-genes database to lighthouse
+
 2015-11-13
  * fixed bug in snvs.py: line 50: bam_path was not defined
  * added more unit tests
