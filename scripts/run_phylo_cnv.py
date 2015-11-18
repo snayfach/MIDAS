@@ -110,25 +110,34 @@ def species_arguments():
 	parser.add_argument('-o', type=str, dest='out', required=True,
 		help="Path to output file of species abundances")
 	parser.add_argument('-d', dest='db_type', choices=['phyeco', 'ssuRNA'], default='phyeco',
-		help="""Reference database to use for read mapping.
-				'phyeco': database of 15 universal-single-copy gene families (default)
+		help="""Reference database to use for read mapping [phyeco].
+				'phyeco': database of 15 universal gene families
 				'ssuRNA': database of 16S ribosomal rna genes""")
 	parser.add_argument('-k', dest='keep_temp', default=False, action='store_true',
 		help="Keep temporary files, including BLAST output")
 	parser.add_argument('-w', type=int, dest='word_size', default=28,
-		help="""Word size for BLAST search (28).
+		help="""Word size for BLAST search [28].
 				Smaller word sizes will result in greater sensitivity to detect alignments with more mismatches.
 				Use word sizes > 16 for greatest efficiency.""")
+	parser.add_argument('-i', type=float, dest='mapid',
+		help="""Keep alignments with percent id >= MAPID. 
+				Values between 0-100 accepted. 
+				Higher values indicate fewer mismatches.
+				This option is not recommended
+				[gene-specific cutoffs]""")
+	parser.add_argument('-c', type=float, dest='aln_cov', default=0.75,
+		help="""Keep alignments where read coverage >= ALN_COV. 
+				Values between 0-1 accepted.
+				Higher values indicate that reads must be globally covered by alignment [0.75]""")
 	parser.add_argument('-n', type=int, dest='reads',
-		help="# reads to use from input file(s) (use all)")
+		help="""# reads to use from input file(s) [use all]""")
 	parser.add_argument('-t', dest='threads', default=1,
-		help="Number of threads to use for database search (1)")
+		help="""Number of threads to use for database search [1]""")
 	parser.add_argument('-m', action='store_true', default=False, dest='norm',
 		help="""Estimate *cellular* relative abundance of species. 
 				Accounts for differences in the proportion of novel species between communities.
 				Useful if you wish to accurately compare species abundances between metagenomes.
 				Requires running MicrobeCensus and takes 20-30 minutes longer to complete.""")
-	
 	
 	args = vars(parser.parse_args())
 	return args
@@ -142,12 +151,21 @@ def print_species_arguments(args):
 	print ("Database type: %s" % args['db_type'])
 	print ("Keep temporary files: %s" % args['keep_temp'])
 	print ("Normalize species abundances: %s" % args['norm'])
-	print ("BLAST word size for database search: %s" % args['word_size'])
+	print ("Word size for database search: %s" % args['word_size'])
+	print ("Minimum mapping identity: %s" % (args['mapid'] if args['mapid'] else 'gene-family-specific cutoffs'))
+	print ("Minimum alignment coverage: %s" % args['aln_cov'])
 	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
 	print ("Number of threads for database search: %s" % args['threads'])
 	print ("-------------------------------------------------------")
 
 def check_species(args):
+
+	if args['word_size'] < 12 or args['word_size'] > 28:
+		sys.exit("\nInvalid word size: %s. Must be between 12 and 28" % args['word_size'])
+	if args['mapid'] and (args['mapid'] < 0 or args['mapid'] > 100):
+		sys.exit("\nInvalid mapping identity: %s. Must be between 0 and 100" % args['mapid'])
+	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
+		sys.exit("\nInvalid alignment coverage: %s. Must be between 0 and 1" % args['aln_cov'])
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
 			sys.exit("\nInput file does not exist: '%s'" % args[arg])

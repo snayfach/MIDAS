@@ -1,5 +1,8 @@
 CHANGES
 
+2015-11-17
+ * added -i MAPID and -c ALN_COV to run_phylo_cnv.py species for tuning sensitivity
+
 2015-11-14
  * major changes to species module:
    * added -d db_type to allow for search against ssuRNA database
@@ -48,10 +51,6 @@ CHANGES
  * renamed misc.py to utility.py
  * now checking for non-zero exit status for all shell commands
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 1d34f131328cc55c46df8148f4feeb421c61e24d
 2015-10-28
  * added merge_species.py
  * added merge_species.md

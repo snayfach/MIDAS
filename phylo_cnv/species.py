@@ -51,9 +51,10 @@ def find_best_hits(args):
 	for aln in parse_blast('%s.m8' % args['out']):
 		i += 1
 		marker_id = aln['target'].split('_')[-1]
-		if aln['pid'] < marker_cutoffs[marker_id]: # does not meet marker cutoff
+		cutoff = args['mapid'] if args['mapid'] else marker_cutoffs[marker_id]
+		if aln['pid'] < cutoff: # does not meet marker cutoff
 			continue
-		elif query_coverage(aln) < 0.75: # filter local alignments
+		elif query_coverage(aln) < args['aln_cov']: # filter local alignments
 			continue
 		elif aln['query'] not in best_hits: # record aln
 			best_hits[aln['query']] = [aln]
@@ -97,12 +98,15 @@ def assign_non_unique(args, alns, unique_alns):
 	return total_alns
 
 def get_markers(args):
-	""" Read in optimal mapping parameters for marker genes """
+	""" Read in optimal mapping parameters for marker genes; override if user has provided cutoff """
 	marker_cutoffs = {}
 	infile = open(args['pid_cutoffs'])
 	for line in infile:
 		marker_id, min_pid = line.rstrip().split()
-		marker_cutoffs[marker_id] = float(min_pid)
+		if args['mapid']:
+			marker_cutoffs[marker_id] = args['mapid']
+		else:
+			marker_cutoffs[marker_id] = float(min_pid)
 	return marker_cutoffs
 
 def estimate_mix_props(alns, args):
