@@ -1,5 +1,14 @@
 CHANGES
 
+2015-12-02
+ * species_prevalence.R: add option '-p' for plotting group proportions instead of sample counts
+
+2015-11-23
+ * added hidden option '-D DB' to run_phylo_cnv.py to allow user to specify alternate reference database
+
+2015-11-19
+ * added hidden option '--trim' to run_phylo_cnv.py genes and snvs to trim reads from 3'/right end
+
 2015-11-17
  * added -i MAPID and -c ALN_COV to run_phylo_cnv.py species for tuning sensitivity
 

@@ -32,6 +32,8 @@ parser$add_argument("-c", type="double", default=0, dest="cutoff",
 parser$add_argument("-n", type="integer", default=20, dest="nspecies",
 	help="Number of species to display in plot [20]",
 	metavar="number")
+parser$add_argument("-p", action="store_true", default=F, dest="prop",
+	help="Display y-axis as a proportion instead of count")
 
 # get command line options
 args <- parser$parse_args()
@@ -58,10 +60,12 @@ for (group_id in group_ids){
 	sample_ids <- row.names(meta_df)[sample_indexes]
 	for (species_id in species_ids){
 		prevalence <- length(which(abun_df[species_id, sample_ids] >= args$cutoff))
+		if (args$prop) prevalence <- prevalence/length(sample_ids)
 		prev_mat[group_id, species_id] <- prevalence
 	}
 }
 prev_mat <- prev_mat[,order(-colSums(prev_mat))]
+
 
 # make barplot of prevalence for top n most prevalent species
 pdf(args$outpath, width=26, height=12)
@@ -83,7 +87,7 @@ barplot(
 	cex.lab=2.7,
 	ylab="Species Prevalence\n(# samples)",
 	space=space,
-	ylim=c(0, 2 * max(data))
+	ylim=c(0, 1.5 * max(apply(prev_mat, 2, sum)))
 )
 
 species_ids <- colnames(prev_mat)[seq(args$nspecies)]
@@ -102,7 +106,8 @@ legend(
 	legend=group_ids,
 	fill=colors,
 	title=names(meta_df)[args$field],
-	cex=2.5
+	cex=2.5,
+	ncol=2
 )
 
 dev.off()
