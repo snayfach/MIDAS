@@ -74,10 +74,14 @@ par(mar=c(28,12,8,1))
 par(mgp=c(4,1,0))
 space <- 0.4
 
+species_ids <- colnames(prev_mat)[seq(args$nspecies)]
+species_names <- species_df[species_ids, 'consensus_name']
+species_labels <- paste(species_names, paste('(',species_ids,')', sep=''), sep=' ')
+
 group_ids <- unique(meta_df[,args$field])
 ngroups <- length(group_ids)
 colors <- brewer.pal(max(3, ngroups), 'Spectral')[seq(ngroups)]
-data <- prev_mat[rev(row.names(prev_mat)), seq(args$nspecies)]
+data <- prev_mat[rev(row.names(prev_mat)), species_ids]
 
 barplot(
 	data,
@@ -85,14 +89,11 @@ barplot(
 	xaxt='n',
 	cex.axis=2.7,
 	cex.lab=2.7,
-	ylab="Species Prevalence\n(# samples)",
+	ylab="Species Prevalence",
 	space=space,
 	ylim=c(0, 1.5 * max(apply(prev_mat, 2, sum)))
 )
 
-species_ids <- colnames(prev_mat)[seq(args$nspecies)]
-species_names <- species_df[species_ids, 'consensus_name']
-species_labels <- paste(species_names, paste('(',species_ids,')', sep=''), sep=' ')
 axis(
 	side=1,
 	at=seq(1, args$nspecies+(args$nspecies*space), 1+space),
@@ -108,6 +109,26 @@ legend(
 	title=names(meta_df)[args$field],
 	cex=2.5,
 	ncol=2
+)
+
+# make boxplot of species abundance for top n most prevalent species
+boxplot(
+	t(abun_df[species_ids, ]),
+	use.cols = TRUE,
+	col='blue',
+	xaxt='n',
+	cex.axis=2.7,
+	cex.lab=2.7,
+	ylab="Species Abundance",
+	frame=F
+)
+
+axis(
+	side=1,
+	at=seq(1, args$nspecies),
+	labels=species_labels,
+	las=2,
+	cex.axis=1.5
 )
 
 dev.off()
