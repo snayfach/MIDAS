@@ -75,13 +75,13 @@ def print_arguments(program, args):
 
 def add_ref_db(args):
 	""" Add path to reference database """
-	script_path = os.path.abspath(__file__)
-	script_dir = os.path.dirname(script_path)
-	main_dir = os.path.dirname(script_dir)
-	db_dir = '%s/ref_db' % main_dir
-	if not os.path.isdir(db_dir):
-		sys.exit("Could not locate reference database: %s" % db_dir)
-	args['db'] = db_dir
+	if not args['db']:
+		script_path = os.path.abspath(__file__)
+		script_dir = os.path.dirname(script_path)
+		main_dir = os.path.dirname(script_dir)
+		args['db'] = '%s/ref_db' % main_dir
+	if not os.path.isdir(args['db']):
+		sys.exit("Could not locate reference database: %s" % args['db'])
 	return args
 	
 def run_program(program, args):
@@ -113,6 +113,7 @@ def species_arguments():
 		help="""Reference database to use for read mapping [phyeco].
 				'phyeco': database of 15 universal gene families
 				'ssuRNA': database of 16S ribosomal rna genes""")
+	parser.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
 	parser.add_argument('-k', dest='keep_temp', default=False, action='store_true',
 		help="Keep temporary files, including BLAST output")
 	parser.add_argument('-w', type=int, dest='word_size', default=28,
@@ -160,8 +161,8 @@ def print_species_arguments(args):
 
 def check_species(args):
 
-	if args['word_size'] < 12 or args['word_size'] > 28:
-		sys.exit("\nInvalid word size: %s. Must be between 12 and 28" % args['word_size'])
+	if args['word_size'] < 12:
+		sys.exit("\nInvalid word size: %s. Must be greater than or equal to 12" % args['word_size'])
 	if args['mapid'] and (args['mapid'] < 0 or args['mapid'] > 100):
 		sys.exit("\nInvalid mapping identity: %s. Must be between 0 and 100" % args['mapid'])
 	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
@@ -188,6 +189,7 @@ def pangenome_arguments():
 	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
 	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
 	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
+	io.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
 
 	pipe = parser.add_argument_group('Pipeline options (choose one or more; default=all)')
 	pipe.add_argument('--build_db', action='store_true', dest='build_db',
@@ -215,7 +217,8 @@ def pangenome_arguments():
 		default=94.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (94.0)')
 	map.add_argument('--aln_cov', type=float, dest='aln_cov',
 		default=0.75, help='Discard alignments where read coverage < ALN_COV. Higher values indicate that reads must be globally covered by alignment (0.75)')
-
+	map.add_argument('--trim', type=str, dest='trim', help=argparse.SUPPRESS)
+	
 	args = vars(parser.parse_args())
 	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
 	
@@ -266,7 +269,8 @@ def snv_arguments():
 	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
 	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
 	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
-
+	io.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
+	
 	pipe = parser.add_argument_group('Pipeline options (choose one or more; default=all)')
 	pipe.add_argument('--build_db', action='store_true', dest='build_db',
 		default=False, help='Build bowtie2 database of pangenomes')
@@ -297,7 +301,8 @@ def snv_arguments():
 		default=20, help='Minimum map quality (20)')
 	map.add_argument('--baseq', type=int, dest='baseq',
 		default=25, help='Minimum base quality (25)')
-
+	map.add_argument('--trim', type=str, dest='trim', help=argparse.SUPPRESS)
+	
 	args = vars(parser.parse_args())
 	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
 	

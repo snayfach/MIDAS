@@ -29,6 +29,8 @@ def genome_align(args):
 	command += '-x %s ' % '/'.join([args['out'], 'db', 'genomes'])
 	#   specify reads
 	if args['reads']: command += '-u %s ' % args['reads']
+	#   trim reads
+	if args['trim']: command += '--trim3 %s ' % args['trim']
 	#   speed/sensitivity
 	command += '--%s ' % args['speed']
 	#   threads

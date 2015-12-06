@@ -27,6 +27,8 @@ def pangenome_align(args):
 	command += '-x %s ' % '/'.join([args['out'], 'db', 'pangenomes'])
 	#   specify reads
 	if args['reads']: command += '-u %s ' % args['reads']
+	#   trim reads
+	if args['trim']: command += '--trim3 %s ' % args['trim']
 	#   speed/sensitivity
 	command += '--%s-local ' % args['speed']
 	#   threads

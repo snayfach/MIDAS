@@ -1,5 +1,8 @@
 CHANGES
 
+2015-12-06
+ * run_phylo_cnv.py species: allowed word lengths > 28
+
 2015-12-02
  * species_prevalence.R: add option '-p' for plotting group proportions instead of sample counts
 
