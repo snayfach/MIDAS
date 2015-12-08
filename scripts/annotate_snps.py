@@ -179,7 +179,11 @@ def annotate_site_and_snp(snp, genome):
 				alt_allele = snp['alt_allele'] if gene['strand'] == '+' else rev_comp(snp['alt_allele'])
 				snp_type = classify_snp(ref_codon, alt_allele, codon_pos)
 			break
-	return site_type, snp_type, gene
+	# record annotations
+	snp['site_type'] = site_type
+	snp['snp_type'] = snp_type
+	snp['gene_id'] = gene['gene_id'].split('|')[-1] if gene != 'NA' else 'NA'
+
 
 def write_annotation(snp, outfile, fields):
 	""" Write record to output file """
@@ -194,10 +198,7 @@ if __name__ == '__main__':
 	fields = ['ref_id', 'ref_pos', 'count_alt', 'alt_allele', 'site_type', 'snp_type', 'gene_id']
 	outfile.write('\t'.join(fields)+'\n')
 	for i, snp in enumerate(parse_snps(args['in'])):
-		site_type, snp_type, gene = annotate_site_and_snp(snp, genome)
-		snp['site_type'] = site_type
-		snp['snp_type'] = snp_type
-		snp['gene_id'] = gene['gene_id'].split('|')[-1]
+		annotate_site_and_snp(snp, genome)
 		write_annotation(snp, outfile, fields)
 		if args['max_snps'] and i >= args['max_snps']: break
 
