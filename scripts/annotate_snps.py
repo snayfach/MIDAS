@@ -194,10 +194,10 @@ if __name__ == '__main__':
 	fields = ['ref_id', 'ref_pos', 'count_alt', 'alt_allele', 'site_type', 'snp_type', 'gene_id']
 	outfile.write('\t'.join(fields)+'\n')
 	for i, snp in enumerate(parse_snps(args['in'])):
-		site_type, snp_type, gene_id = annotate_site_and_snp(snp, genome)
+		site_type, snp_type, gene = annotate_site_and_snp(snp, genome)
 		snp['site_type'] = site_type
 		snp['snp_type'] = snp_type
-		snp['gene_id'] = gene_id
+		snp['gene_id'] = gene['gene_id'].split('|')[-1]
 		write_annotation(snp, outfile, fields)
 		if args['max_snps'] and i >= args['max_snps']: break
 
