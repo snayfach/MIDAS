@@ -1,7 +1,15 @@
 CHANGES
 
+2015-12-20
+ * species.py: compatability with new version of MicrobeCensus
+
+2015-12-11
+ * species.py: changed -perc_identity to 94.5
+ * data/pid_cutoffs.txt: changed 16S pid to 98
+
 2015-12-08
- * annotate_snps.py: fixed gene_id field, if count_alt == 0: site_type = 'FX'
+ * annotate_snps.py: fixed gene_id field
+ * species.py: changed max-evalue to 1e-5
 
 2015-12-06
  * run_phylo_cnv.py species: allowed word lengths > 28

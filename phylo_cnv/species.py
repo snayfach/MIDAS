@@ -23,10 +23,13 @@ def map_reads_hsblast(args):
 	# hs-blastn
 	command += ' | %s align' % args['hs-blastn']
 	command += ' -word_size %s' % args['word_size']
-	command += ' -query /dev/stdin -db %s/%s/%s' % (args['db'], 'marker_genes', args['db_type']) # specify db
-	command += ' -outfmt 6 -num_threads %s' % args['threads'] # specify num threads
-	command += ' -out %s.m8' % args['out'] # output file
-	command += ' -evalue 1e-3' # %id for reporting hits
+	command += ' -query /dev/stdin'
+	command += ' -db %s/%s/%s' % (args['db'], 'marker_genes', args['db_type'])
+	command += ' -outfmt 6'
+	command += ' -num_threads %s' % args['threads']
+	command += ' -out %s.m8' % args['out']
+	command += ' -evalue 1e-5'
+	command += ' -perc_identity 94.5'
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
 
@@ -196,7 +199,9 @@ def estimate_abundance(args):
 		start = time()
 		if args['verbose']: print("\nConverting to cellular relative abundances")
 		from microbe_census import microbe_census
-		ags = microbe_census.run_pipeline({'seqfile':args['m1']})[0]
+		seqfiles = [args['m1'], args['m2']] if args['m2'] else [args['m1']]
+		
+		ags = microbe_census.run_pipeline({'seqfiles':seqfiles})[0]
 		reads, bp = [int(x) for x in open('%s.read_count' % args['out']).read().rstrip().split()]
 		genomes = bp/float(ags)
 		for cluster_id in cluster_abundance:
