@@ -42,6 +42,9 @@ class Snp:
 	def id(self):
 		return [self.data[0]['ref_id'], self.data[0]['ref_pos']]
 
+	def ref_allele(self):
+		return self.data[0]['ref_allele']
+		
 	def fetch(self, field, type=None):
 		if type: return [type(_[field]) for _ in self.data]
 		else: return [_[field] for _ in self.data]
@@ -54,10 +57,9 @@ def parse_arguments():
 		usage='%s [options]' % os.path.basename(__file__),
 		description="""Merge single-nucleotide variants for an individual species across samples. Outputs include: a list of high-quality sites, an allele frequency matrix, consensus sequences for each sample, and a phylogenetic tree"""
 		)
-	parser.add_argument('--verbose', action='store_true', default=False,
-		help="Verbosity")
 	parser.add_argument('--threads', type=int, default=1,
 		help="Number of threads to use")
+	
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
 		help="""input to results from 'run_phylo_cnv.py snvs'.
@@ -74,35 +76,45 @@ def parse_arguments():
 			A map of species ids to species names can be found in 'ref_db/annotations.txt'""")
 	io.add_argument('-o', dest='outdir', type=str, required=True,
 		help="""output directory.
-			output files: <outdir>/<species_id>.sample_ids, <outdir>/<species_id>.hq_snps, <outdir>/<species_id>.ref_freq, <outdir>/<species_id>.depth, <outdir>/<species_id>.fasta, <outdir>/<species_id>.tree""")
-	#io.add_argument('-m', '--matrix', type=str,  help='reference SNP matrix')
+			output files: 
+			  <outdir>/<species_id>.sample_ids,
+			  <outdir>/<species_id>.hq_snps,
+			  <outdir>/<species_id>.ref_freq, 
+			  <outdir>/<species_id>.alt_allele,
+			  <outdir>/<species_id>.depth, 
+			  <outdir>/<species_id>.fasta, 
+			  <outdir>/<species_id>.tree""")
 	
-	pipe = parser.add_argument_group('Pipeline options (choose one or more; default=all)')
-	pipe.add_argument('--snps', default=False, action='store_true', help='identify and store list of hq snps')
-	pipe.add_argument('--freq', default=False, action='store_true', help='build allele frequency & depth matrixes')
-	pipe.add_argument('--cons', default=False, action='store_true', help='generate fasta file of consensus sequences')
-	pipe.add_argument('--tree', default=False, action='store_true', help='build phylogenetic tree')
+	pipe = parser.add_argument_group("Pipeline options (choose one or more; default=all)")
+	pipe.add_argument('--snps', default=False, action='store_true',
+		help="identify and store list of hq snps")
+	pipe.add_argument('--freq', default=False, action='store_true',
+		help="build allele frequency & depth matrixes")
+	pipe.add_argument('--cons', default=False, action='store_true',
+		help="generate fasta file of consensus sequences")
+	pipe.add_argument('--tree', default=False, action='store_true',
+		help="build phylogenetic tree")
 	
-	sample = parser.add_argument_group('Sample filters\n(determine which samples are included in output)')
+	sample = parser.add_argument_group("Sample filters\n(determine which samples are included in output)")
 	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=5.0,
 		help="""minimum average read depth per sample (5.0)""")
 	sample.add_argument('--fract_cov', dest='fract_cov', type=float, default=0.4,
 		help="""fraction of reference sites covered by at least 1 read (0.4)""")
 	sample.add_argument('--max_samples', type=int,
 		help="""maximum number of samples to process. useful for quick tests (use all)""")
-				
-	snps = parser.add_argument_group('Site filters\n(determine which reference-genome positions are included in output)')
+	
+	snps = parser.add_argument_group("Site filters\n(determine which reference-genome positions are included in output)")
 	snps.add_argument('--site_depth', dest='site_depth', type=int, default=3,
-		help="""minimum number of mapped reads per site. a high value like 20 will result in accurate allele frequencies, but may discard many sites. a low value like 1 will retain many sites but may not result in accurate allele frequencies (3)""")
+		help="""minimum number of mapped reads per site. 
+			a high value like 20 will result in accurate allele frequencies, but may discard many sites. 
+			a low value like 1 will retain many sites but may not result in accurate allele frequencies (3)""")
 	snps.add_argument('--site_prev', dest='site_prev', type=float, default=0.95,
 		help="""site has at least <site_depth> coverage in at least <site_prev> proportion of samples.
 			a value of 1.0 will select sites that have sufficent coverage in all samples.
 			a value of 0.0 will select all sites, including those with low coverage in many samples  (0.95)""")
 	snps.add_argument('--max_sites', dest='max_sites', type=int, default=float('Inf'),
 		help="""maximum number of sites to include in output. useful for quick tests (use all)""")
-					
 	args = vars(parser.parse_args())
-	args['db'] = '%s/ref_db/genome_clusters' % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 	check_args(args)
 	return args
 
@@ -226,7 +238,9 @@ def open_infiles(species_id, samples):
 def read_hq_snps(outdir, species_id):
 	""" Read in list of HQ snps from file"""
 	snps = []
-	for line in open('%s/%s.hq_snps' % (outdir, species_id)):
+	infile = open('%s/%s.hq_snps' % (outdir, species_id))
+	next(infile)
+	for line in infile:
 		snps.append(line.rstrip().split()[0:2])
 	return snps
 
@@ -314,27 +328,31 @@ def identify_snps(args, samples):
 	# open temporary snp lists
 	infiles = []
 	for index, batch in enumerate(batches):
-		inpath = '%s/%s.%s.hq_snps' % (tempdir, args['species_id'], index)
-		infiles.append(open(inpath))
+		infile = open('%s/%s.%s.hq_snps' % (tempdir, args['species_id'], index))
+		next(infile)
+		infiles.append(infile)
 	# identify hq snps
 	outfile = open('%s/%s.hq_snps' % (args['outdir'], args['species_id']), 'w')
-	min_count = int(len(samples) * args['site_prev'])
-	hq_count = 0
+	header = ['ref_id', 'ref_pos', 'ref_allele', 'count_samples']
+	outfile.write('\t'.join(header)+'\n')
+	min_samples = int(len(samples) * args['site_prev'])
+	count_sites = 0
 	while True:
-		ref_id, ref_pos = None, None
-		counts = 0
+		ref_id, ref_pos, ref_allele = None, None, None
+		count_samples = 0
 		for infile in infiles:
 			try:
-				ref_id, ref_pos, count = infile.next().rstrip().split()
-				counts += int(count)
+				ref_id, ref_pos, ref_allele, count = infile.next().rstrip().split()
+				count_samples += int(count)
 			except StopIteration:
 				break
 		if not ref_id:
 			break
-		elif counts >= min_count:
-			outfile.write('%s\t%s\n' % (ref_id, ref_pos))
-			hq_count += 1
-	print "  %s high-quality snps found" % hq_count
+		elif count_samples >= min_samples:
+			count_sites += 1
+			values = [ref_id, ref_pos, ref_allele, count_samples]
+			outfile.write('\t'.join([str(_) for _ in values])+'\n')
+	print "  %s high-quality snps found" % count_sites
 	# clean up temporary snp lists
 	shutil.rmtree(tempdir)
 
@@ -343,16 +361,18 @@ def write_prevalence(index, species_id, samples, site_depth, max_sites, outdir):
 	snpfiles = open_infiles(species_id, samples)
 	outpath = '%s/%s.%s.hq_snps' % (outdir, species_id, index)
 	outfile = open(outpath, 'w')
-	count = 0
-	while count <= max_sites:
+	header = ['ref_id', 'ref_pos', 'ref_allele', 'count_samples']
+	outfile.write('\t'.join(header)+'\n')
+	count_sites = 0
+	while count_sites <= max_sites:
 		snp = Snp(snpfiles, samples)
 		if snp.data is None:
 			break
 		else:
-			snp_prev = prevalence(snp, site_depth, freq=False)
-			record = [snp.id()[0], snp.id()[1], snp_prev]
-			outfile.write('\t'.join([str(_) for _ in record])+'\n')
-			count += 1
+			count_sites += 1
+			count_samples = prevalence(snp, site_depth, freq=False)
+			values = [snp.id()[0], snp.id()[1], snp.ref_allele(), count_samples]
+			outfile.write('\t'.join([str(_) for _ in values])+'\n')
 
 def build_snp_matrix(args, samples):
 	""" 
