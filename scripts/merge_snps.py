@@ -354,7 +354,8 @@ def identify_snps(args, samples):
 			outfile.write('\t'.join([str(_) for _ in values])+'\n')
 	print "  %s high-quality snps found" % count_sites
 	# clean up temporary snp lists
-	shutil.rmtree(tempdir)
+	for file in infiles: file.close()
+	shutil.rmtree(tempdir, ignore_errors=True)
 
 def write_prevalence(index, species_id, samples, site_depth, max_sites, outdir):
 	""" Count number of samples that have sufficient depth across sites """
@@ -421,7 +422,9 @@ def build_snp_matrix(args, samples):
 			except StopIteration:
 				break
 	# remove temporary files
-	shutil.rmtree(tempdir)
+	for type in ['ref_freq', 'depth', 'alt_allele']:
+		for file in infiles[type]: file.close()
+	shutil.rmtree(tempdir, ignore_errors=True)
 
 def build_mini_matrix(outdir, species_id, samples, hq_snps, index):
 	""" Build SNP matrices using a subset of total samples """
