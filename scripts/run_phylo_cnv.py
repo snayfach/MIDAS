@@ -18,7 +18,7 @@ def print_copyright():
 	print ("")
 
 def get_program():
-	""" Get program specified by user (species, genes, or snvs) """
+	""" Get program specified by user (species, genes, or snps) """
 	if len(sys.argv) == 1 or sys.argv[1] in ['-h', '--help']:
 		print('')
 		print('Usage: run_phylo_cnv.py <command> [options]')
@@ -28,9 +28,9 @@ def get_program():
 		print('Commands:')
 		print('\tspecies\t estimate the abundance of ~6,000 bacterial species')
 		print('\tgenes\t identify gene copy number variants in abundant species')
-		print('\tsnvs\t identify single nucleotide variants in abundant species')
+		print('\tsnps\t identify single nucleotide variants in abundant species')
 		quit()
-	elif sys.argv[1] not in ['species', 'genes', 'snvs']:
+	elif sys.argv[1] not in ['species', 'genes', 'snps']:
 		sys.exit("Unrecognized command: '%s'" % sys.argv[1])
 		quit()
 	else:
@@ -41,35 +41,35 @@ def get_arguments(program):
 	if program == 'species':
 		args = species_arguments()
 	elif program == 'genes':
-		args = pangenome_arguments()
-	elif program == 'snvs':
-		args = snv_arguments()
+		args = gene_arguments()
+	elif program == 'snps':
+		args = snp_arguments()
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
 	args = add_ref_db(args)
 	return args
 
 def check_arguments(program, args):
-	""" Run program specified by user (species, genes, or snvs) """
+	""" Run program specified by user (species, genes, or snps) """
 	if program == 'species':
 		check_species(args)
 	elif program == 'genes':
 		check_genes(args)
-	elif program == 'snvs':
-		check_snvs(args)
+	elif program == 'snps':
+		check_snps(args)
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
 	if platform.system() not in ['Linux', 'Darwin']:
 		sys.exit("Operating system '%s' not supported" % system())
 
 def print_arguments(program, args):
-	""" Run program specified by user (species, genes, or snvs) """
+	""" Run program specified by user (species, genes, or snps) """
 	if program == 'species':
 		print_species_arguments(args)
 	elif program == 'genes':
-		print_pangenome_arguments(args)
-	elif program == 'snvs':
-		print_snv_arguments(args)
+		print_gene_arguments(args)
+	elif program == 'snps':
+		print_snp_arguments(args)
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
 
@@ -85,82 +85,84 @@ def add_ref_db(args):
 	return args
 	
 def run_program(program, args):
-	""" Run program specified by user (species, genes, or snvs) """
+	""" Run program specified by user (species, genes, or snps) """
 	if program == 'species':
 		from phylo_cnv import species
 		species.estimate_abundance(args)
 	elif program == 'genes':
-		from phylo_cnv import cnvs
-		cnvs.run_pipeline(args)
-	elif program == 'snvs':
-		from phylo_cnv import snvs
-		snvs.run_pipeline(args)
+		from phylo_cnv import genes
+		genes.run_pipeline(args)
+	elif program == 'snps':
+		from phylo_cnv import snps
+		snps.run_pipeline(args)
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
-		
+
+
 def species_arguments():
-	""" Get arguments for metagenomic species profiling """
-	parser = argparse.ArgumentParser(usage="run_phylo_cnv.py species [options]")
+	parser = argparse.ArgumentParser(
+		formatter_class=argparse.RawTextHelpFormatter,
+		usage=argparse.SUPPRESS,
+		description="""
+Usage: run_phylo_cnv.py species [options]
+
+Description:
+This script will map metagenomic reads to a database of phylogenetic marker genes using HS-BLASTN
+Mapped reads are used estimate the read depth and relative abundance of bacterial species
+Reads are mapped according to gene-specific, species-level mapping thresholds (94.5-98% DNA identity)
+Reads that map equally well to 2 or more species are probabalistically assigned
+""",
+		epilog="""Examples:
+1) run with defaults using a paired-end metagenome:
+run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -o /path/to/species_profile
+
+2) run using a single-end metagenome with 4 CPUs and only 4M reads:
+run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile -t 4 -n 4000000
+
+3) quantify species abundance using a 16S database:
+run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile --db_type ssuRNA
+	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('-1', type=str, dest='m1', required=True,
 		help="FASTA/FASTQ file containing 1st mate if paired or unpaired reads")
 	parser.add_argument('-2', type=str, dest='m2',
 		help="FASTA/FASTQ file containing 2nd mate if paired")
 	parser.add_argument('-o', type=str, dest='out', required=True,
 		help="Path to output file of species abundances")
-	parser.add_argument('-d', dest='db_type', choices=['phyeco', 'ssuRNA'], default='phyeco',
-		help="""Reference database to use for read mapping [phyeco].
-				'phyeco': database of 15 universal gene families
-				'ssuRNA': database of 16S ribosomal rna genes""")
-	parser.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
-	parser.add_argument('-k', dest='keep_temp', default=False, action='store_true',
-		help="Keep temporary files, including BLAST output")
-	parser.add_argument('-w', type=int, dest='word_size', default=28,
-		help="""Word size for BLAST search [28].
-				Smaller word sizes will result in greater sensitivity to detect alignments with more mismatches.
-				Use word sizes > 16 for greatest efficiency.""")
-	parser.add_argument('-i', type=float, dest='mapid',
-		help="""Keep alignments with percent id >= MAPID. 
-				Values between 0-100 accepted. 
-				Higher values indicate fewer mismatches.
-				This option is not recommended
-				[gene-specific cutoffs]""")
-	parser.add_argument('-c', type=float, dest='aln_cov', default=0.75,
-		help="""Keep alignments where read coverage >= ALN_COV. 
-				Values between 0-1 accepted.
-				Higher values indicate that reads must be globally covered by alignment [0.75]""")
 	parser.add_argument('-n', type=int, dest='reads',
-		help="""# reads to use from input file(s) [use all]""")
+		help="""Number of reads to use from input file(s) (use all)""")
 	parser.add_argument('-t', dest='threads', default=1,
-		help="""Number of threads to use for database search [1]""")
-	parser.add_argument('-m', action='store_true', default=False, dest='norm',
-		help="""Estimate *cellular* relative abundance of species. 
-				Accounts for differences in the proportion of novel species between communities.
-				Useful if you wish to accurately compare species abundances between metagenomes.
-				Requires running MicrobeCensus and takes 20-30 minutes longer to complete.""")
-	
+		help="""Number of threads to use for database search (1)""")
+	parser.add_argument('--db_type', choices=['phyeco', 'ssuRNA'], metavar='', default='phyeco',
+		help="""Reference database. Choices:\n'phyeco': universal-single-copy protein family database (default)\n'ssuRNA': 16S ribosomal rna database""")
+	parser.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
+	parser.add_argument('--remove_temp', dest='remove_temp', default=False, action='store_true',
+		help="Remove temporary files, including BLAST output")
+	parser.add_argument('--word_size', type=int, metavar='INT', default=28,
+		help="""Word size for BLAST search (28)\nUse word sizes > 16 for greatest efficiency.""")
+	parser.add_argument('--mapid', type=float, metavar='FLOAT',
+		help="""Discard reads with alignment identity < MAPID\nBy default gene-specific species-level cutoffs are used\nValues between 0-100 accepted""")
+	parser.add_argument('--aln_cov', type=float, metavar='FLOAT', default=0.75,
+		help="""Discard reads with alignment coverage < ALN_COV (0.75)\nValues between 0-1 accepted""")
+
 	args = vars(parser.parse_args())
 	return args
 
 def print_species_arguments(args):
-	print ("-------------------------------------------------------")
-	print ("Metagenomic Species Profiling Parameters:")
-	print ("Input FASTA/FASTQ file (1st mate): %s" % args['m1'])
-	print ("Input FASTA/FASTQ file (2nd mate): %s" % args['m2'])
+	print ("===========Parameters===========")
+	print ("Script: run_phylo_cnv.py species")
+	print ("Input reads (1st mate): %s" % args['m1'])
+	print ("Input reads (2nd mate): %s" % args['m2'])
 	print ("Output species abundance file: %s" % args['out'])
 	print ("Database type: %s" % args['db_type'])
-	print ("Keep temporary files: %s" % args['keep_temp'])
-	print ("Normalize species abundances: %s" % args['norm'])
+	print ("Remove temporary files: %s" % args['remove_temp'])
 	print ("Word size for database search: %s" % args['word_size'])
-	print ("Minimum mapping identity: %s" % (args['mapid'] if args['mapid'] else 'gene-family-specific cutoffs'))
+	if args['mapid']: print ("Minimum mapping identity: %s" % args['mapid'])
 	print ("Minimum alignment coverage: %s" % args['aln_cov'])
 	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
 	print ("Number of threads for database search: %s" % args['threads'])
-	print ("-------------------------------------------------------")
 
 def check_species(args):
-
 	if args['word_size'] < 12:
 		sys.exit("\nInvalid word size: %s. Must be greater than or equal to 12" % args['word_size'])
 	if args['mapid'] and (args['mapid'] < 0 or args['mapid'] > 100):
@@ -175,201 +177,287 @@ def check_species(args):
 	if os.path.isdir(args['out']):
 		sys.exit("\nSpecified output is a directory: '%s'" % args['out'])
 
-def pangenome_arguments():
-	""" Get arguments for metagenomic pangenome profiling """
-	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py genes [options]')
-	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('-v', '--verbose', action='store_true', default=False)
-	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
-	parser.add_argument('--keep_temp', dest='keep_temp', default=False, action='store_true',
-		help="""keep temporary files. useful for rerunning pipeline with different parameters without repeating ealier steps""")
-	
-	io = parser.add_argument_group('Input/Output (required)')
-	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
-	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
-	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
-	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
-	io.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
+def gene_arguments():
+	parser = argparse.ArgumentParser(
+		formatter_class=argparse.RawTextHelpFormatter,
+		usage=argparse.SUPPRESS,
+		description="""
+Usage: run_phylo_cnv.py genes outdir [options]
 
+Description:
+This script will map metagenomic reads to bacterial pangenomes and quantify these genes in your data
+You can either target one or more specific species, or provide this script a species abundance file
+The pipeline can be broken down into three main steps:
+  1) build a database of pangenomes for abundance bacterial species
+  2) map metagenomic reads to the database
+  3) use mapped reads to quantify pangenome genes
+""",
+		epilog="""Examples:
+1) run entire pipeline using defaults:
+run_phylo_cnv.py genes /path/to/outdir -p /path/to/species_profile -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+			
+2) run entire pipeline for a specific species:
+run_phylo_cnv.py genes /path/to/outdir -p_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+
+3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
+run_phylo_cnv.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
+
+4) just quantify genes, keep reads with >=95% alignment identity and reads with an average quality-score >=30:
+run_phylo_cnv.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
+	""")
+
+	parser.add_argument('program', help=argparse.SUPPRESS)
+	parser.add_argument('outdir', type=str, help='Path to directory to store results. ')
+
+	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
+	parser.add_argument('--remove_temp', default=False, action='store_true',
+		help='remove intermediate files generated by PhyloCNV. \nintermediate files can be useful to quickly rerun parts of pipeline.')
+	
 	pipe = parser.add_argument_group('Pipeline options (choose one or more; default=all)')
 	pipe.add_argument('--build_db', action='store_true', dest='build_db',
 		default=False, help='Build bowtie2 database of pangenomes')
 	pipe.add_argument('--align', action='store_true', dest='align',
 		default=False, help='Align reads to pangenome database')
-	pipe.add_argument('--coverage', action='store_true', dest='cov',
+	pipe.add_argument('--call_genes', action='store_true', dest='cov',
 		default=False, help='Compute coverage of genes in pangenome database')
 
-	gc = parser.add_argument_group('Species to target (choose one or more; default=all >= 3x coverage)')
-	gc.add_argument('--gc_topn', type=int, dest='gc_topn', help='Top N most abundant (None)')
-	gc.add_argument('--gc_cov', type=float, dest='gc_cov', help='Coverage threshold (None)')
-	gc.add_argument('--gc_rbun', type=float, dest='gc_rbun', help='Relative abundance threshold (None)')
-	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific species or comma-separated list of ids (None)')
+	db = parser.add_argument_group('Database options (if using --build_db)')
+	db.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
+	db.add_argument('-p', type=str, dest='profile', help='Path to species abundance profile')
+	db.add_argument('--p_cov', type=float, dest='gc_cov', help='Include species with >X coverage (3.0)')
+	db.add_argument('--p_topn', type=int, dest='gc_topn', help='Include top N most abundant species')
+	db.add_argument('--p_id', type=str, dest='gc_id', help='One or more species identifiers to include in database. Separate ids with a comma')
 			
-	speed = parser.add_argument_group('Alignment speed')
-	speed.add_argument('-s', type=str, dest='speed', default='very-sensitive',
+	align = parser.add_argument_group('Read alignment options (if using --align)')
+	align.add_argument('-1', type=str, dest='m1',
+		help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
+	align.add_argument('-2', type=str, dest='m2',
+		help='FASTA/FASTQ file containing 2nd mate if paired')
+	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Alignment speed/sensitivity (very-sensitive)')
-	speed.add_argument('-n', type=int, dest='reads', help='# reads to use from input file(s) (use all)')
-	speed.add_argument('-t', dest='threads', default=1, help='Number of threads to use')
+	align.add_argument('-n', type=int, dest='reads',
+		help='# reads to use from input file(s) (use all)')
+	align.add_argument('-t', dest='threads', default=1,
+		help='Number of threads to use')
 	
-	map = parser.add_argument_group('Computing gene coverage')
-	map.add_argument('--mapid', type=float, dest='mapid',
-		default=94.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (94.0)')
-	map.add_argument('--aln_cov', type=float, dest='aln_cov',
-		default=0.75, help='Discard alignments where read coverage < ALN_COV. Higher values indicate that reads must be globally covered by alignment (0.75)')
-	map.add_argument('--trim', type=str, dest='trim', help=argparse.SUPPRESS)
-	
+	map = parser.add_argument_group('Quantify genes options (if using --call_genes)')
+	map.add_argument('--readq', type=int,
+		default=20, help='Discard reads with mean quality < READQ (20)')
+	map.add_argument('--mapid', type=float,
+		default=94.0, help='Discard reads with alignment identity < MAPID (94.0)')
+	map.add_argument('--mapq', type=int,
+		default=20, help='Discard reads with mapping quality < MAPQ (10)')
+	map.add_argument('--aln_cov', type=float,
+		default=0.75, help='Discard reads with alignment coverage < ALN_COV (0.75)')
+	map.add_argument('--trim', metavar='INT', type=int, default=0,
+		help='Trim N base-pairs from read-tails (0)')
+		
 	args = vars(parser.parse_args())
 	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
 	
 	return args
 
-def print_pangenome_arguments(args):
-	print ("-------------------------------------------------------")
-	print ("Metagenomic Pan-genome Profiling Parameters:")
-	print ("Input FASTA/FASTQ file (1st mate): %s" % args['m1'])
-	if args['m2']: print ("Input FASTA/FASTQ file (2nd mate): %s" % args['m2'])
-	print ("Input species abundance file: %s" % args['profile'])
-	print ("Output directory: %s" % args['out'])
-	print ("Keep temporary files: %s" % args['keep_temp'])
+
+def print_gene_arguments(args):
+
+	print ("===========Parameters===========")
+
+	print ("Script: run_phylo_cnv.py genes")
+	print ("Output directory: %s" % args['outdir'])
+	print ("Remove temporary files: %s" % args['remove_temp'])
+		
 	print ("Pipeline options:")
 	if args['build_db']:
 		print ("  -build bowtie2 database of pangenomes")
 	if args['align']:
-		print ("  -align reads to pangenome database")
+		print ("  -align reads to bowtie2 pangenome database")
 	if args['cov']:
-		print ("  -estimate gene read-depth and copy-number")
-	print ("Species selection criterea:")
-	if args['gc_topn']:
-		print ("  -top %s most abundant species" % args['gc_topn'])
-	if args['gc_cov']:
-		print ("  -all species with >=%sX genome coverage" % args['gc_cov'])
-	if args['gc_rbun']:
-		print ("  -all species with >=%s relative abundance" % args['gc_rbun'])
-	if args['gc_id']:
-		print ("  -specified species id(s): %s" % args['gc_id'])
-	print ("Alignment speed/sensitivity: %s" % args['speed'])
-	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
-	print ("Number of threads for database search: %s" % args['threads'])
-	print ("Minimum alignment percent identity: %s" % args['mapid'])
-	print ("Minimum alignment coverage of reads: %s" % args['aln_cov'])
-	print ("-------------------------------------------------------")
+		print ("  -quantify coverage of pangenomes genes")
 
-def snv_arguments():
-	""" Get arguments for metagenomic pangenome profiling """
-	parser = argparse.ArgumentParser(usage='run_phylo_cnv.py snvs [options]')
-	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('-v', '--verbose', action='store_true', default=False)
-	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
-	parser.add_argument('--keep_temp', dest='keep_temp', default=False, action='store_true',
-		help="""keep temporary files. useful for rerunning pipeline with different parameters without repeating ealier steps""")
+	if args['build_db']:
+		print ("Database options:")
+		print ("  -species abundance file: %s" % args['profile'])
+		if args['gc_topn']:
+			print ("  -include top %s most abundant species" % args['gc_topn'])
+		if args['gc_cov']:
+			print ("  -include all species with >=%sX genome coverage" % args['gc_cov'])
+		if args['gc_id']:
+			print ("  -include specified species id(s): %s" % args['gc_id'])
+
+	if args['align']:
+		print ("Read alignment options:")
+		print ("  -input reads (1st mate): %s" % args['m1'])
+		print ("  -input reads (2nd mate): %s" % args['m2'])
+		print ("  -alignment speed/sensitivity: %s" % args['speed'])
+		print ("  -number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
+		print ("  -number of threads for database search: %s" % args['threads'])
+
+	if args['cov']:
+		print ("Gene coverage options:")
+		print ("  -minimum alignment percent identity: %s" % args['mapid'])
+		print ("  -minimum alignment coverage of reads: %s" % args['aln_cov'])
+		print ("  -minimum read quality score: %s" % args['readq'])
+		print ("  -minimum mapping quality score: %s" % args['mapq'])
+		print ("  -trim %s base-pairs from read-tails" % args['trim'])
+
+
+def snp_arguments():
+	parser = argparse.ArgumentParser(
+		formatter_class=argparse.RawTextHelpFormatter,
+		usage=argparse.SUPPRESS,
+		description="""
+Usage: run_phylo_cnv.py snps outdir [options]
+
+Description:
+This script will map metagenomic reads to bacterial reference genomes and call SNPs in these genomes
+You can either target one or more specific species, or provide this script a species abundance file
+The pipeline can be broken down into three main steps:
+  1) build a database of genome sequences for abundance bacterial species
+  2) map metagenomic reads to the database
+  3) use mapped reads to call SNPs
+""",
+		epilog="""Examples:
+1) run entire pipeline using defaults:
+run_phylo_cnv.py snps /path/to/outdir -p /path/to/species_profile -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 			
-	io = parser.add_argument_group('Input/Output (required)')
-	io.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
-	io.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
-	io.add_argument('-p', type=str, dest='profile', help='Path to species profile')
-	io.add_argument('-o', type=str, dest='out', help='Path to output directory', required=True)
-	io.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
+2) run entire pipeline for a specific species:
+run_phylo_cnv.py snps /path/to/outdir -p_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+
+3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
+run_phylo_cnv.py snps /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
+
+4) just call SNPs, keep reads with >=95% alignment identity and keep bases with quality-scores >=35:
+run_phylo_cnv.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35
+	""")
+	
+	parser.add_argument('program', help=argparse.SUPPRESS)
+	parser.add_argument('outdir', type=str, help='Path to directory to store results. ')
+	
+	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
+	parser.add_argument('--remove_temp', default=False, action='store_true',
+		help='remove intermediate files generated by PhyloCNV. \nintermediate files can be useful to quickly rerun parts of pipeline.')
 	
 	pipe = parser.add_argument_group('Pipeline options (choose one or more; default=all)')
 	pipe.add_argument('--build_db', action='store_true', dest='build_db',
 		default=False, help='Build bowtie2 database of pangenomes')
 	pipe.add_argument('--align', action='store_true', dest='align',
 		default=False, help='Align reads to pangenome database')
-	pipe.add_argument('--pileup', action='store_true', dest='pileup',
-		default=False, help='Run samtools mpileup')
-	pipe.add_argument('--call', action='store_true', dest='call',
-		default=False, help='Call SNPs and format output')
-		
-	gc = parser.add_argument_group('Species to target (choose one or more; default=all >= 3x coverage)')
-	gc.add_argument('--gc_topn', type=int, dest='gc_topn', help='Top N most abundant (None)')
-	gc.add_argument('--gc_cov', type=float, dest='gc_cov', help='Coverage threshold (None)')
-	gc.add_argument('--gc_rbun', type=float, dest='gc_rbun', help='Relative abundance threshold (None)')
-	gc.add_argument('--gc_id', type=str, dest='gc_id', help='Identifier of specific species or comma-separated list of ids (None)')
+	pipe.add_argument('--call_snps', action='store_true', dest='call',
+		default=False, help='Run samtools mpileup and call SNPs')
+				
+	db = parser.add_argument_group('Database options (if using --build_db)')
+	db.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
+	db.add_argument('-p', type=str, dest='profile', help='Path to species abundance profile')
+	db.add_argument('--p_cov', type=float, dest='gc_cov', help='Include species with >X coverage (3.0)')
+	db.add_argument('--p_topn', type=int, dest='gc_topn', help='Include top N most abundant species')
+	db.add_argument('--p_id', type=str, dest='gc_id', help='One or more species identifiers to include in database. Separate ids with a comma')
 			
-	speed = parser.add_argument_group('Alignment speed')
-	speed.add_argument('-s', type=str, dest='speed', default='very-sensitive',
+	align = parser.add_argument_group('Read alignment options (if using --align)')
+	align.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
+	align.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
+	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
-		help='Alignment speed/sensitivity (very-sensitive)')
-	speed.add_argument('-n', type=int, dest='reads', help='# reads to use from input file(s) (use all)')
-	speed.add_argument('-t', dest='threads', default=1, help='Number of threads to use')
+		help='Bowtie2 alignment speed/sensitivity (very-sensitive)')
+	align.add_argument('-n', type=int, dest='reads', help='# reads to use from input file(s) (use all)')
+	align.add_argument('-t', dest='threads', default=1, help='Number of threads to use')
 	
-	map = parser.add_argument_group('Read/base filters')
-	map.add_argument('--mapid', type=float, dest='mapid',
-		default=94.0, help='Discard alignments with percent id < MAPID. Higher values indicate fewer mismatches allowed (94.0)')
-	map.add_argument('--mapq', type=int, dest='mapq',
-		default=20, help='Minimum map quality (20)')
-	map.add_argument('--baseq', type=int, dest='baseq',
-		default=25, help='Minimum base quality (25)')
-	map.add_argument('--trim', type=str, dest='trim', help=argparse.SUPPRESS)
-	
+	snps = parser.add_argument_group('SNP calling options (if using --call_snps)')
+	snps.add_argument('--mapid', type=float,
+		default=94.0, help='Discard reads with alignment identity < MAPID (94.0)')
+	snps.add_argument('--mapq', type=int,
+		default=20, help='Discard reads with mapping quality < MAPQ (20)')
+	snps.add_argument('--baseq', type=int,
+		default=30, help='Discard bases with quality < BASEQ (30)')
+	snps.add_argument('--readq', type=int,
+		default=20, help='Discard reads with mean quality < READQ (20)')
+	snps.add_argument('--trim', metavar='INT', type=int, default=0,
+		help='Trim N base-pairs from read-tails (0)')
+	snps.add_argument('--baq', default=False, action='store_true',
+		help='Enable BAQ (per-base alignment quality)')
+	snps.add_argument('--redo_baq', default=False, action='store_true',
+		help='Recalculate BAQ on the fly')
+	snps.add_argument('--adjust_mq', default=False, action='store_true',
+		help='Adjust MAPQ')
+			
 	args = vars(parser.parse_args())
 	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
 	
 	return args
 
-def print_snv_arguments(args):
-	print ("-------------------------------------------------------")
-	print ("Single Nucleotide Variant Parameters:")
-	print ("Input FASTA/FASTQ file (1st mate): %s" % args['m1'])
-	if args['m2']: print ("Input FASTA/FASTQ file (2nd mate): %s" % args['m2'])
-	print ("Input species abundance file: %s" % args['profile'])
-	print ("Output directory: %s" % args['out'])
-	print ("Keep temporary files: %s" % args['keep_temp'])
+def print_snp_arguments(args):
+
+	print ("===========Parameters===========")
+
+	print ("Script: run_phylo_cnv.py snps")
+	print ("Output directory: %s" % args['outdir'])
+	print ("Remove temporary files: %s" % args['remove_temp'])
+		
 	print ("Pipeline options:")
 	if args['build_db']:
 		print ("  -build bowtie2 database of genomes")
 	if args['align']:
-		print ("  -align reads to genome database")
-	if args['pileup']:
-		print ("  -use samtools to generate pileups")
+		print ("  -align reads to bowtie2 genome database")
 	if args['call']:
-		print ("  -parse output, call variants, and estimate allele frequencies")
-	print ("Species selection criterea:")
-	if args['gc_topn']:
-		print ("  -top %s most abundant species" % args['gc_topn'])
-	if args['gc_cov']:
-		print ("  -all species with >=%sX genome coverage" % args['gc_cov'])
-	if args['gc_rbun']:
-		print ("  -all species with >=%s relative abundance" % args['gc_rbun'])
-	if args['gc_id']:
-		print ("  -specified species id(s): %s" % args['gc_id'])
-	print ("Alignment speed/sensitivity: %s" % args['speed'])
-	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
-	print ("Number of threads for database search: %s" % args['threads'])
-	print ("Minimum alignment percent identity: %s" % args['mapid'])
-	print ("Minimum mapping quality score: %s" % args['mapq'])
-	print ("Minimum phred quality score: %s" % args['baseq'])
-	print ("-------------------------------------------------------")
+		print ("  -use samtools to generate pileups and call SNPs")
+
+	if args['build_db']:
+		print ("Database options:")
+		print ("  -species abundance file: %s" % args['profile'])
+		if args['gc_topn']:
+			print ("  -include top %s most abundant species" % args['gc_topn'])
+		if args['gc_cov']:
+			print ("  -include all species with >=%sX genome coverage" % args['gc_cov'])
+		if args['gc_id']:
+			print ("  -include specified species id(s): %s" % args['gc_id'])
+
+	if args['align']:
+		print ("Read alignment options:")
+		print ("  -input reads (1st mate): %s" % args['m1'])
+		print ("  -input reads (2nd mate): %s" % args['m2'])
+		print ("  -alignment speed/sensitivity: %s" % args['speed'])
+		print ("  -number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
+		print ("  -number of threads for database search: %s" % args['threads'])
+
+	if args['call']:
+		print ("SNP calling options:")
+		print ("  -minimum alignment percent identity: %s" % args['mapid'])
+		print ("  -minimum mapping quality score: %s" % args['mapq'])
+		print ("  -minimum base quality score: %s" % args['baseq'])
+		print ("  -minimum read quality score: %s" % args['readq'])
+		print ("  -trim %s base-pairs from read-tails" % args['trim'])
+		if args['baq']: print ("  -enable BAQ (per-base alignment quality)")
+		if args['redo_baq']: print ("  -recalculate BAQ on the fly")
+		if args['adjust_mq']: print ("  -adjust MAPQ")
 
 def check_genes(args):
 	""" Check validity of command line arguments """
 	# create output directory
-	if not os.path.isdir(args['out']):
-		os.makedirs(args['out'])
+	if not os.path.isdir(args['outdir']):
+		os.makedirs(args['outdir'])
 	# turn on pipeline options
 	if not any([args['build_db'], args['align'], args['cov']]):
 		args['build_db'] = True
 		args['align'] = True
 		args['cov'] = True
 	# set default species selection
-	if not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+	if not any([args['gc_id'], args['gc_topn'], args['gc_cov']]):
 		args['gc_cov'] = 3.0
 	# species selection options, but no no profile file
-	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile'] and args['build_db']:
-		sys.exit("\nTo specify species with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
+	if (args['gc_topn'] or args['gc_cov']) and not args['profile'] and args['build_db']:
+		sys.exit("\nTo specify species with --gc_topn or --gc_cov you must supply a profile file with -p")
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
-		and not os.path.isfile('%s/db/pangenomes.fa' % args['out'])):
+		and not os.path.isfile('%s/db/pangenomes.fa' % args['outdir'])):
 		error = "\nYou've specified --align, but no database has been built"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no bamfile but --cov specified
 	if (args['cov']
 		and not args['align']
-		and not os.path.isfile('%s/pangenome.bam' % args['out'])):
-		error = "\nYou've specified --coverage, but no alignments were found"
+		and not os.path.isfile('%s/pangenome.bam' % args['outdir'])):
+		error = "\nYou've specified --call_genes, but no alignments were found"
 		error += "\nTry running with --align"
 		sys.exit(error)
 	# no reads
@@ -388,43 +476,35 @@ def check_genes(args):
 	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
 		sys.exit("\nALN_COV must be between 0 and 1")
 
-def check_snvs(args):
+def check_snps(args):
 	""" Check validity of command line arguments """
 	# create output directory
-	if not os.path.isdir(args['out']):
-		os.makedirs(args['out'])
+	if not os.path.isdir(args['outdir']):
+		os.makedirs(args['outdir'])
 	# pipeline options
-	if not any([args['build_db'], args['align'], args['pileup'], args['call']]):
+	if not any([args['build_db'], args['align'], args['call']]):
 		args['build_db'] = True
 		args['align'] = True
-		args['pileup'] = True
 		args['call'] = True
 	# set default species selection
-	if not any([args['gc_id'], args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+	if not any([args['gc_id'], args['gc_topn'], args['gc_cov']]):
 		args['gc_cov'] = 3.0
 	# species selection options, but no no profile file
-	if (args['gc_topn'] or args['gc_cov'] or args['gc_rbun']) and not args['profile'] and args['build_db']:
-		sys.exit("\nTo specify species with --gc_topn, --gc_cov, or --gc_rbun, you must supply a profile file with -p")
+	if (args['gc_topn'] or args['gc_cov']) and not args['profile'] and args['build_db']:
+		sys.exit("\nTo specify species with --gc_topn, or --gc_cov, you must supply a profile file with -p")
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
-		and not os.path.isfile('%s/db/genomes.fa' % args['out'])):
+		and not os.path.isfile('%s/db/genomes.fa' % args['outdir'])):
 		error = "\nYou've specified --align, but no database has been built"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
-	# no bamfile but --pileup specified
-	if (args['pileup']
+	# no bamfile but --call specified
+	if (args['call']
 		and not args['align']
-		and not os.path.isfile('%s/genomes.bam' % args['out'])):
+		and not os.path.isfile('%s/genomes.bam' % args['outdir'])):
 		error = "\nYou've specified --pileup, but no alignments were found"
 		error += "\nTry running with --align"
-		sys.exit(error)
-	# no vcfile but --call specified
-	if (args['call']
-		and not args['pileup']
-		and not os.path.isfile('%s/genomes.vcf' % args['out'])):
-		error = "\nYou've specified --call, but no vcf file was found"
-		error += "\nTry running with --pileup"
 		sys.exit(error)
 	# no reads
 	if args['align'] and not args['m1']:
@@ -449,8 +529,8 @@ if __name__ == '__main__':
 	program = get_program()
 	args = get_arguments(program)
 	check_arguments(program, args)
-	if args['verbose']: print_copyright()
-	if args['verbose']: print_arguments(program, args)
+	print_copyright()
+	print_arguments(program, args)
 	run_program(program, args)
 	
 

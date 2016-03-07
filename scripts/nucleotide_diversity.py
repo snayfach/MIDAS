@@ -14,8 +14,13 @@ class Sample:
 		self.id = sample_id
 		self.total_diversity = 0
 		self.count_sites = 0
-		self.pi = None
 		self.ref_freq = []
+
+	def compute_pi(self):
+		if self.count_sites > 0:
+			self.pi = self.total_diversity/self.count_sites
+		else:
+			self.pi = 'NA'
 
 def print_copyright():
 	print ("")
@@ -29,8 +34,6 @@ def parse_arguments():
 	""" Parse command line arguments """
 	parser = argparse.ArgumentParser(usage='%s [options]' % os.path.basename(__file__),
 		description="""Estimate core-genome nucleotide diversity of a species within and between samples""")
-	parser.add_argument('-v', '--verbose', action='store_true', default=False,
-		help="""verbose""")
 	parser.add_argument('-i', type=str, dest='input', required=True,
 		help="""input to reference frequency matrix""")
 	parser.add_argument('-o', dest='output', type=str, required=True,
@@ -95,8 +98,7 @@ def compute_nucleotide_diversity(args, samples):
 			samples['between_cons'].count_sites += 1
 	# per-bp diversity
 	for sample_id in sorted(samples.keys()):
-		sample = samples[sample_id]
-		sample.pi = sample.total_diversity/sample.count_sites
+		samples[sample_id].compute_pi()
 
 def write_results(args, samples):
 	ext = args['output'].split('.')[-1]
@@ -109,9 +111,8 @@ def write_results(args, samples):
 
 if __name__ == '__main__':
 	args = parse_arguments()
-	if args['verbose']:
-		print_copyright()
-		print("Estimating nucleotide diversity within and between samples...\n")
+	print_copyright()
+	print("Estimating nucleotide diversity within and between samples...\n")
 	samples = init_samples(args)
 	compute_nucleotide_diversity(args, samples)
 	write_results(args, samples)

@@ -3,19 +3,26 @@
 # Libraries
 # ---------
 import sys, os, subprocess
-import random
-import numpy as np
 from time import time
-import platform
 import utility
 
 # Functions
 # ---------
 
+def read_annotations(args):
+	annotations = {}
+	infile = open('%s/annotations.txt' % args['db'])
+	fields = next(infile).rstrip().split('\t')
+	for line in infile:
+		values = line.rstrip().split('\t')
+		record = dict([(f,v) for f,v in zip(fields, values)])
+		annotations[record['cluster_id']] = record['consensus_name']
+	return annotations
+
 def map_reads_hsblast(args):
 	""" Use hs-blastn to map reads in fasta file to marker database """
 	# fasta to fastq
-	command = 'python %s' % args['fa_to_fq']
+	command = 'python %s' % args['stream_seqs']
 	command += ' %s' % args['m1'] # fastq
 	if args['m2']: command += ',%s' % args['m2'] # and mate if specified
 	if args['reads']: command += ' %s' % args['reads'] # number of reads if specified
@@ -28,8 +35,7 @@ def map_reads_hsblast(args):
 	command += ' -outfmt 6'
 	command += ' -num_threads %s' % args['threads']
 	command += ' -out %s.m8' % args['out']
-	command += ' -evalue 1e-5'
-	command += ' -perc_identity 94.5'
+	command += ' -evalue 1e-3'
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
 
@@ -65,7 +71,7 @@ def find_best_hits(args):
 			best_hits[aln['query']] += [aln]
 		elif best_hits[aln['query']][0]['score'] < aln['score']: # update aln
 			best_hits[aln['query']] = [aln]
-	if args['verbose']: print("  total alignments: %s" % i)
+	print("  total alignments: %s" % i)
 	return best_hits.values()
 
 def assign_unique(args, alns):
@@ -80,13 +86,14 @@ def assign_unique(args, alns):
 			unique_alns[cluster_id].append(aln[0])
 		else:
 			non_unique += 1
-	if args['verbose']:
-		print("  uniquely mapped reads: %s" % unique)
-		print("  ambiguously mapped reads: %s" % non_unique)
+	print("  uniquely mapped reads: %s" % unique)
+	print("  ambiguously mapped reads: %s" % non_unique)
 	return unique_alns
 
 def assign_non_unique(args, alns, unique_alns):
 	""" Probabalistically assign ambiguously mapped reads """
+	import numpy as np
+	import random
 	total_alns = unique_alns.copy()
 	for aln in alns:
 		if len(aln) > 1:
@@ -112,23 +119,6 @@ def get_markers(args):
 			marker_cutoffs[marker_id] = float(min_pid)
 	return marker_cutoffs
 
-def estimate_mix_props(alns, args):
-	""" Count the number of uniquely mapped reads to each genome cluster """
-	unique_counts = dict([(x.rstrip().split()[0],0) for x in open(args['cluster_ids']).readlines()])
-	unique = 0
-	non_unique = 0
-	for aln in alns:
-		if len(aln) == 1:
-			unique += 1
-			cluster_id = aln[0]['target'].split('_')[0]
-			unique_counts[cluster_id] += 1
-		else:
-			non_unique += 1
-	if args['verbose']:
-		print("Uniquely mapped reads: %s" % unique)
-		print("Ambiguously mapped reads: %s" % non_unique)
-	return unique_counts
-
 def read_gene_lengths(args):
 	""" Read in total gene length per cluster_id """
 	total_gene_length = dict([(x.rstrip().split()[0],0) for x in open(args['cluster_ids']).readlines()])
@@ -143,6 +133,7 @@ def normalize_counts(cluster_alns, total_gene_length):
 	""" Normalize counts by gene length and sum contrain """
 	# norm by gene length, compute rpkg, compute cov
 	cluster_abundance = {}
+	total_cov = 0.0
 	for cluster_id, alns in cluster_alns.items():
 		cluster_abundance[cluster_id] = {}
 		# compute coverage
@@ -152,12 +143,14 @@ def normalize_counts(cluster_alns, total_gene_length):
 		else:
 			cov = 0.0
 		# store results
-		cluster_abundance[cluster_id] = {'cov':cov}
+		cluster_abundance[cluster_id] = {'cov':cov, 'count':len(alns)}
+		total_cov += cov
 	# compute relative abundance
 	total_cov = sum([_['cov'] for _ in cluster_abundance.values()])
 	for cluster_id in cluster_abundance.keys():
 		cov = cluster_abundance[cluster_id]['cov']
 		cluster_abundance[cluster_id]['rel_abun'] = cov/total_cov if total_cov > 0 else 0
+	print("  total marker-gene coverage: %s" % round(total_cov, 3))
 	return cluster_abundance
 
 def estimate_abundance(args):
@@ -169,74 +162,52 @@ def estimate_abundance(args):
 	
 	# align reads
 	start = time()
-	if args['verbose']: print("\nAligning reads to marker-genes database")
+	print("\nAligning reads to marker-genes database")
 	map_reads_hsblast(args)
-	if args['verbose']:
-		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
-	
+	print("  %s minutes" % round((time() - start)/60, 2) )
+	print("  %s Gb maximum memory") % utility.max_mem_usage()
+
 	# find best hit for each read
 	start = time()
-	if args['verbose']: print("\nClassifying reads")
+	print("\nClassifying reads")
 	best_hits = find_best_hits(args)
 	unique_alns = assign_unique(args, best_hits)
 	cluster_alns = assign_non_unique(args, best_hits, unique_alns)
-	if args['verbose']:
-		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+	print("  %s minutes" % round((time() - start)/60, 2) )
+	print("  %s Gb maximum memory") % utility.max_mem_usage()
 	
 	# estimate genome cluster abundance
 	start = time()
-	if args['verbose']: print("\nEstimating species abundance")
+	print("\nEstimating species abundance")
 	total_gene_length = read_gene_lengths(args)
 	cluster_abundance = normalize_counts(cluster_alns, total_gene_length)
-	if args['verbose']:
-		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+	print("  %s minutes" % round((time() - start)/60, 2) )
+	print("  %s Gb maximum memory") % utility.max_mem_usage()
 	
-	# convert to cellular relative abundances
-	if args['norm']:
-		start = time()
-		if args['verbose']: print("\nConverting to cellular relative abundances")
-		from microbe_census import microbe_census
-		seqfiles = [args['m1'], args['m2']] if args['m2'] else [args['m1']]
-		
-		ags = microbe_census.run_pipeline({'seqfiles':seqfiles})[0]
-		reads, bp = [int(x) for x in open('%s.read_count' % args['out']).read().rstrip().split()]
-		genomes = bp/float(ags)
-		for cluster_id in cluster_abundance:
-			cov = cluster_abundance[cluster_id]['cov']
-			cluster_abundance[cluster_id]['rel_abun'] = cov/genomes
-		if args['verbose']:
-			print("  average genome size: %s" % round(ags,2))
-			print("  total bp sampled: %s" % bp)
-			print("  total genome coverage: %s" % round(genomes,2))
-			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % utility.max_mem_usage()
-
 	# write results
-	write_abundance(args['out'], cluster_abundance)
+	annotations = read_annotations(args)
+	write_abundance(args['out'], cluster_abundance, annotations)
 
 	# clean up
-	if not args['keep_temp']:
+	if args['remove_temp']:
 		os.remove('%s.read_count' % args['out'])
 		os.remove('%s.m8' % args['out'])
 
-def write_abundance(outpath, cluster_abundance):
+def write_abundance(outpath, cluster_abundance, annotations):
 	""" Write cluster results to specified output file """
 	outfile = open(outpath, 'w')
-	fields = ['cluster_id', 'coverage', 'relative_abundance']
+	fields = ['species_id', 'species_name', 'count_reads', 'coverage', 'relative_abundance']
 	outfile.write('\t'.join(fields)+'\n')
 	for cluster_id, values in cluster_abundance.items():
-		record = [cluster_id, values['cov'], values['rel_abun']]
+		record = [cluster_id, annotations[cluster_id], values['count'], values['cov'], values['rel_abun']]
 		outfile.write('\t'.join([str(x) for x in record])+'\n')
 
 def read_abundance(inpath):
-	""" Parse output from PhyloSpecies """
+	""" Parse species abundance file """
 	if not os.path.isfile(inpath):
 		sys.exit("\nCould not locate species profile: %s\nTry rerunning with --species_profile" % inpath)
 	dict = {}
-	fields = [('cluster_id', str), ('cov', float), ('rel_abun', float)]
+	fields = [('cluster_id', str), ('name', str), ('count', int), ('cov', float), ('rel_abun', float)]
 	infile = open(inpath)
 	next(infile)
 	for line in infile:
@@ -251,7 +222,7 @@ def select_genome_clusters(args):
 	import operator
 	cluster_sets = {}
 	# read in cluster abundance if necessary
-	if any([args['gc_topn'], args['gc_cov'], args['gc_rbun']]):
+	if any([args['gc_topn'], args['gc_cov']]):
 		cluster_abundance = read_abundance(args['profile'])
 		# user specifed a coverage threshold
 		if args['gc_cov']:
@@ -259,12 +230,6 @@ def select_genome_clusters(args):
 			for cluster_id, values in cluster_abundance.items():
 				if values['cov'] >= args['gc_cov']:
 					cluster_sets['gc_cov'].add(cluster_id)
-		# user specifed a relative-abundance threshold
-		if args['gc_rbun']:
-			cluster_sets['gc_rbun'] = set([])
-			for cluster_id, values in cluster_abundance.items():
-				if values['rel_abun'] >= args['gc_rbun']:
-					cluster_sets['gc_rbun'].add(cluster_id)
 		# user specifed topn genome-clusters
 		if args['gc_topn']:
 			cluster_sets['gc_topn'] = set([])
@@ -274,9 +239,9 @@ def select_genome_clusters(args):
 				cluster_sets['gc_topn'].add(cluster_id)
 	# user specified a list of one or more genome-clusters
 	if args['gc_id']:
-		cluster_sets['gc_rbun'] = set([])
+		cluster_sets['gc_id'] = set([])
 		for cluster_id in args['gc_id']:
-			cluster_sets['gc_rbun'].add(cluster_id)
+			cluster_sets['gc_id'].add(cluster_id)
 	# intersect sets of genome-clusters
 	my_clusters = list(set.intersection(*cluster_sets.values()))
 	# check that specified genome-clusters are valid

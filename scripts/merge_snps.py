@@ -280,6 +280,7 @@ def batch_samples(samples, threads):
 		if len(batch) >= size:
 			batches.append(batch)
 			batch = []
+	if len(batch) > 0: batches.append(batch)
 	return batches
 
 def parallel(function, list, threads):

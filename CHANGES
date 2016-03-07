@@ -1,5 +1,26 @@
 CHANGES
 
+2016-03-06
+ * updated help text, options, example usage for run_phylo_cnv.py
+ * species.py: dropped normalization option, added species annotations, added read counts
+ * snps.py: added additional options. changed default base-quality to 30
+ * genes.py: added quality filtering options
+ * filter_bam.py: automatically checks for N quality, ability to filter alns by mean quality
+ * merge_snps.py: added multithreading; no upper limit on number of samples
+
+2015-12-29
+ * filter_bam.py: moved functions compute_aln_cov, compute_perc_id
+ * filter_bam.py: now using alignment length instead of read length in function compute_perc_id
+
+2015-12-26
+ * added: nucleotide_diversity.py
+
+2015-12-25
+ * merge_snps.py: output list of samples that passed qc for given species
+
+2015-12-23
+ * merge_snps.py: checks if nsamples > maxopenfiles
+
 2015-12-20
  * species.py: compatability with new version of MicrobeCensus
 

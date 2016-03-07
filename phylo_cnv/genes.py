@@ -15,6 +15,7 @@ import gzip
 from time import time
 import platform
 import utility
+import filter_bam
 
 # Functions
 # ---------
@@ -24,7 +25,7 @@ def pangenome_align(args):
 	# Build command
 	command = '%s --no-unal ' % args['bowtie2']
 	#   index
-	command += '-x %s ' % '/'.join([args['out'], 'db', 'pangenomes'])
+	command += '-x %s ' % '/'.join([args['outdir'], 'db', 'pangenomes'])
 	#   specify reads
 	if args['reads']: command += '-u %s ' % args['reads']
 	#   trim reads
@@ -40,7 +41,7 @@ def pangenome_align(args):
 	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
 	else: command += '-U %s' % args['m1']
 	#   output unsorted bam
-	bampath = '/'.join([args['out'], 'pangenome.bam'])
+	bampath = '/'.join([args['outdir'], 'pangenome.bam'])
 	command += '| %s view -b - > %s' % (args['samtools'], bampath)
 	# Run command
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -51,7 +52,7 @@ def pangenome_align(args):
 def read_ref_to_cluster(args, type):
 	""" Read in map of gene id to genome-cluster id """
 	ref_to_cluster = {}
-	for line in open('/'.join([args['out'], 'db/%s.map' % type])):
+	for line in open('/'.join([args['outdir'], 'db/%s.map' % type])):
 		ref_id, cluster_id = line.rstrip().split()
 		ref_to_cluster[ref_id] = cluster_id
 	return ref_to_cluster
@@ -62,7 +63,7 @@ def genes_summary(args):
 	stats = {}
 	for cluster_id in set(read_ref_to_cluster(args, 'pangenome').values()):
 		pangenome_size, covered_genes, total_coverage, phyeco_coverage = [0,0,0,0]
-		for r in utility.parse_file('/'.join([args['out'], 'coverage/%s.cov.gz' % cluster_id])):
+		for r in utility.parse_file('/'.join([args['outdir'], 'coverage/%s.cov.gz' % cluster_id])):
 			pangenome_size += 1
 			coverage = float(r['raw_coverage'])
 			normcov = float(r['normalized_coverage'])
@@ -77,44 +78,33 @@ def genes_summary(args):
 							 'phyeco_coverage':phyeco_coverage}
 	# write stats
 	fields = ['pangenome_size', 'covered_genes', 'mean_coverage', 'phyeco_coverage']
-	outfile = open('/'.join([args['out'], 'genes_summary_stats.txt']), 'w')
+	outfile = open('/'.join([args['outdir'], 'genes_summary_stats.txt']), 'w')
 	outfile.write('\t'.join(['cluster_id'] + fields)+'\n')
 	for cluster_id in stats:
 		record = [cluster_id] + [str(stats[cluster_id][field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 
-def compute_perc_id(aln):
-	""" Compute percent identity for read """
-	length = aln.query_length
-	edit = dict(aln.tags)['NM']
-	return 100 * (length - edit)/float(length)
-
-def compute_aln_cov(aln):
-	""" Compute percent identity for paired-end read """
-	aln_cov = len(aln.query_alignment_sequence)/float(aln.query_length)
-	return aln_cov
-
 def count_mapped_bp(args):
 	""" Count number of bp mapped to each centroid across pangenomes """
-	import pysam
-	bam_path = '/'.join([args['out'], 'pangenome.bam'])
+	import pysam, numpy as np
+	bam_path = '/'.join([args['outdir'], 'pangenome.bam'])
 	aln_file = pysam.AlignmentFile(bam_path, "rb")
 	ref_to_length = dict([(i,j) for i,j in zip(aln_file.references, aln_file.lengths)])
 	ref_to_cov = dict([(i,0.0) for i in aln_file.references])
 	for index, aln in enumerate(aln_file.fetch(until_eof = True)):
-		try:
-			query = aln.query_name
-			if compute_perc_id(aln) < args['mapid']:
-				continue
-			elif compute_aln_cov(aln) < args['aln_cov']:
-				continue
-			else:
-				ref_id = aln_file.getrname(aln.reference_id)
-				cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
-				ref_to_cov[ref_id] += cov
-		except Exception:
-			print index
-			quit()
+		query = aln.query_name
+		if filter_bam.compute_perc_id(aln) < args['mapid']:
+			continue
+		elif filter_bam.compute_aln_cov(aln) < args['aln_cov']:
+			continue
+		elif np.mean(aln.query_qualities) < args['readq']:
+			continue
+		elif aln.mapping_quality < args['mapq']: # TEST THIS
+			continue
+		else:
+			ref_id = aln_file.getrname(aln.reference_id)
+			cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
+			ref_to_cov[ref_id] += cov
 	return ref_to_cov
 
 def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
@@ -156,11 +146,11 @@ def compute_pangenome_coverage(args):
 	""" Compute coverage of pangenome for cluster_id and write results to disk """
 	# map ref_id to cluster_id
 	ref_to_cluster = {}
-	for line in open('/'.join([args['out'], 'db/pangenome.map'])):
+	for line in open('/'.join([args['outdir'], 'db/pangenome.map'])):
 		ref_id, cluster_id = line.rstrip().split()
 		ref_to_cluster[ref_id] = cluster_id
 	# open outfiles for each cluster_id
-	outdir = '/'.join([args['out'], 'coverage'])
+	outdir = '/'.join([args['outdir'], 'coverage'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	outfiles = {}
 	genome_clusters = set(ref_to_cluster.values())
@@ -183,10 +173,10 @@ def build_pangenome_db(args, genome_clusters):
 	""" Build FASTA and BT2 database from pangene cluster centroids """
 	import Bio.SeqIO
 	# fasta database
-	outdir = '/'.join([args['out'], 'db'])
+	outdir = '/'.join([args['outdir'], 'db'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
-	pangenome_fasta = open('/'.join([args['out'], 'db/pangenomes.fa']), 'w')
-	pangenome_map = open('/'.join([args['out'], 'db/pangenome.map']), 'w')
+	pangenome_fasta = open('/'.join([args['outdir'], 'db/pangenomes.fa']), 'w')
+	pangenome_map = open('/'.join([args['outdir'], 'db/pangenome.map']), 'w')
 	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
 	for cluster_id in genome_clusters:
 		db_stats['genome_clusters'] += 1
@@ -200,13 +190,12 @@ def build_pangenome_db(args, genome_clusters):
 				db_stats['total_length'] += len(r.seq)
 				db_stats['total_seqs'] += 1
 	# print out database stats
-	if args['verbose']:
-		print("  total genome-clusters: %s" % db_stats['genome_clusters'])
-		print("  total genes: %s" % db_stats['total_seqs'])
-		print("  total base-pairs: %s" % db_stats['total_length'])
+	print("  total genome-clusters: %s" % db_stats['genome_clusters'])
+	print("  total genes: %s" % db_stats['total_seqs'])
+	print("  total base-pairs: %s" % db_stats['total_length'])
 	# bowtie2 database
-	inpath = '/'.join([args['out'], 'db/pangenomes.fa'])
-	outpath = '/'.join([args['out'], 'db/pangenomes'])
+	inpath = '/'.join([args['outdir'], 'db/pangenomes.fa'])
+	outpath = '/'.join([args['outdir'], 'db/pangenomes'])
 	command = ' '.join([args['bowtie2-build'], inpath, outpath])
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
@@ -214,8 +203,8 @@ def build_pangenome_db(args, genome_clusters):
 def remove_tmp(args):
 	""" Remove specified temporary files """
 	import shutil
-	shutil.rmtree('/'.join([args['out'], 'db']))
-	os.remove('%s/pangenome.bam' % args['out'])
+	shutil.rmtree('/'.join([args['outdir'], 'db']))
+	os.remove('%s/pangenome.bam' % args['outdir'])
 		
 def run_pipeline(args):
 	""" Run entire pipeline """
@@ -226,36 +215,33 @@ def run_pipeline(args):
 	# Build pangenome database for selected GCs
 	if args['build_db']:
 		import species
-		if args['verbose']: print("\nBuilding pangenome database")
+		print("\nBuilding pangenome database")
 		start = time()
 		genome_clusters = species.select_genome_clusters(args)
 		build_pangenome_db(args, genome_clusters)
-		if args['verbose']:
-			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s minutes" % round((time() - start)/60, 2) )
+		print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Use bowtie2 to align reads to pangenome database
 	if args['align']:
 		start = time()
-		if args['verbose']: print("\nAligning reads to pangenomes")
+		print("\nAligning reads to pangenomes")
 		args['file_type'] = utility.auto_detect_file_type(args['m1'])
 		pangenome_align(args)
-		if args['verbose']:
-			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s minutes" % round((time() - start)/60, 2) )
+		print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Compute pangenome coverage for each genome-cluster
 	if args['cov']:
 		start = time()
-		if args['verbose']: print("\nComputing coverage of pangenomes")
+		print("\nComputing coverage of pangenomes")
 		compute_pangenome_coverage(args)
 		genes_summary(args)
-		if args['verbose']:
-			print("  %s minutes" % round((time() - start)/60, 2) )
-			print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s minutes" % round((time() - start)/60, 2) )
+		print("  %s Gb maximum memory") % utility.max_mem_usage()
 
 	# Optionally remove temporary files
-	if not args['keep_temp']: remove_tmp(args)
+	if args['remove_temp']: remove_tmp(args)
 		
 
 

@@ -15,12 +15,12 @@ def add_executables(args):
 	""" Identify relative file and directory paths """
 	main_dir = os.path.dirname(os.path.abspath(__file__))
 	args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
-	args['fa_to_fq'] = '/'.join([main_dir, 'fa_to_fq.py'])
+	args['stream_seqs'] = '/'.join([main_dir, 'stream_seqs.py'])
 	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
 	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
 	args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
-	for arg in ['hs-blastn', 'fa_to_fq', 'bowtie2-build', 'bowtie2', 'samtools', 'filter_bam']:
+	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools', 'filter_bam']:
 		if not os.path.isfile(args[arg]):
 			sys.exit("File not found: %s" % args[arg])
 	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
