@@ -21,11 +21,12 @@ def read_annotations(args):
 
 def map_reads_hsblast(args):
 	""" Use hs-blastn to map reads in fasta file to marker database """
-	# fasta to fastq
+	# stream sequences
 	command = 'python %s' % args['stream_seqs']
-	command += ' %s' % args['m1'] # fastq
-	if args['m2']: command += ',%s' % args['m2'] # and mate if specified
-	if args['reads']: command += ' %s' % args['reads'] # number of reads if specified
+	command += ' -1 %s' % args['m1'] # fasta/fastq
+	if args['m2']: command += ' -2 %s' % args['m2'] # mate
+	if args['max_reads']: command += ' -n %s' % args['max_reads'] # number of reads
+	if args['read_length']: command += ' -l %s' % args['read_length'] # read length
 	command += ' 2> %s.read_count' % args['out'] # tmpfile to store # of reads, bp sampled
 	# hs-blastn
 	command += ' | %s align' % args['hs-blastn']
@@ -206,16 +207,14 @@ def read_abundance(inpath):
 	""" Parse species abundance file """
 	if not os.path.isfile(inpath):
 		sys.exit("\nCould not locate species profile: %s\nTry rerunning with --species_profile" % inpath)
-	dict = {}
-	fields = [('cluster_id', str), ('name', str), ('count', int), ('cov', float), ('rel_abun', float)]
+	abun = {}
 	infile = open(inpath)
-	next(infile)
+	fields = next(infile).rstrip().split('\t')
+	formats = {'cluster_id': str,'name':str,'count':int,'coverage':float,'relative_abundance':float}
 	for line in infile:
 		values = line.rstrip().split()
-		dict[values[0]] = {}
-		for field, value in zip(fields[1:], values[1:]):
-			dict[values[0]][field[0]] = field[1](value)
-	return dict
+		abun[values[0]] = dict([(f, formats[f](v)) for f, v in zip(fields, values)])
+	return abun
 
 def select_genome_clusters(args):
 	""" Select genome clusters to map to """
@@ -228,12 +227,12 @@ def select_genome_clusters(args):
 		if args['gc_cov']:
 			cluster_sets['gc_cov'] = set([])
 			for cluster_id, values in cluster_abundance.items():
-				if values['cov'] >= args['gc_cov']:
+				if values['coverage'] >= args['gc_cov']:
 					cluster_sets['gc_cov'].add(cluster_id)
 		# user specifed topn genome-clusters
 		if args['gc_topn']:
 			cluster_sets['gc_topn'] = set([])
-			cluster_abundance = [(i,d['rel_abun']) for i,d in cluster_abundance.items()]
+			cluster_abundance = [(i,d['relative_abundance']) for i,d in cluster_abundance.items()]
 			sorted_abundance = sorted(cluster_abundance, key=operator.itemgetter(1), reverse=True)
 			for cluster_id, rel_abun in sorted_abundance[0:args['gc_topn']]:
 				cluster_sets['gc_topn'].add(cluster_id)

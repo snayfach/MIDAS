@@ -1,5 +1,12 @@
 CHANGES
 
+2016-03-16
+ * bug fix: added delimiter to function read_abundance in species.py
+
+2016-03-12
+ * run_phylo_cnv.py species: enabled read trimming/filtering
+ * stream_seqs.py: added argparse
+
 2016-03-06
  * updated help text, options, example usage for run_phylo_cnv.py
  * species.py: dropped normalization option, added species annotations, added read counts

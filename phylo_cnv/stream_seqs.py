@@ -1,4 +1,4 @@
-import os, sys, gzip
+import os, sys, gzip, argparse
 
 def iopen(inpath):
 	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
@@ -49,20 +49,37 @@ def readfq(fp):
 
 def main():
 	""" Run main pipeline """
-	max_reads = int(sys.argv[2]) if len(sys.argv) == 3 else float('Inf')
+	args = parse_args()
 	reads = 0
 	bp = 0
-	for inpath in sys.argv[1].split(','):
+	for inpath in args['input']:
 		infile = iopen(inpath)
 		for name, seq, qual in readfq(infile):
 			seq_len = len(seq)
+			if args['read_length']: # trim/filter reads
+				if seq_len < args['read_length']:
+					continue
+				else:
+					seq = seq[0:args['read_length']]
+					seq_len = len(seq)
 			sys.stdout.write('>%s_%s\n%s\n' % (name, seq_len, seq))
 			reads += 1
 			bp += seq_len
-			if reads == max_reads:
+			if reads == args['max_reads']:
 				sys.stderr.write('%s\t%s' % (reads, bp)) # write number of reads, bp to stderr
 				return
 	sys.stderr.write('%s\t%s' % (reads, bp)) # write number of reads, bp to stderr
+
+def parse_args():
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-1', type=str, dest='m1')
+	parser.add_argument('-2', type=str, dest='m2')
+	parser.add_argument('-l', type=int, dest='read_length')
+	parser.add_argument('-n', type=int, dest='max_reads', default=float('Inf'))
+	args = vars(parser.parse_args())
+	args['input'] = [args['m1']]
+	if args['m2']: args['input'].append(args['m2'])
+	return args
 
 if __name__ == "__main__":
 	main()

@@ -19,8 +19,8 @@ def add_executables(args):
 	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
 	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-	args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
-	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools', 'filter_bam']:
+	args['stream_bam'] = '/'.join([main_dir, 'stream_bam.py'])
+	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools', 'stream_bam']:
 		if not os.path.isfile(args[arg]):
 			sys.exit("File not found: %s" % args[arg])
 	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
@@ -83,7 +83,7 @@ def add_paths(args):
 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
 	args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
 	args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
-	args['filter_bam'] = '/'.join([main_dir, 'filter_bam.py'])
+	args['stream_bam'] = '/'.join([main_dir, 'stream_bam.py'])
 
 def check_exit_code(process, command):
 	""" Capture stdout, stderr. Check unix exit code and exit if non-zero """

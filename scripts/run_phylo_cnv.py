@@ -119,7 +119,10 @@ run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -o 
 2) run using a single-end metagenome with 4 CPUs and only 4M reads:
 run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile -t 4 -n 4000000
 
-3) quantify species abundance using a 16S database:
+3) run with exactly 80 base-pair reads:
+run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile --read_length 80
+
+4) quantify species abundance using a 16S database:
 run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile --db_type ssuRNA
 	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
@@ -129,7 +132,7 @@ run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile -
 		help="FASTA/FASTQ file containing 2nd mate if paired")
 	parser.add_argument('-o', type=str, dest='out', required=True,
 		help="Path to output file of species abundances")
-	parser.add_argument('-n', type=int, dest='reads',
+	parser.add_argument('-n', type=int, dest='max_reads',
 		help="""Number of reads to use from input file(s) (use all)""")
 	parser.add_argument('-t', dest='threads', default=1,
 		help="""Number of threads to use for database search (1)""")
@@ -144,6 +147,8 @@ run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile -
 		help="""Discard reads with alignment identity < MAPID\nBy default gene-specific species-level cutoffs are used\nValues between 0-100 accepted""")
 	parser.add_argument('--aln_cov', type=float, metavar='FLOAT', default=0.75,
 		help="""Discard reads with alignment coverage < ALN_COV (0.75)\nValues between 0-1 accepted""")
+	parser.add_argument('--read_length', type=int, metavar='INT',
+		help="""Trim reads to READ_LENGTH and discard reads with length < READ_LENGTH\nBy default, reads are not trimmed or filtered""")
 
 	args = vars(parser.parse_args())
 	return args
@@ -159,7 +164,8 @@ def print_species_arguments(args):
 	print ("Word size for database search: %s" % args['word_size'])
 	if args['mapid']: print ("Minimum mapping identity: %s" % args['mapid'])
 	print ("Minimum alignment coverage: %s" % args['aln_cov'])
-	print ("Number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
+	print ("Number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
+	if args['read_length']: print ("Trim reads to %s-bp and discard reads with length < %s-bp" % (args['read_length'], args['read_length']))
 	print ("Number of threads for database search: %s" % args['threads'])
 
 def check_species(args):
@@ -236,7 +242,7 @@ run_phylo_cnv.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Alignment speed/sensitivity (very-sensitive)')
-	align.add_argument('-n', type=int, dest='reads',
+	align.add_argument('-n', type=int, dest='max_reads',
 		help='# reads to use from input file(s) (use all)')
 	align.add_argument('-t', dest='threads', default=1,
 		help='Number of threads to use')
@@ -290,7 +296,7 @@ def print_gene_arguments(args):
 		print ("  -input reads (1st mate): %s" % args['m1'])
 		print ("  -input reads (2nd mate): %s" % args['m2'])
 		print ("  -alignment speed/sensitivity: %s" % args['speed'])
-		print ("  -number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
+		print ("  -number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
 		print ("  -number of threads for database search: %s" % args['threads'])
 
 	if args['cov']:
@@ -359,7 +365,7 @@ run_phylo_cnv.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Bowtie2 alignment speed/sensitivity (very-sensitive)')
-	align.add_argument('-n', type=int, dest='reads', help='# reads to use from input file(s) (use all)')
+	align.add_argument('-n', type=int, dest='max_reads', help='# reads to use from input file(s) (use all)')
 	align.add_argument('-t', dest='threads', default=1, help='Number of threads to use')
 	
 	snps = parser.add_argument_group('SNP calling options (if using --call_snps)')
@@ -416,7 +422,7 @@ def print_snp_arguments(args):
 		print ("  -input reads (1st mate): %s" % args['m1'])
 		print ("  -input reads (2nd mate): %s" % args['m2'])
 		print ("  -alignment speed/sensitivity: %s" % args['speed'])
-		print ("  -number of reads to use from input: %s" % (args['reads'] if args['reads'] else 'use all'))
+		print ("  -number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
 		print ("  -number of threads for database search: %s" % args['threads'])
 
 	if args['call']:
@@ -502,9 +508,18 @@ def check_snps(args):
 	# no bamfile but --call specified
 	if (args['call']
 		and not args['align']
-		and not os.path.isfile('%s/genomes.bam' % args['outdir'])):
-		error = "\nYou've specified --pileup, but no alignments were found"
+		and not os.path.isfile('%s/genomes.bam' % args['outdir'])
+		):
+		error = "\nYou've specified --call_snps, but no alignments were found"
 		error += "\nTry running with --align"
+		sys.exit(error)
+	# no genomes but --call specified
+	if (args['call']
+		and not args['build_db']
+		and not os.path.isfile('%s/db/genomes.fa' % args['outdir'])
+		):
+		error = "\nYou've specified --call_snps, but the no genome database was found"
+		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no reads
 	if args['align'] and not args['m1']:

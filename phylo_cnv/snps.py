@@ -28,7 +28,7 @@ def genome_align(args):
 	#   index
 	command += '-x %s ' % '/'.join([args['outdir'], 'db', 'genomes'])
 	#   specify reads
-	if args['reads']: command += '-u %s ' % args['reads']
+	if args['max_reads']: command += '-u %s ' % args['max_reads']
 	#   trim reads
 	if args['trim']: command += '--trim3 %s ' % args['trim']
 	#   speed/sensitivity
@@ -56,7 +56,7 @@ def pileup(args):
 	""" Filter alignments by % id, use samtools to create pileup, filter low quality bases, and write results to VCF file """
 	# Build command
 	#   percent id filtering
-	command  = 'python %s %s %s %s %s | ' % (args['filter_bam'], '%s/genomes.bam' % args['outdir'], '/dev/stdout', args['mapid'], args['readq'])
+	command  = 'python %s %s %s %s %s | ' % (args['stream_bam'], '%s/genomes.bam' % args['outdir'], '/dev/stdout', args['mapid'], args['readq'])
 	#   mpileup
 	command += '%s mpileup -uv -A -d 10000 --skip-indels ' % args['samtools']
 	#   quality filtering

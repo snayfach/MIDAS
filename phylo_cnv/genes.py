@@ -15,7 +15,7 @@ import gzip
 from time import time
 import platform
 import utility
-import filter_bam
+import stream_bam
 
 # Functions
 # ---------
@@ -27,7 +27,7 @@ def pangenome_align(args):
 	#   index
 	command += '-x %s ' % '/'.join([args['outdir'], 'db', 'pangenomes'])
 	#   specify reads
-	if args['reads']: command += '-u %s ' % args['reads']
+	if args['max_reads']: command += '-u %s ' % args['max_reads']
 	#   trim reads
 	if args['trim']: command += '--trim3 %s ' % args['trim']
 	#   speed/sensitivity
@@ -93,9 +93,9 @@ def count_mapped_bp(args):
 	ref_to_cov = dict([(i,0.0) for i in aln_file.references])
 	for index, aln in enumerate(aln_file.fetch(until_eof = True)):
 		query = aln.query_name
-		if filter_bam.compute_perc_id(aln) < args['mapid']:
+		if stream_bam.compute_perc_id(aln) < args['mapid']:
 			continue
-		elif filter_bam.compute_aln_cov(aln) < args['aln_cov']:
+		elif stream_bam.compute_aln_cov(aln) < args['aln_cov']:
 			continue
 		elif np.mean(aln.query_qualities) < args['readq']:
 			continue
