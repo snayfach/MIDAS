@@ -189,6 +189,8 @@ def build_pangenome_db(args, genome_clusters):
 				pangenome_map.write('%s\t%s\n' % (r.id, cluster_id))
 				db_stats['total_length'] += len(r.seq)
 				db_stats['total_seqs'] += 1
+	pangenome_fasta.close()
+	pangenome_map.close()
 	# print out database stats
 	print("  total genome-clusters: %s" % db_stats['genome_clusters'])
 	print("  total genes: %s" % db_stats['total_seqs'])
