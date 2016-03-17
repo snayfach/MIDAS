@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # PhyloCNV - estimating the abundance, gene-content, and phylogeny of microbes from metagenomes
 # Copyright (C) 2015 Stephen Nayfach

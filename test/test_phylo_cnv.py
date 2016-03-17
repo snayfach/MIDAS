@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import unittest
 import tempfile
@@ -41,7 +41,7 @@ class HelpText(unittest.TestCase):
 			'../scripts/run_phylo_cnv.py -h',
 			'../scripts/run_phylo_cnv.py species -h',
 			'../scripts/run_phylo_cnv.py genes -h',
-			'../scripts/run_phylo_cnv.py snvs -h']
+			'../scripts/run_phylo_cnv.py snps -h']
 		self.exit_codes = [check_exit_code(_) for _ in self.scripts]
 	def test_help_text(self):
 		self.assertTrue(all([_ == 0 for _ in self.exit_codes]))
@@ -58,16 +58,16 @@ class RunSpecies(unittest.TestCase):
 class RunCNVs(unittest.TestCase):
 	""" test run_phylo_cnv.py genes """
 	def setUp(self):
-		self.command = '../scripts/run_phylo_cnv.py genes -1 ./test.fq.gz -o ./test -n 100 --gc_id 57955'
+		self.command = '../scripts/run_phylo_cnv.py genes ./test -1 ./test.fq.gz -n 100 --p_id 57955 --remove_temp'
 	def test_help_text(self):
 		self.assertTrue(check_exit_code(self.command)==0)
 	def tearDown(self):
 		shutil.rmtree('test')
 
-class RunSNVs(unittest.TestCase):
-	""" test run_phylo_cnv.py snvs """
+class RunSNPs(unittest.TestCase):
+	""" test run_phylo_cnv.py snps """
 	def setUp(self):
-		self.command = '../scripts/run_phylo_cnv.py snvs -1 ./test.fq.gz -o ./test -n 100 --gc_id 57955'
+		self.command = '../scripts/run_phylo_cnv.py snps ./test -1 ./test.fq.gz -n 100 --p_id 57955 --remove_temp'
 	def test_help_text(self):
 		self.assertTrue(check_exit_code(self.command)==0)
 	def tearDown(self):

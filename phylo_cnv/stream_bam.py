@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import pysam, sys, numpy as np
 
 def compute_perc_id(aln):

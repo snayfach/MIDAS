@@ -1,7 +1,12 @@
 CHANGES
 
+2016-03-17
+ * use '#!/usr/bin/env python' instead of '#!/usr/bin/python'
+ * fixed test/test_phylo_cnv.py
+
 2016-03-16
  * bug fix: added delimiter to function read_abundance in species.py
+ * renamed filter_bam.py to stream_bam.py
 
 2016-03-12
  * run_phylo_cnv.py species: enabled read trimming/filtering

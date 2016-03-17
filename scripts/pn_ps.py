@@ -1,4 +1,4 @@
-#!/usr/bin/python
+##!/usr/bin/env python
 
 # PhyloCNV - estimation of single-nucleotide-variants and gene-copy-number from shotgun sequence data
 # Copyright (C) 2015 Stephen Nayfach
