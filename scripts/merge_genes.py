@@ -24,7 +24,6 @@ def parse_arguments():
 		usage='%s [options]' % os.path.basename(__file__),
 		description="""Merge gene copy-number variants for an individual species across samples.
 			Outputs include: a gene copy-number matrix, a gene presence/absence matrix, and a gene read-depth matrix""")
-	parser.add_argument('-v', '--verbose', default=False, action='store_true', help='verbose')
 	
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
@@ -79,7 +78,7 @@ def print_arguments(args):
 		print ("  >=%s average coverage across all genes with non-zero coverage" % args['gene_coverage'])
 	if args['max_samples']:
 		print ("  analyze up to %s samples" % args['max_samples'])
-	print ("Gene presence/absence criterea:")
+	print ("Gene quantification criterea:")
 	print ("  present (1): genes with copy number >=%s" % args['min_copy'])
 	print ("  absent (0): genes with copy number <%s" % args['min_copy'])
 	print ("  cluster genes at %s percent identity" % args['cluster_pid'])
@@ -274,29 +273,29 @@ def write_read_depth(sample_ids, sample_read_depth, args):
 if __name__ == '__main__':
 
 	args = parse_arguments()
-	if args['verbose']: print_copyright()
-	if args['verbose']: print_arguments(args)
+	print_copyright()
+	print_arguments(args)
 	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
 
-	if args['verbose']: print("Identifying samples with species")
+	print("Identifying samples with species")
 	sample_dirs = identify_samples(args) # id samples with sufficient depth
 	sample_ids = [os.path.basename(_) for _ in sample_dirs]
-	if args['verbose']: print("  %s samples with species" % len(sample_ids))
+	print("  %s samples with species" % len(sample_ids))
 	
-	if args['verbose']: print("Mapping gene ids")
+	print("Mapping gene ids")
 	fam_map = read_fam_map(args) # map 99% gene ids to lower level
 	genes = set(fam_map.values())
 	
-	if args['verbose']: print("Computing gene copy numbers for samples")
+	print("Computing gene copy numbers for samples")
 	sample_copy_num = compute_sample_copy_num(sample_dirs, args, fam_map) # gene copy numbers across samples
 	sample_read_depth = compute_sample_read_depth(sample_dirs, args, fam_map)
 	
 	if args['add_ref']:
-		if args['verbose']: print("Computing gene copy numbers for reference genomes")
+		print("Computing gene copy numbers for reference genomes")
 		genome_ids = read_genome_ids(args)
 		ref_copy_num = compute_ref_copy_num(genome_ids, args, fam_map)
 
-	if args['verbose']: print("Writing results")
+	print("Writing results")
 	write_read_depth(sample_ids, sample_read_depth, args)
 	if args['add_ref']:
 		write_with_ref(sample_ids, genome_ids, sample_copy_num, ref_copy_num, args)

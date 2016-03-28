@@ -23,7 +23,6 @@ def parse_arguments():
 			description="""Merge species abundance files across samples. 
 				Outputs include: a relative abundance matrix, a genome-coverage matrix, 
 				and a table summarizing species prevalence and abundance across samples""")
-	parser.add_argument('-v', '--verbose', action='store_true', default=False, help='verbose')
 	parser.add_argument('-i', type=str, dest='input', required=True,
 		help="""input to results from 'run_phylo_cnv.py species'.
 			see <intype> for details""")
@@ -43,13 +42,12 @@ def parse_arguments():
 	return args
 
 def print_arguments(args):
-	print ("-------------------------------------------------------")
-	print ("Merge Species Parameters")
+	print ("===========Parameters===========")
+	print ("Script: merge_species.py")
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output basename: %s" % args['outbase'])
 	print ("Minimum coverage for estimating prevalence: %s" % args['min_cov'])
-	print ("-------------------------------------------------------")
 	print ("")
 
 def check_args(args):
@@ -82,15 +80,15 @@ def add_annotations(args):
 
 def parse_phylo_species(inpath):
 	infile = open(inpath)
-	names = next(infile).rstrip().split()
+	names = next(infile).rstrip().split('\t')
 	for line in infile:
-		values = line.rstrip().split()
+		values = line.rstrip().split('\t')
 		yield dict([(name,value) for name,value in zip(names,values)])
 
 def list_species(args, files):
 	species_ids = []
 	for r in parse_phylo_species(files[0]):
-		species_ids.append(r['cluster_id'])
+		species_ids.append(r['species_id'])
 	return species_ids
 
 def store_data(args, sample_files, sample_ids, species_ids):
@@ -99,8 +97,8 @@ def store_data(args, sample_files, sample_ids, species_ids):
 		data[species] = {'abundance':[], 'coverage':[]}
 	for file in sample_files:
 		for r in parse_phylo_species(file):
-			data[r['cluster_id']]['abundance'].append(float(r['relative_abundance']))
-			data[r['cluster_id']]['coverage'].append(float(r['coverage']))
+			data[r['species_id']]['abundance'].append(float(r['relative_abundance']))
+			data[r['species_id']]['coverage'].append(float(r['coverage']))
 	return data
 
 def prevalence(x, y):
@@ -170,8 +168,8 @@ def write_stats(args, sample_ids, species_ids, stats, annotations):
 if __name__ == "__main__":
 
 	args = parse_arguments()
-	if args['verbose']: print_copyright()
-	if args['verbose']: print_arguments(args)
+	print_copyright()
+	print_arguments(args)
 	
 	# list samples and species
 	sample_files = list_files(args['input'], args['intype'])

@@ -210,9 +210,9 @@ def read_abundance(inpath):
 	abun = {}
 	infile = open(inpath)
 	fields = next(infile).rstrip().split('\t')
-	formats = {'cluster_id': str,'name':str,'count':int,'coverage':float,'relative_abundance':float}
+	formats = {'species_id':str, 'species_name':str, 'count_reads':int, 'coverage':float, 'relative_abundance':float}
 	for line in infile:
-		values = line.rstrip().split()
+		values = line.rstrip().split('\t')
 		abun[values[0]] = dict([(f, formats[f](v)) for f, v in zip(fields, values)])
 	return abun
 

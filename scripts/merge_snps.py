@@ -137,7 +137,7 @@ def print_copyright():
 
 def print_arguments(args):
 	print ("-------------------------------------------------------")
-	print ("Merge SNVs Parameters")
+	print ("Merge SNPs Parameters")
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
