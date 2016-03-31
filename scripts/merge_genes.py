@@ -4,69 +4,84 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-__version__ = '0.0.2'
-
 import argparse, sys, os, gzip
 from collections import defaultdict
-
-def print_copyright():
-	print ("")
-	print ("PhyloCNV: species abundance and strain-level genomic variation from metagenomes")
-	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
-	print ("Copyright (C) 2015 Stephen Nayfach")
-	print ("Freely distributed under the GNU General Public License (GPLv3)")
-	print ("")
+from phylo_cnv import utility
+from phylo_cnv import merge
 
 def parse_arguments():
 	""" Parse command line arguments """
-	
 	parser = argparse.ArgumentParser(
-		usage='%s [options]' % os.path.basename(__file__),
-		description="""Merge gene copy-number variants for an individual species across samples.
-			Outputs include: a gene copy-number matrix, a gene presence/absence matrix, and a gene read-depth matrix""")
+		formatter_class=argparse.RawTextHelpFormatter,
+		usage=argparse.SUPPRESS,
+		description="""
+Usage: merge_genes.py [options]
+
+Description: merge results from pan-genome profiling across samples
+Input: list of sample directories
+Output: pan-genome copy-number matrix, presence/absence matrix, and read-depth matrix
+        matrixes also created for KEGG, FIGfams, Gene Ontology, and Enzyme Comission (E.C.)
+""",
+		epilog="""Examples:
+1) Merge results for species 57955. Provide list of paths to sample directories:
+merge_genes.py -s 57955 -o outdir/57955 -i sample_1,sample_2 -t list
+
+2) Build matrix for pan-genome genes at lower percent id threshold:
+merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --cluster_pid 85
+
+3) Exclude low-coverage samples in output matrix:
+merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --marker_coverage 5.0
+
+4) Use lenient threshold for determining gene presence-absence:
+merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --min_copy 0.1
+
+5) Just write pan-genome matrices; do not write results for KEGG, FIGfams, GO, or EC:
+merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --no_functions
+""")
 	
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
-		help="""input to results from 'run_phylo_cnv.py genes'.
-			see <intype> for details""")
-	io.add_argument('-t', choices=['dir', 'file', 'list'], dest='intype', required=True,
-		help="""input type.
-			'dir': directory containing phylo_cnv results. each subdirectory should correspond to a different sample_id. for example: <directory>/<sample_id>
-			'file': file containing paths to phylo_cnv results.	each line in the file should contain the full path to the results for a sample_id.
-			'list': comma-separated list of paths to phylo_cnv results.
-			""")
+		help="""input to sample directories output by run_phylo_cnv.py genes
+see '-t' for details""")
+	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
+		help="""'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
+'dir': -i is a  directory containing all samples (ex: /samples_dir)
+'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
+""")
 	io.add_argument('-s', dest='species_id', type=str, required=True,
-		help="""species identifier.
-			a list of prevalent species can be obtained by running 'scripts/merge_species.py'. 
-			a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
+		help="""species identifier
+a list of prevalent species can be obtained by running 'merge_species.py'
+a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
 	io.add_argument('-o', type=str, dest='outdir', required=True,
-		help="""output directory.
-			output files: <outdir>/<species_id>.copynum, <outdir>/<species_id>.presabs, <outdir>/<species_id>.gene_depth""")
-	
-	sample = parser.add_argument_group('Sample filters\n(determine which samples are included in output)')
-	sample.add_argument('--marker_coverage', type=float, default=3.0,
-		help="""minimum read depth per sample across 15 phylogenetic marker genes (3.0)""")
-	sample.add_argument('--gene_coverage', type=float, default=0.0,
-		help="""minimum read depth per sample across all genes with non-zero coverage (0.0)""")
-	sample.add_argument('--max_samples', type=int,
+		help="""output directory""")
+	io.add_argument('--no_functions', action='store_true', default=False,
+		help="""do not write function matrices to OUTDIR""")
+
+	sample = parser.add_argument_group('Sample filters (select subset of samples from INPUT)')
+	sample.add_argument('--marker_coverage', type=float, default=1.0, metavar='FLOAT',
+		help="""minimum coverage per sample across 15 phylogenetic marker genes (1.0)""")
+	sample.add_argument('--gene_coverage', type=float, default=1.0, metavar='FLOAT',
+		help="""minimum coverage per sample across all genes with non-zero coverage (1.0)""")
+	sample.add_argument('--max_samples', type=int, metavar='INT',
 		help="""maximum number of samples to process. useful for testing (use all)""")
 
 	gene = parser.add_argument_group('Presence/Absence')
-	gene.add_argument('--min_copy', type=float, default=0.35,
-		help="""genes >= MIN_COPY are classified as present and genes < MIN_COPY are classified as absent (0.35)""")
+	gene.add_argument('--min_copy', type=float, default=0.35, metavar='FLOAT',
+		help="""genes >= MIN_COPY are classified as present
+genes < MIN_COPY are classified as absent (0.35)""")
 	gene.add_argument('--cluster_pid', type=str, dest='cluster_pid', default='95', choices=['75', '80', '85', '90', '95', '99'],
-		help="""gene family percent identity. small values: fewer, larger gene families. large values: more, smaller gene families (95)""")
-	gene.add_argument('--add_ref', default=False, action='store_true',
-		help="""include gene presence/absence for reference genomes""")
+		help="""gene family percent identity
+small values: fewer, larger gene families
+large values: more, smaller gene families (95)""")
 	
 	args = vars(parser.parse_args())
-	args['db'] = '%s/ref_db/genome_clusters' % os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+	args = utility.add_ref_db(args)
 	
 	return args
 
 def print_arguments(args):
-	print ("-------------------------------------------------------")
-	print ("Merge Genes Parameters")
+	print ("===========Parameters===========")
+	print ("Script: merge_genes.py")
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
@@ -82,225 +97,158 @@ def print_arguments(args):
 	print ("  present (1): genes with copy number >=%s" % args['min_copy'])
 	print ("  absent (0): genes with copy number <%s" % args['min_copy'])
 	print ("  cluster genes at %s percent identity" % args['cluster_pid'])
-	if args['add_ref']:
-		print ("  adding gene presence/absences for reference genomes")
-	print ("-------------------------------------------------------")
 	print ("")
-
-def read_file(inpath):
-	""" Read in summary snp statistics for genome-clusters """
-	d = {}
-	infile = open(inpath)
-	fields = next(infile).rstrip().split()
-	for line in open(inpath):
-		values = line.rstrip().split()
-		rec = dict([(i,j) for i,j in zip(fields, values)])
-		d[rec['cluster_id']] = rec
-	return d
-
-def list_samples(input, intype):
-	if intype == 'dir':
-		if not os.path.isdir(input):
-			sys.exit("\nSpecified input directory does not exist:\n%s" % input)
-		else:
-			return([os.path.join(input, _) for _ in os.listdir(input)])
-	elif intype == 'file':
-		if not os.path.isfile(input):
-			sys.exit("\nSpecified input file does not exist:\n%s" % input)
-		else:
-			return([x.rstrip() for x in open(input).readlines()])
-	elif intype == 'list':
-		return(input.split(','))
 
 def identify_samples(args):
 	""" Identify samples with sufficient depth for target genome-cluster """
-	samples_dirs = []
-	for sample_dir in list_samples(args['input'], args['intype']):
-		# read in summary stats for sample across genome-clusters
-		inpath = '/'.join([sample_dir, 'genes_summary_stats.txt'])
-		sample_id = os.path.basename(sample_dir)
-		if not os.path.isfile(inpath):
-			print("  warning: no data for sample_id %s" % sample_id)
+	samples = []
+	for sample in merge.load_samples(args):
+		if not sample.paths['genes']:
+			sys.stderr.write("Warning: no genes output for sample: %s\n" % sample.dir)
 			continue
-		genes_summary = read_file(inpath)
-		# check whether sample passes QC
-		if args['species_id'] not in genes_summary:
+		stats = merge.read_stats(sample.paths['genes'])
+		if args['species_id'] not in stats:
 			continue
-		elif float(genes_summary[args['species_id']]['phyeco_coverage']) < args['marker_coverage']:
+		elif float(stats[args['species_id']]['phyeco_coverage']) < args['marker_coverage']:
 			continue
-		elif float(genes_summary[args['species_id']]['mean_coverage']) < args['gene_coverage']:
+		elif float(stats[args['species_id']]['mean_coverage']) < args['gene_coverage']:
 			continue
-		# sample passes qc
 		else:
-			samples_dirs.append(sample_dir)
-			# only keep max_samples if specified
-			if args['max_samples'] and len(samples_dirs) >= args['max_samples']:
-				break
-	if len(samples_dirs) == 0:
-		sys.exit("Error: species_id failed to pass quality-control in all samples")
-	return samples_dirs
+			samples.append(sample)
+		if args['max_samples'] and len(samples) >= args['max_samples']:
+			break
+	if len(samples) == 0:
+		sys.exit("\nError: no samples with sufficient coverage for species_id.\nTry running with more lenient parameters")
+	else:
+		print("  %s samples with species" % len(samples))
+		return samples
 
-def parse_genes(inpath):
-	""" Yields formatted records from coverage output """
-	infile = gzip.open(inpath)
-#	fields = next(infile).rstrip().split()
-	next(infile)
-	fields = ['gene_id', 'raw_coverage', 'normalized_coverage']
-	for line in infile:
-		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split())])
-
-def read_fam_map(args):
-	""" Read gene family map """
-	fam_map = {}
-	inpath = '%s/%s/gene_family_map.txt.gz' % (args['db'], args['species_id'])
+def read_gene_map(args):
+	""" Map 99% centroids to gene_ids at lower level """
+	gene_to_family = {}
+	inpath = '%s/genome_clusters/%s/gene_family_map.txt.gz' % (args['db'], args['species_id'])
 	infile = gzip.open(inpath)
 	fields = next(infile).rstrip().split()
 	for line in infile:
 		values = line.rstrip().split()
 		map = dict([(f,v) for f,v in zip(fields, values)])
-		fam_map[map['99']] = map[args['cluster_pid']]
-	return fam_map
+		gene_to_family[map['99']] = map[args['cluster_pid']]
+	return gene_to_family
 
-def compute_sample_copy_num(sample_dirs, args, fam_map):
+def read_function_map(ref_db, species_id, ontology):
+	""" Map gene ids to functions for given ontology """
+	gene_to_functions = {}
+	inpath = '%s/genome_clusters/%s/functions.txt.gz' % (ref_db, species_id)
+	infile = gzip.open(inpath)
+	for index, line in enumerate(infile):
+		gene_id, function_id, ont = line.rstrip().split()
+		if ont == ontology:
+			if gene_id not in gene_to_functions:
+				gene_to_functions[gene_id] = []
+			gene_to_functions[gene_id].append(function_id)
+	return gene_to_functions
+
+def build_gene_matrices(samples, args):
 	""" Compute gene copy numbers for samples """
-	fam_copy_num = {}
-	for sample_dir in sample_dirs:
-		sample_id = os.path.basename(sample_dir)
-		copy_num = defaultdict(float)
-		inpath = '%s/coverage/%s.cov.gz' % (sample_dir, args['species_id'])
-		for r in parse_genes(inpath):
-			fam_id = fam_map[r['gene_id']]
-			copy_num[fam_id] += float(r['normalized_coverage'])
-		fam_copy_num[sample_id] = copy_num
-	return fam_copy_num
+	gene_to_family = read_gene_map(args)
+	count_genes = len(gene_to_family.keys())
+	count_genomes = len(set(['.'.join(x.split('.')[0:2]) for x in gene_to_family]))
+	count_families = len(set(gene_to_family.values()))
+	print("  %s genes from %s genomes" % (count_genes, count_genomes))
+	print("  clustered into %s families at %s percent id" % (count_families, args['cluster_pid']))
+	for sample in samples:
+		sample.genes = {}
+		for type in ['presabs', 'copynum', 'depth']:
+			sample.genes[type] = defaultdict(float)
+		inpath = '%s/genes/coverage/%s.cov.gz' % (sample.dir, args['species_id'])
+		for r in utility.parse_file(inpath):
+			gene_id = gene_to_family[r['gene_id']]
+			sample.genes['copynum'][gene_id] += float(r['normalized_coverage'])
+			sample.genes['depth'][gene_id] += float(r['raw_coverage'])
+	for sample in samples:
+		for gene_id, copynum in sample.genes['copynum'].items():
+			if copynum >= args['min_copy']: sample.genes['presabs'][gene_id] = 1
+			else: sample.genes['presabs'][gene_id] = 0
 
-def compute_sample_read_depth(sample_dirs, args, fam_map):
-	""" Compute gene read depth for samples """
-	fam_read_depth = {}
-	for sample_dir in sample_dirs:
-		sample_id = os.path.basename(sample_dir)
-		read_depth = defaultdict(float)
-		inpath = '%s/coverage/%s.cov.gz' % (sample_dir, args['species_id'])
-		for r in parse_genes(inpath):
-			fam_id = fam_map[r['gene_id']]
-			read_depth[fam_id] += float(r['raw_coverage'])
-		fam_read_depth[sample_id] = read_depth
-	return fam_read_depth
-
-def read_genome_ids(args):
-	""" Read in genome ids for genome cluster """
-	genome_ids = set([])
-	inpath = '%s/%s/genomes.txt.gz' % (args['db'], args['species_id'])
-	infile = gzip.open(inpath); next(infile)
-	for line in infile:
-		genome_id = line.split('\t')[1]
-		genome_ids.add(genome_id)
-	return list(genome_ids)
-
-def compute_ref_copy_num(genome_ids, args, fam_map):
-	""" Compute gene copy numbers for reference genomes """
-	ref_copy_num = dict([(_,defaultdict(float)) for _ in genome_ids])
-	inpath = '%s/%s/ref_copy_num.txt.gz' % (args['db'], args['species_id'])
-	infile = gzip.open(inpath); next(infile)
-	for line in infile:
-		genome_id, gene_id, copy_number = line.rstrip().split()
-		fam_id = fam_map[gene_id]
-		ref_copy_num[genome_id][fam_id] += float(copy_number)
-	return ref_copy_num
-
-def presence_absence(copy_nums, min_copynum):
-	""" Compute presence/absences from normlized coverage values """
-	presabs = [1 if copy_num >= min_copynum else 0 for copy_num in copy_nums]
-	return presabs
-
-def write_with_ref(sample_ids, genome_ids, sample_copy_num, ref_copy_num, args):
+def write_gene_matrices(samples, args):
+	""" Compute pangenome matrices to file """
 	# open outfiles
 	outfiles = {}
-	outfiles['copynum'] = open('%s/%s.copynum' % (args['outdir'], args['species_id']), 'w')
-	outfiles['presabs'] = open('%s/%s.presabs' % (args['outdir'], args['species_id']), 'w')
-	# write headers
-	header = ['gene_id'] + sample_ids + genome_ids
-	outfiles['copynum'].write('\t'.join(header)+'\n')
-	outfiles['presabs'].write('\t'.join(header)+'\n')
+	for type in ['presabs', 'copynum', 'depth']:
+		outfiles[type] = open('%s/%s.genes.pangenome.%s' % (args['outdir'], args['species_id'], type), 'w')
+		outfiles[type].write('\t'.join(['gene_id'] + [s.id for s in samples])+'\n')
 	# write values
+	genes = sorted(samples[0].genes['depth'])
 	for gene_id in genes:
-		copy_nums = []
-		outfiles['copynum'].write('%s\t' % gene_id) # write gene id
-		outfiles['presabs'].write('%s\t' % gene_id)
-		for sample_id in sample_ids:
-			try: copy_nums.append(sample_copy_num[sample_id][gene_id])
-			except: copy_nums.append(0.0)
-		for genome_id in genome_ids:
-			try: copy_nums.append(ref_copy_num[genome_id][gene_id])
-			except: copy_nums.append(0.0)
-		presabs = presence_absence(copy_nums, args['min_copy'])
-		outfiles['copynum'].write('\t'.join([str(_) for _ in copy_nums])+'\n') # write gene values
-		outfiles['presabs'].write('\t'.join([str(_) for _ in presabs])+'\n')
+		for type in ['presabs', 'copynum', 'depth']:
+			outfiles[type].write(gene_id)
+			for sample in samples:
+				outfiles[type].write('\t%s' % str(sample.genes[type][gene_id]))
+			outfiles[type].write('\n')
 
-def write_wo_ref(sample_ids, sample_copy_num, args):
+def build_function_matrices(samples, ontology, args):
+	""" Compute function copy numbers for samples """
+	gene_to_functions = read_function_map(args['db'], args['species_id'], ontology)
+	count_genes = len(gene_to_functions.keys())
+	count_functions = len(set([i for s in gene_to_functions.values() for i in s]))
+	print("  %s genes mapped to %s functions from %s ontology" % (count_genes, count_functions, ontology))
+	for sample in samples:
+		sample.functions = {}
+		for type in ['presabs', 'copynum', 'depth']:
+			sample.functions[type] = defaultdict(float)
+			for gene_id, value in sample.genes[type].items():
+				if gene_id in gene_to_functions:
+					for function_id in gene_to_functions[gene_id]:
+						sample.functions[type][function_id] += value
+
+def write_function_matrices(samples, ontology, args):
+	""" Compute pangenome matrices to file """
 	# open outfiles
 	outfiles = {}
-	outfiles['copynum'] = open('%s/%s.copynum' % (args['outdir'], args['species_id']), 'w')
-	outfiles['presabs'] = open('%s/%s.presabs' % (args['outdir'], args['species_id']), 'w')
-	# write headers
-	header = ['gene_id'] + sample_ids
-	outfiles['copynum'].write('\t'.join(header)+'\n')
-	outfiles['presabs'].write('\t'.join(header)+'\n')
+	for type in ['presabs', 'copynum', 'depth']:
+		outfiles[type] = open('%s/%s.genes.%s.%s' % (args['outdir'], args['species_id'], ontology, type), 'w')
+		outfiles[type].write('\t'.join(['gene_id'] + [s.id for s in samples])+'\n')
 	# write values
-	for gene_id in genes:
-		copy_nums = []
-		outfiles['copynum'].write('%s\t' % gene_id) # write gene id
-		outfiles['presabs'].write('%s\t' % gene_id)
-		for sample_id in sample_ids:
-			try: copy_nums.append(sample_copy_num[sample_id][gene_id])
-			except: copy_nums.append(0.0)
-		presabs = presence_absence(copy_nums, args['min_copy'])
-		outfiles['copynum'].write('\t'.join([str(_) for _ in copy_nums])+'\n') # write gene values
-		outfiles['presabs'].write('\t'.join([str(_) for _ in presabs])+'\n')
+	functions = sorted(samples[0].functions['depth'])
+	for function_id in functions:
+		for type in ['presabs', 'copynum', 'depth']:
+			outfiles[type].write(function_id)
+			for sample in samples:
+				outfiles[type].write('\t%s' % str(sample.functions[type][function_id]))
+			outfiles[type].write('\n')
 
-def write_read_depth(sample_ids, sample_read_depth, args):
-	# open outfile
-	outfile = open('%s/%s.gene_depth' % (args['outdir'], args['species_id']), 'w')
-	outfile.write('\t'.join(['gene_id'] + sample_ids)+'\n')
-	# write values
-	for gene_id in genes:
-		outfile.write(gene_id)
-		for sample_id in sample_ids:
-			read_depth = sample_read_depth[sample_id][gene_id]
-			outfile.write('\t%s' % str(read_depth))
+def write_summary_stats(samples, args):
+	outfile = open('%s/%s.genes.summary_stats' % (args['outdir'], args['species_id']), 'w')
+	fields = ['pangenome_size', 'covered_genes', 'phyeco_coverage', 'mean_coverage']
+	outfile.write('\t'.join(['species_id', 'sample_id']+fields)+'\n')
+	for sample in samples:
+		stats = merge.read_stats(sample.paths['genes'])
+		outfile.write('\t'.join([args['species_id'], sample.id]))
+		for field in fields:
+			outfile.write('\t%s' % str(stats[args['species_id']][field]))
 		outfile.write('\n')
 
 if __name__ == '__main__':
 
 	args = parse_arguments()
-	print_copyright()
+	utility.print_copyright()
 	print_arguments(args)
 	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
 
 	print("Identifying samples with species")
-	sample_dirs = identify_samples(args) # id samples with sufficient depth
-	sample_ids = [os.path.basename(_) for _ in sample_dirs]
-	print("  %s samples with species" % len(sample_ids))
+	samples = identify_samples(args)
+		
+	print("Building pangenome matrices")
+	build_gene_matrices(samples, args)
+	write_gene_matrices(samples, args)
 	
-	print("Mapping gene ids")
-	fam_map = read_fam_map(args) # map 99% gene ids to lower level
-	genes = set(fam_map.values())
-	
-	print("Computing gene copy numbers for samples")
-	sample_copy_num = compute_sample_copy_num(sample_dirs, args, fam_map) # gene copy numbers across samples
-	sample_read_depth = compute_sample_read_depth(sample_dirs, args, fam_map)
-	
-	if args['add_ref']:
-		print("Computing gene copy numbers for reference genomes")
-		genome_ids = read_genome_ids(args)
-		ref_copy_num = compute_ref_copy_num(genome_ids, args, fam_map)
+	print("Building function matrices")
+	for ontology in ['figfam', 'kegg', 'go', 'ec']:
+		if args['no_functions']: continue
+		build_function_matrices(samples, ontology, args)
+		write_function_matrices(samples, ontology, args)
 
-	print("Writing results")
-	write_read_depth(sample_ids, sample_read_depth, args)
-	if args['add_ref']:
-		write_with_ref(sample_ids, genome_ids, sample_copy_num, ref_copy_num, args)
-	else:
-		write_wo_ref(sample_ids, sample_copy_num, args)
-
+	print("Writing summary statistics")
+	write_summary_stats(samples, args)
 
 

@@ -8,6 +8,81 @@ import gzip
 import platform
 import subprocess
 
+__version__ = '1.0.0'
+
+def print_copyright():
+	print ("")
+	print ("PhyloCNV: species abundance and strain-level genomic variation from metagenomes")
+	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
+	print ("Copyright (C) 2015 Stephen Nayfach")
+	print ("Freely distributed under the GNU General Public License (GPLv3)")
+	print ("")
+
+def batch_samples(samples, threads):
+	""" Split up samples into batches
+		assert: batch_size * threads < max_open
+		assert: batch_size uses all threads
+	"""
+	import resource
+	import math
+	max_open = int(0.8 * resource.getrlimit(resource.RLIMIT_NOFILE)[0]) # max open files on system
+	max_size = math.floor(max_open/threads) # max batch size to avoid exceeding max_open
+	min_size = math.ceil(len(samples)/threads) # min batch size to use all threads
+	size = min(min_size, max_size)
+	batches = []
+	batch = []
+	for sample in samples:
+		batch.append(sample)
+		if len(batch) >= size:
+			batches.append(batch)
+			batch = []
+	if len(batch) > 0: batches.append(batch)
+	return batches
+
+def parallel(function, list, threads):
+	""" Run function using multiple threads """
+	from multiprocessing import Process
+	from time import sleep
+	processes = []
+	for pargs in list: # run function for each set of args in args_list
+		p = Process(target=function, kwargs=pargs)
+		processes.append(p)
+		p.start()
+		while len(processes) >= threads: # control number of active processes
+			sleep(1)
+			indexes = []
+			for index, process in enumerate(processes): # keep alive processes
+				if process.is_alive(): indexes.append(index)
+			processes = [processes[i] for i in indexes]
+	while len(processes) > 0: # wait until no active processes
+		sleep(1)
+		indexes = []
+		for index, process in enumerate(processes):
+			if process.is_alive(): indexes.append(index)
+		processes = [processes[i] for i in indexes]
+
+def add_ref_db(args):
+	""" Add path to reference database """
+	if 'db' not in args or not args['db']:
+		script_path = os.path.abspath(__file__)
+		script_dir = os.path.dirname(script_path)
+		main_dir = os.path.dirname(script_dir)
+		args['db'] = '%s/ref_db' % main_dir
+	if not os.path.isdir(args['db']):
+		sys.exit("Could not locate reference database: %s" % args['db'])
+	return args
+
+def read_ref_to_cluster(args, type):
+	""" Read in map of scaffold id to genome-cluster id """
+	ref_to_cluster = {}
+	dir = 'snps' if type == 'genomes' else 'genes'
+	infile = open('/'.join([args['outdir'], '%s/db/%s.map' % (dir, type)]))
+	for line in infile:
+		ref_id, cluster_id = line.rstrip().split()
+		ref_to_cluster[ref_id] = cluster_id
+	infile.close()
+	return ref_to_cluster
+
 def is_executable(f):
 	""" Check if file is executable by all """
 	st = os.stat(f)
@@ -42,10 +117,12 @@ def add_data_files(args):
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
-	for line in iopen(inpath):
+	infile = iopen(inpath)
+	for line in infile:
 		if line[0] == '>': return 'fasta'
 		elif line[0] == '@': return 'fastq'
 		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
+	infile.close()
 
 def iopen(inpath):
 	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
@@ -62,11 +139,13 @@ def iopen(inpath):
 		else: return open(inpath)
 
 def parse_file(inpath):
-	""" Yields formatted records from SNPs output """
-	infile = gzip.open(inpath)
+	""" Yields records from tab-delimited file with header """
+	ext = inpath.split('.')[-1]
+	infile = gzip.open(inpath) if ext=='gz' else open(inpath)
 	fields = next(infile).rstrip().split()
 	for line in infile:
 		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split())])
+	infile.close()
 
 def max_mem_usage():
 	""" Return max mem usage (Gb) of self and child processes """

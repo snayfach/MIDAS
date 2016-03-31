@@ -32,8 +32,6 @@ class HelpText(unittest.TestCase):
 	""" check help text for all scripts """
 	def setUp(self):
 		self.scripts = [
-			'../scripts/annotate_genes.py -h',
-			'../scripts/annotate_snps.py -h',
 			'../scripts/merge_genes.py -h',
 			'../scripts/merge_species.py -h',
 			'../scripts/merge_snps.py -h',
@@ -49,16 +47,16 @@ class HelpText(unittest.TestCase):
 class RunSpecies(unittest.TestCase):
 	""" test run_phylo_cnv.py species """
 	def setUp(self):
-		self.command = '../scripts/run_phylo_cnv.py species -1 ./test.fq.gz -o ./species.txt -n 100'
+		self.command = '../scripts/run_phylo_cnv.py species ./test -1 ./test.fq.gz -n 100 --remove_temp'
 	def test_help_text(self):
 		self.assertTrue(check_exit_code(self.command)==0)
 	def tearDown(self):
-		os.remove('species.txt')
+		shutil.rmtree('test')
 
 class RunCNVs(unittest.TestCase):
 	""" test run_phylo_cnv.py genes """
 	def setUp(self):
-		self.command = '../scripts/run_phylo_cnv.py genes ./test -1 ./test.fq.gz -n 100 --p_id 57955 --remove_temp'
+		self.command = '../scripts/run_phylo_cnv.py genes ./test -1 ./test.fq.gz -n 100 --sp_id 57955 --remove_temp'
 	def test_help_text(self):
 		self.assertTrue(check_exit_code(self.command)==0)
 	def tearDown(self):
@@ -67,48 +65,11 @@ class RunCNVs(unittest.TestCase):
 class RunSNPs(unittest.TestCase):
 	""" test run_phylo_cnv.py snps """
 	def setUp(self):
-		self.command = '../scripts/run_phylo_cnv.py snps ./test -1 ./test.fq.gz -n 100 --p_id 57955 --remove_temp'
+		self.command = '../scripts/run_phylo_cnv.py snps ./test -1 ./test.fq.gz -n 100 --sp_id 57955 --remove_temp'
 	def test_help_text(self):
 		self.assertTrue(check_exit_code(self.command)==0)
 	def tearDown(self):
 		shutil.rmtree('test')
-
-#class FileType(unittest.TestCase):
-#	""" check whether filetype is correctly determined """
-#
-#	def setUp(self): # create test files in tmp directory
-#		self.dir = tempfile.mkdtemp()
-#		self.values = [['file.fq', 'fastq',
-#		               ('@HWUSI-EAS574_102539073:1:100:10000:12882/1',
-#						'AGCTCTTCCAGCGATACAATACCATCGTTCCTTCGGTAGCATC',
-#						'+HWUSI-EAS574_102539073:1:100:10000:12882/1',
-#						'GGGGFGFFGGAGDFG=EDEEDEBEEEEEEEEEEEAB?B?BEEE')],
-#					   ['file.fa', 'fasta',
-#		               ('>HWUSI-EAS574_102539073:1:100:10000:12882/1',
-#						'AGCTCTTCCAGCGATACAATACCATCGTTCCTTCGGTAGCATC')],
-#					   ['file.txt', None,
-#		               ('some random text file')]]
-#		for name, type, values in self.values:
-#			inpath = os.path.join(self.dir, name)
-#			infile = open(inpath, 'w')
-#			for value in values: infile.write(value+'\n')
-#
-#	def test_detect_filetype(self):
-#		# fastq
-#		inpath = os.path.join(self.dir, self.values[0][0])
-#		type = microbe_census.auto_detect_file_type(inpath)
-#		self.assertEqual(type, self.values[0][1])
-#		# fasta
-#		inpath = os.path.join(self.dir, self.values[1][0])
-#		type = microbe_census.auto_detect_file_type(inpath)
-#		self.assertEqual(type, self.values[1][1])
-#		# neither
-#		inpath = os.path.join(self.dir, self.values[2][0])
-#		with self.assertRaises(SystemExit):
-#			microbe_census.auto_detect_file_type(inpath)
-#
-#	def tearDown(self): # clean up tmp directory
-#		shutil.rmtree(self.dir)
 
 if __name__ == '__main__':
 	unittest.main()

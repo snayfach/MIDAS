@@ -11,8 +11,6 @@
 #  -jaccard + min allele frequency
 #  -distance metric for floating point allele frequencies
 
-__version__ = '0.0.2'
-
 import os, sys
 
 def parse_arguments():

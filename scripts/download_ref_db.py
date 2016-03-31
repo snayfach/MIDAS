@@ -8,8 +8,6 @@
 # Ran into issues when using '-C -' to resume partially downloaded files
 # '--retry' will restart download if it stalls or the internet goes down temporarily
 
-__version__ = '0.0.2'
-
 import os
 import sys
 import subprocess

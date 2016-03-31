@@ -2,20 +2,11 @@
 
 # PhyloCNV - estimation of single-nucleotide-variants and gene-copy-number from shotgun sequence data
 # Copyright (C) 2015 Stephen Nayfach
-# Freely distributed under the GNU General Public License (GPLv3
-
-__version__ = '0.0.2'
+# Freely distributed under the GNU General Public License (GPLv3)
 
 import argparse, sys, os
 import platform
-
-def print_copyright():
-	print ("")
-	print ("PhyloCNV: species abundance and strain-level genomic variation from metagenomes")
-	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
-	print ("Copyright (C) 2015 Stephen Nayfach")
-	print ("Freely distributed under the GNU General Public License (GPLv3)")
-	print ("")
+from phylo_cnv import utility
 
 def get_program():
 	""" Get program specified by user (species, genes, or snps) """
@@ -26,7 +17,7 @@ def get_program():
 		print('Note: use run_phylo_cnv.py <command> -h to view usage for a specific command')
 		print('')
 		print('Commands:')
-		print('\tspecies\t estimate the abundance of ~6,000 bacterial species')
+		print('\tspecies\t estimate the abundance of 5,952 bacterial species')
 		print('\tgenes\t identify gene copy number variants in abundant species')
 		print('\tsnps\t identify single nucleotide variants in abundant species')
 		quit()
@@ -46,7 +37,7 @@ def get_arguments(program):
 		args = snp_arguments()
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
-	args = add_ref_db(args)
+	args = utility.add_ref_db(args)
 	return args
 
 def check_arguments(program, args):
@@ -72,17 +63,6 @@ def print_arguments(program, args):
 		print_snp_arguments(args)
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
-
-def add_ref_db(args):
-	""" Add path to reference database """
-	if not args['db']:
-		script_path = os.path.abspath(__file__)
-		script_dir = os.path.dirname(script_path)
-		main_dir = os.path.dirname(script_dir)
-		args['db'] = '%s/ref_db' % main_dir
-	if not os.path.isdir(args['db']):
-		sys.exit("Could not locate reference database: %s" % args['db'])
-	return args
 	
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
@@ -104,7 +84,7 @@ def species_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: run_phylo_cnv.py species [options]
+Usage: run_phylo_cnv.py species outdir [options]
 
 Description:
 This script will map metagenomic reads to a database of phylogenetic marker genes using HS-BLASTN
@@ -114,24 +94,23 @@ Reads that map equally well to 2 or more species are probabalistically assigned
 """,
 		epilog="""Examples:
 1) run with defaults using a paired-end metagenome:
-run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -o /path/to/species_profile
+run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
 2) run using a single-end metagenome with 4 CPUs and only 4M reads:
-run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile -t 4 -n 4000000
+run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000
 
 3) run with exactly 80 base-pair reads:
-run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile --read_length 80
+run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz --read_length 80
 
 4) quantify species abundance using a 16S database:
-run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile --db_type ssuRNA
+run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA
 	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
+	parser.add_argument('outdir', type=str, help='Path to directory to store results. Name should correspond to sample identifier.')
 	parser.add_argument('-1', type=str, dest='m1', required=True,
 		help="FASTA/FASTQ file containing 1st mate if paired or unpaired reads")
 	parser.add_argument('-2', type=str, dest='m2',
 		help="FASTA/FASTQ file containing 2nd mate if paired")
-	parser.add_argument('-o', type=str, dest='out', required=True,
-		help="Path to output file of species abundances")
 	parser.add_argument('-n', type=int, dest='max_reads',
 		help="""Number of reads to use from input file(s) (use all)""")
 	parser.add_argument('-t', dest='threads', default=1,
@@ -156,9 +135,9 @@ run_phylo_cnv.py species -1 /path/to/reads_1.fq.gz -o /path/to/species_profile -
 def print_species_arguments(args):
 	print ("===========Parameters===========")
 	print ("Script: run_phylo_cnv.py species")
+	print ("Output directory: %s" % args['outdir'])
 	print ("Input reads (1st mate): %s" % args['m1'])
 	print ("Input reads (2nd mate): %s" % args['m2'])
-	print ("Output species abundance file: %s" % args['out'])
 	print ("Database type: %s" % args['db_type'])
 	print ("Remove temporary files: %s" % args['remove_temp'])
 	print ("Word size for database search: %s" % args['word_size'])
@@ -169,6 +148,8 @@ def print_species_arguments(args):
 	print ("Number of threads for database search: %s" % args['threads'])
 
 def check_species(args):
+	if not os.path.isdir('%s/species' % args['outdir']):
+		os.makedirs('%s/species' % args['outdir'])
 	if args['word_size'] < 12:
 		sys.exit("\nInvalid word size: %s. Must be greater than or equal to 12" % args['word_size'])
 	if args['mapid'] and (args['mapid'] < 0 or args['mapid'] > 100):
@@ -178,10 +159,6 @@ def check_species(args):
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
 			sys.exit("\nInput file does not exist: '%s'" % args[arg])
-	if not os.path.isdir(os.path.dirname(os.path.abspath(args['out']))):
-		sys.exit("\nOutput directory does not exist: '%s'" % os.path.dirname(args['out']))
-	if os.path.isdir(args['out']):
-		sys.exit("\nSpecified output is a directory: '%s'" % args['out'])
 
 def gene_arguments():
 	parser = argparse.ArgumentParser(
@@ -200,10 +177,10 @@ The pipeline can be broken down into three main steps:
 """,
 		epilog="""Examples:
 1) run entire pipeline using defaults:
-run_phylo_cnv.py genes /path/to/outdir -p /path/to/species_profile -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_phylo_cnv.py genes /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 			
 2) run entire pipeline for a specific species:
-run_phylo_cnv.py genes /path/to/outdir -p_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_phylo_cnv.py genes /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
 3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
 run_phylo_cnv.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
@@ -213,7 +190,7 @@ run_phylo_cnv.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
 	""")
 
 	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('outdir', type=str, help='Path to directory to store results. ')
+	parser.add_argument('outdir', type=str, help='Path to directory to store results. Name should correspond to sample identifier. ')
 
 	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
 	parser.add_argument('--remove_temp', default=False, action='store_true',
@@ -229,10 +206,9 @@ run_phylo_cnv.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
 
 	db = parser.add_argument_group('Database options (if using --build_db)')
 	db.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
-	db.add_argument('-p', type=str, dest='profile', help='Path to species abundance profile')
-	db.add_argument('--p_cov', type=float, dest='gc_cov', help='Include species with >X coverage (3.0)')
-	db.add_argument('--p_topn', type=int, dest='gc_topn', help='Include top N most abundant species')
-	db.add_argument('--p_id', type=str, dest='gc_id', help='One or more species identifiers to include in database. Separate ids with a comma')
+	db.add_argument('--sp_cov', type=float, dest='gc_cov', help='Include species with >X coverage (3.0)')
+	db.add_argument('--sp_topn', type=int, dest='gc_topn', help='Include top N most abundant species')
+	db.add_argument('--sp_id', type=str, dest='gc_id', help='One or more species identifiers to include in database. Separate ids with a comma')
 			
 	align = parser.add_argument_group('Read alignment options (if using --align)')
 	align.add_argument('-1', type=str, dest='m1',
@@ -283,7 +259,6 @@ def print_gene_arguments(args):
 
 	if args['build_db']:
 		print ("Database options:")
-		print ("  -species abundance file: %s" % args['profile'])
 		if args['gc_topn']:
 			print ("  -include top %s most abundant species" % args['gc_topn'])
 		if args['gc_cov']:
@@ -325,10 +300,10 @@ The pipeline can be broken down into three main steps:
 """,
 		epilog="""Examples:
 1) run entire pipeline using defaults:
-run_phylo_cnv.py snps /path/to/outdir -p /path/to/species_profile -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_phylo_cnv.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 			
 2) run entire pipeline for a specific species:
-run_phylo_cnv.py snps /path/to/outdir -p_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_phylo_cnv.py snps /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
 3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
 run_phylo_cnv.py snps /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
@@ -338,7 +313,7 @@ run_phylo_cnv.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35
 	""")
 	
 	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('outdir', type=str, help='Path to directory to store results. ')
+	parser.add_argument('outdir', type=str, help='Path to directory to store results. Name should correspond to sample identifier.')
 	
 	parser.add_argument('--tax_mask', action='store_true', default=False, help=argparse.SUPPRESS)
 	parser.add_argument('--remove_temp', default=False, action='store_true',
@@ -354,10 +329,9 @@ run_phylo_cnv.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35
 				
 	db = parser.add_argument_group('Database options (if using --build_db)')
 	db.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
-	db.add_argument('-p', type=str, dest='profile', help='Path to species abundance profile')
-	db.add_argument('--p_cov', type=float, dest='gc_cov', help='Include species with >X coverage (3.0)')
-	db.add_argument('--p_topn', type=int, dest='gc_topn', help='Include top N most abundant species')
-	db.add_argument('--p_id', type=str, dest='gc_id', help='One or more species identifiers to include in database. Separate ids with a comma')
+	db.add_argument('--sp_cov', type=float, dest='gc_cov', help='Include species with >X coverage (3.0)')
+	db.add_argument('--sp_topn', type=int, dest='gc_topn', help='Include top N most abundant species')
+	db.add_argument('--sp_id', type=str, dest='gc_id', help='One or more species identifiers to include in database. Separate ids with a comma')
 			
 	align = parser.add_argument_group('Read alignment options (if using --align)')
 	align.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
@@ -409,7 +383,6 @@ def print_snp_arguments(args):
 
 	if args['build_db']:
 		print ("Database options:")
-		print ("  -species abundance file: %s" % args['profile'])
 		if args['gc_topn']:
 			print ("  -include top %s most abundant species" % args['gc_topn'])
 		if args['gc_cov']:
@@ -439,8 +412,8 @@ def print_snp_arguments(args):
 def check_genes(args):
 	""" Check validity of command line arguments """
 	# create output directory
-	if not os.path.isdir(args['outdir']):
-		os.makedirs(args['outdir'])
+	if not os.path.isdir('%s/genes' % args['outdir']):
+		os.makedirs('%s/genes' % args['outdir'])
 	# turn on pipeline options
 	if not any([args['build_db'], args['align'], args['cov']]):
 		args['build_db'] = True
@@ -450,19 +423,21 @@ def check_genes(args):
 	if not any([args['gc_id'], args['gc_topn'], args['gc_cov']]):
 		args['gc_cov'] = 3.0
 	# species selection options, but no no profile file
-	if (args['gc_topn'] or args['gc_cov']) and not args['profile'] and args['build_db']:
-		sys.exit("\nTo specify species with --gc_topn or --gc_cov you must supply a profile file with -p")
+	profile='%s/species/species_profile.txt' % args['outdir']
+	if not os.path.isfile(profile):
+		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
+			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --sp_topn or --sp_cov you must have run: run_phylo_cnv.py species" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
-		and not os.path.isfile('%s/db/pangenomes.fa' % args['outdir'])):
+		and not os.path.isfile('%s/genes/db/pangenomes.fa' % args['outdir'])):
 		error = "\nYou've specified --align, but no database has been built"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no bamfile but --cov specified
 	if (args['cov']
 		and not args['align']
-		and not os.path.isfile('%s/pangenome.bam' % args['outdir'])):
+		and not os.path.isfile('%s/genes/pangenome.bam' % args['outdir'])):
 		error = "\nYou've specified --call_genes, but no alignments were found"
 		error += "\nTry running with --align"
 		sys.exit(error)
@@ -470,7 +445,7 @@ def check_genes(args):
 	if args['align'] and not args['m1']:
 		sys.exit("\nTo align reads, you must specify path to input FASTA/FASTQ")
 	# check input file paths
-	for arg in ['m1', 'm2', 'profile']:
+	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
 			sys.exit("\nInput file does not exist: '%s'" % args[arg])
 	# input options
@@ -485,8 +460,8 @@ def check_genes(args):
 def check_snps(args):
 	""" Check validity of command line arguments """
 	# create output directory
-	if not os.path.isdir(args['outdir']):
-		os.makedirs(args['outdir'])
+	if not os.path.isdir('%s/snps' % args['outdir']):
+		os.makedirs('%s/snps' % args['outdir'])
 	# pipeline options
 	if not any([args['build_db'], args['align'], args['call']]):
 		args['build_db'] = True
@@ -496,19 +471,21 @@ def check_snps(args):
 	if not any([args['gc_id'], args['gc_topn'], args['gc_cov']]):
 		args['gc_cov'] = 3.0
 	# species selection options, but no no profile file
-	if (args['gc_topn'] or args['gc_cov']) and not args['profile'] and args['build_db']:
-		sys.exit("\nTo specify species with --gc_topn, or --gc_cov, you must supply a profile file with -p")
+	profile='%s/species/species_profile.txt' % args['outdir']
+	if not os.path.isfile(profile):
+		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
+			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --sp_topn or --sp_cov you must have run: run_phylo_cnv.py species" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
-		and not os.path.isfile('%s/db/genomes.fa' % args['outdir'])):
+		and not os.path.isfile('%s/snps/db/genomes.fa' % args['outdir'])):
 		error = "\nYou've specified --align, but no database has been built"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no bamfile but --call specified
 	if (args['call']
 		and not args['align']
-		and not os.path.isfile('%s/genomes.bam' % args['outdir'])
+		and not os.path.isfile('%s/snps/genomes.bam' % args['outdir'])
 		):
 		error = "\nYou've specified --call_snps, but no alignments were found"
 		error += "\nTry running with --align"
@@ -516,7 +493,7 @@ def check_snps(args):
 	# no genomes but --call specified
 	if (args['call']
 		and not args['build_db']
-		and not os.path.isfile('%s/db/genomes.fa' % args['outdir'])
+		and not os.path.isfile('%s/snps/db/genomes.fa' % args['outdir'])
 		):
 		error = "\nYou've specified --call_snps, but the no genome database was found"
 		error += "\nTry running with --build_db"
@@ -525,7 +502,7 @@ def check_snps(args):
 	if args['align'] and not args['m1']:
 		sys.exit("\nTo align reads, you must specify path to input FASTA/FASTQ")
 	# check input file paths
-	for arg in ['m1', 'm2', 'profile']:
+	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
 			sys.exit("\nInput file does not exist: '%s'" % args[arg])
 	# input options
@@ -544,7 +521,7 @@ if __name__ == '__main__':
 	program = get_program()
 	args = get_arguments(program)
 	check_arguments(program, args)
-	print_copyright()
+	utility.print_copyright()
 	print_arguments(program, args)
 	run_program(program, args)
 	

@@ -1,5 +1,14 @@
 CHANGES
 
+2016-03-29
+ * major update
+ * integrated annotation into merge_snps.py and merge_genes.py
+ * modified directory structure in run_phylo_cnv.py
+   * genes, snps, species use similar command line structure
+   * now creates sub directory, ex: <outdir>/<snps>
+ * added examples to all scripts
+ * updated documentation
+
 2016-03-17
  * use '#!/usr/bin/env python' instead of '#!/usr/bin/python'
  * fixed test/test_phylo_cnv.py

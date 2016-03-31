@@ -5,31 +5,28 @@
 PhyloCNV is an integrated pipeline that estimates bacterial species abundance and strain-level genomic variation from shotgun metagnomes.  Also, population genetic and phylogenetic inferences are performed. PhyloCNV leverage a comprehensive database of ~6,000 bacterial species & ~30,000 genomes.   
 
 ## Applications
-1. **Profile bacterial species abundance**: rapidly estimate the abundance of ~6,000 bacterial species
-2. **Strain-level pan-genome profiling**: identify gene-copy-number variants (CNVs) of strains based on mapping to reference genomes
-3. **Single-nucleotide-variant prediction**: identify single-nucleotide variants (SNVs) of strains based on mapping to reference genomes
+1. **Profile bacterial species abundance**: rapidly estimate the abundance of 5,952 bacterial species
+2. **Strain-level pan-genome profiling**: estimate the gene content of strains based on mapping to genes from reference genomes
+3. **Single-nucleotide-polymorphism prediction**: identify single-nucleotide polymorphisms (SNPs) of strains based on mapping to reference genomes
 4. **Phylogenetic inference**: reconstruct the phylogeny of strains from metagenomes and reference genomes
 5. **Population genetic inference**: quantify strain-level diversity, differentiation, and selection within and between metagenomes
 
 
 ## Table of Contents
-1. [Requirements and Dependencies] (https://github.com/snayfach/PhyloCNV/blob/master/docs/requires.md)
+1. [Requirements, Dependencies] (https://github.com/snayfach/PhyloCNV/blob/master/docs/requires.md)
 2. [Download, Installation, Testing, and Updating] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)
 3. [Reference database] (https://github.com/snayfach/PhyloCNV/blob/master/docs/ref_db.md)
 4. [Tutorial] (https://github.com/snayfach/PhyloCNV/blob/master/docs/tutorial.md)
 5. Scripts to run PhyloCNV on a single sample:
  * [Estimate species abundance] (https://github.com/snayfach/PhyloCNV/blob/master/docs/species.md)
- * [Call gene copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md)
- * [Call single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
+ * [Predict pan-genome gene content] (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md)
+ * [Call single nucleotide polymorphisms] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
 6. Scripts to merge results across samples:
  * [Merge species abundance] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_species.md)  
- * [Merge copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_cnvs.md)
- * [Merge single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)
-7. Functionally annotate results:
- * [Annotate copy-number variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_cnvs.md)
- * [Annotate single-nucleotide variants] (https://github.com/snayfach/PhyloCNV/blob/master/docs/annotate_snvs.md)
-8. [Compare phylogeny, gene-content, and SNPs across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/pairwise_distances.md)
-9. [Calculate population genetics statistics] (https://github.com/snayfach/PhyloCNV/blob/master/docs/popgen.md)
+ * [Merge gene content] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_cnvs.md)
+ * [Merge SNPs] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)
+7. [Compare phylogeny, gene-content, and SNPs across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/pairwise_distances.md)
+8. [Calculate population genetics statistics] (https://github.com/snayfach/PhyloCNV/blob/master/docs/popgen.md)
 
 ## Citation
 If you use this tool, please cite:

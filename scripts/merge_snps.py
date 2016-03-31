@@ -4,29 +4,13 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-__version__ = '0.0.2'
-
 ## LIBRARIES
-import argparse, sys, os, gzip, subprocess, tempfile, resource, math, shutil
+import argparse, sys, os, gzip, subprocess, tempfile, shutil
+from phylo_cnv import merge
+from phylo_cnv import utility
+from phylo_cnv import annotate_snps
 
 ## CLASSES
-class Sample:
-	""" Base class for samples """
-	def __init__(self, dir, species_id):
-		self.id = os.path.basename(dir)
-		self.dir = dir
-		self.average_depth = None
-		self.fraction_covered = None
-		self.summary_stats(species_id)
-
-	def summary_stats(self, species_id):
-		inpath = '/'.join([self.dir, 'snps_summary_stats.txt'])
-		if not os.path.isfile(inpath): return
-		stats = parse_summary(inpath)
-		if species_id not in stats: return
-		self.average_depth = stats[species_id]['average_depth']
-		self.fraction_covered = stats[species_id]['fraction_covered']
-
 class Snp:
 	""" Base class for SNPs """
 	def __init__(self, snpfiles, samples):
@@ -52,39 +36,51 @@ class Snp:
 ## FUNTIONS
 def parse_arguments():
 	""" Parse command line arguments """
-	
 	parser = argparse.ArgumentParser(
-		usage='%s [options]' % os.path.basename(__file__),
-		description="""Merge single-nucleotide variants for an individual species across samples. Outputs include: a list of high-quality sites, an allele frequency matrix, consensus sequences for each sample, and a phylogenetic tree"""
-		)
+		formatter_class=argparse.RawTextHelpFormatter,
+		usage=argparse.SUPPRESS,
+		description="""
+Usage: merge_snps.py [options]
+
+Description: merge single-nucleotide variants for an individual species across samples
+Input: list of sample directories
+Output: core-genome SNPs, SNP annotations, SNP allele frequency matrix, SNP alternate alleles, SNP depth,
+        core-genome consensus sequences, and a phylogenetic tree
+""",
+		epilog="""Examples:
+1) Merge results for species 57955. Provide list of paths to sample directories:
+merge_snps.py -s 57955 -o outdir/57955 -i sample_1,sample_2 -t list
+
+2) Only use samples with >15x average depth and only use sites covered by >=10 reads in at least >=95% of samples:
+merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 95
+
+3) Just identify core-genome sites and build matrixes; do not build consensus seqs or phylogenetic trees:
+merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --snps --freq
+
+4) Run a quick test:
+merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --max_samples 10 --max_sites 1000
+
+""")
+	
 	parser.add_argument('--threads', type=int, default=1,
 		help="Number of threads to use")
 	
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
-		help="""input to results from 'run_phylo_cnv.py snvs'.
-			see <intype> for details""")
-	io.add_argument('-t', choices=['dir', 'file', 'list'], dest='intype', required=True,
-		help="""input type.
-			'dir': directory containing phylo_cnv results. each subdirectory should correspond to a different sample_id. for example: <directory>/<sample_id>
-			'file': file containing paths to phylo_cnv results.	each line in the file should contain the full path to the results for a sample_id.
-			'list': comma-separated list of paths to phylo_cnv results.
-			""")
+		help="""input to sample directories output by run_phylo_cnv.py genes
+see '-t' for details""")
+	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
+		help="""'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
+'dir': -i is a  directory containing all samples (ex: /samples_dir)
+'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
+""")
 	io.add_argument('-s', dest='species_id', type=str, required=True,
-		help="""species identifier. 
-			a list of prevalent species can be obtained by running 'scripts/merge_species.py'.
-			A map of species ids to species names can be found in 'ref_db/annotations.txt'""")
-	io.add_argument('-o', dest='outdir', type=str, required=True,
-		help="""output directory.
-			output files: 
-			  <outdir>/<species_id>.sample_ids,
-			  <outdir>/<species_id>.hq_snps,
-			  <outdir>/<species_id>.ref_freq, 
-			  <outdir>/<species_id>.alt_allele,
-			  <outdir>/<species_id>.depth, 
-			  <outdir>/<species_id>.fasta, 
-			  <outdir>/<species_id>.tree""")
-	
+		help="""species identifier
+a list of prevalent species can be obtained by running 'merge_species.py'
+a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
+	io.add_argument('-o', type=str, dest='outdir', required=True,
+		help="""output directory""")
+			
 	pipe = parser.add_argument_group("Pipeline options (choose one or more; default=all)")
 	pipe.add_argument('--snps', default=False, action='store_true',
 		help="identify and store list of hq snps")
@@ -95,26 +91,30 @@ def parse_arguments():
 	pipe.add_argument('--tree', default=False, action='store_true',
 		help="build phylogenetic tree")
 	
-	sample = parser.add_argument_group("Sample filters\n(determine which samples are included in output)")
+	sample = parser.add_argument_group("Sample filters (select subset of samples from INPUT)")
 	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=5.0,
 		help="""minimum average read depth per sample (5.0)""")
 	sample.add_argument('--fract_cov', dest='fract_cov', type=float, default=0.4,
 		help="""fraction of reference sites covered by at least 1 read (0.4)""")
 	sample.add_argument('--max_samples', type=int,
-		help="""maximum number of samples to process. useful for quick tests (use all)""")
+		help="""maximum number of samples to process.
+useful for quick tests (use all)""")
 	
-	snps = parser.add_argument_group("Site filters\n(determine which reference-genome positions are included in output)")
-	snps.add_argument('--site_depth', dest='site_depth', type=int, default=3,
-		help="""minimum number of mapped reads per site. 
-			a high value like 20 will result in accurate allele frequencies, but may discard many sites. 
-			a low value like 1 will retain many sites but may not result in accurate allele frequencies (3)""")
-	snps.add_argument('--site_prev', dest='site_prev', type=float, default=0.95,
+	snps = parser.add_argument_group("Site filters (select subset of genomic sites from INPUT)")
+	snps.add_argument('--site_depth', type=int, default=3,
+		help="""minimum number of mapped reads per site.
+a high value like 20 will result in accurate allele frequencies, but may discard many sites.
+a low value like 1 will retain many sites but may not result in accurate allele frequencies (3)""")
+	snps.add_argument('--site_prev', type=float, default=0.95,
 		help="""site has at least <site_depth> coverage in at least <site_prev> proportion of samples.
-			a value of 1.0 will select sites that have sufficent coverage in all samples.
-			a value of 0.0 will select all sites, including those with low coverage in many samples  (0.95)""")
-	snps.add_argument('--max_sites', dest='max_sites', type=int, default=float('Inf'),
-		help="""maximum number of sites to include in output. useful for quick tests (use all)""")
+a value of 1.0 will select sites that have sufficent coverage in all samples.
+a value of 0.0 will select all sites, including those with low coverage in many samples 
+NAs recorded for included sites with less than <site_depth> in a sample (0.95)""")
+	snps.add_argument('--max_sites', type=int, default=float('Inf'),
+		help="""maximum number of sites to include in output.
+useful for quick tests (use all)""")
 	args = vars(parser.parse_args())
+	args = utility.add_ref_db(args)
 	check_args(args)
 	return args
 
@@ -127,17 +127,9 @@ def check_args(args):
 		args['cons'] = True
 		args['tree'] = True
 
-def print_copyright():
-	print ("")
-	print ("PhyloCNV: species abundance and strain-level genomic variation from metagenomes")
-	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
-	print ("Copyright (C) 2015 Stephen Nayfach")
-	print ("Freely distributed under the GNU General Public License (GPLv3)")
-	print ("")
-
 def print_arguments(args):
-	print ("-------------------------------------------------------")
-	print ("Merge SNPs Parameters")
+	print ("===========Parameters===========")
+	print ("Script: merge_snps.py")
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
@@ -158,38 +150,11 @@ def print_arguments(args):
 	print ("  site must be covered by at least %s reads across %s percent of samples" % (args['site_depth'], 100*args['site_prev']))
 	if args['max_sites'] != float('Inf'):
 		print ("  analyze up to %s sites" % (args['max_sites']))
-	print ("-------------------------------------------------------")
 	print ("")
-
-def list_samples(input, intype):
-	""" Get full path to sample directories """
-	if intype == 'dir':
-		if not os.path.isdir(input):
-			sys.exit("\nSpecified input directory does not exist:\n%s" % input)
-		else:
-			return([os.path.join(input, _) for _ in os.listdir(input)])
-	elif intype == 'file':
-		if not os.path.isfile(input):
-			sys.exit("\nSpecified input file does not exist:\n%s" % input)
-		else:
-			return([x.rstrip() for x in open(input).readlines()])
-	elif intype == 'list':
-		return(input.split(','))
-
-def parse_summary(inpath):
-	""" Read in summary snp statistics for genome-clusters """
-	snps_summary = {}
-	infile = open(inpath)
-	fields = next(infile).rstrip().split()
-	for line in open(inpath):
-		values = line.rstrip().split()
-		rec = dict([(i,j) for i,j in zip(fields, values)])
-		snps_summary[rec['cluster_id']] = rec
-	return snps_summary
 
 def write_samples(args, samples):
 	""" Write sample list to file """
-	outfile = open('%s/%s.sample_ids' % (args['outdir'], args['species_id']), 'w')
+	outfile = open('%s/%s.snps.sample_ids' % (args['outdir'], args['species_id']), 'w')
 	outfile.write('\t'.join(['sample_id', 'average_depth', 'fraction_covered'])+'\n')
 	for sample in samples:
 		outfile.write(sample.id+'\n')
@@ -199,22 +164,25 @@ def write_samples(args, samples):
 def identify_samples(args):
 	""" Identify samples with sufficient depth for target genome-cluster """
 	samples = []
-	for dir in list_samples(args['input'], args['intype']):
-		sample = Sample(dir, args['species_id'])
-		if not sample.average_depth:
+	for sample in merge.load_samples(args):
+		if not sample.paths['snps']:
+			sys.stderr.write("Warning: no snps output for sample: %s\n" % sample.dir)
 			continue
-		elif float(sample.average_depth) < args['sample_depth']:
+		stats = merge.read_stats(sample.paths['snps'])
+		if args['species_id'] not in stats:
 			continue
-		elif float(sample.fraction_covered) < args['fract_cov']:
+		elif float(stats[args['species_id']]['average_depth']) < args['sample_depth']:
+			continue
+		elif float(stats[args['species_id']]['fraction_covered']) < args['fract_cov']:
 			continue
 		else:
 			samples.append(sample)
 		if args['max_samples'] and len(samples) >= args['max_samples']:
 			break
 	if len(samples) == 0:
-		sys.exit("Error: species_id failed to pass quality-control in all samples")
+		sys.exit("\nError: no samples with sufficient coverage for species_id.\nTry running with more lenient parameters")
 	else:
-		write_samples(args, samples)
+#		write_samples(args, samples)
 		print("  %s samples with species" % len(samples))
 		return samples
 
@@ -231,14 +199,14 @@ def open_infiles(species_id, samples):
 	""" Open SNP files for species across samples """
 	infiles = {}
 	for sample in samples:
-		inpath = '%s/snps/%s.snps.gz' % (sample.dir, species_id)
+		inpath = '%s/snps/snps/%s.snps.gz' % (sample.dir, species_id)
 		infiles[sample.id] = parse_snps(inpath)
 	return infiles
 
 def read_hq_snps(outdir, species_id):
 	""" Read in list of HQ snps from file"""
 	snps = []
-	infile = open('%s/%s.hq_snps' % (outdir, species_id))
+	infile = open('%s/%s.snps.list' % (outdir, species_id))
 	next(infile)
 	for line in infile:
 		snps.append(line.rstrip().split()[0:2])
@@ -258,52 +226,10 @@ def open_outfiles(outdir, species_id, sample_ids, index=None):
 	outfiles = {}
 	for type in ['ref_freq', 'depth', 'alt_allele']:
 		if index is None: outpath = '%s/%s.%s' % (outdir, species_id, type)
-		else: outpath = '%s/%s.%s.%s' % (outdir, species_id, index, type)
+		else: outpath = '%s/%s.snps.%s.%s' % (outdir, species_id, type, index)
 		outfiles[type] = open(outpath, 'w')
 		outfiles[type].write('\t'.join(['ref_id','ref_pos']+sample_ids)+'\n')
 	return outfiles
-
-def batch_samples(samples, threads):
-	""" Split up samples into batches
-		assert: batch_size * threads < max_open
-		assert: batch_size uses all threads
-	"""
-	import resource
-	max_open = int(0.8 * resource.getrlimit(resource.RLIMIT_NOFILE)[0]) # max open files on system
-	max_size = math.floor(max_open/threads) # max batch size to avoid exceeding max_open
-	min_size = math.ceil(len(samples)/threads) # min batch size to use all threads
-	size = min(min_size, max_size)
-	batches = []
-	batch = []
-	for sample in samples:
-		batch.append(sample)
-		if len(batch) >= size:
-			batches.append(batch)
-			batch = []
-	if len(batch) > 0: batches.append(batch)
-	return batches
-
-def parallel(function, list, threads):
-	""" Run function using multiple threads """
-	from multiprocessing import Process
-	from time import sleep
-	processes = []
-	for pargs in list: # run function for each set of args in args_list
-		p = Process(target=function, kwargs=pargs)
-		processes.append(p)
-		p.start()
-		while len(processes) >= threads: # control number of active processes
-			sleep(1)
-			indexes = []
-			for index, process in enumerate(processes): # keep alive processes
-				if process.is_alive(): indexes.append(index)
-			processes = [processes[i] for i in indexes]
-	while len(processes) > 0: # wait until no active processes
-		sleep(1)
-		indexes = []
-		for index, process in enumerate(processes):
-			if process.is_alive(): indexes.append(index)
-		processes = [processes[i] for i in indexes]
 
 def identify_snps(args, samples):
 	""" 
@@ -315,7 +241,7 @@ def identify_snps(args, samples):
 	# write temporary snp lists
 	list = []
 	tempdir = tempfile.mkdtemp(dir=args['outdir'])
-	batches = batch_samples(samples, args['threads'])
+	batches = utility.batch_samples(samples, args['threads'])
 	for index, batch in enumerate(batches):
 		a = {}
 		a['index'] = index
@@ -325,15 +251,15 @@ def identify_snps(args, samples):
 		a['site_depth'] = args['site_depth']
 		a['max_sites'] = args['max_sites']
 		list.append(a)
-	parallel(write_prevalence, list, args['threads'])
+	utility.parallel(write_prevalence, list, args['threads'])
 	# open temporary snp lists
 	infiles = []
 	for index, batch in enumerate(batches):
-		infile = open('%s/%s.%s.hq_snps' % (tempdir, args['species_id'], index))
+		infile = open('%s/%s.snps.list.%s' % (tempdir, args['species_id'], index))
 		next(infile)
 		infiles.append(infile)
 	# identify hq snps
-	outfile = open('%s/%s.hq_snps' % (args['outdir'], args['species_id']), 'w')
+	outfile = open('%s/%s.snps.list' % (args['outdir'], args['species_id']), 'w')
 	header = ['ref_id', 'ref_pos', 'ref_allele', 'count_samples']
 	outfile.write('\t'.join(header)+'\n')
 	min_samples = int(len(samples) * args['site_prev'])
@@ -359,9 +285,9 @@ def identify_snps(args, samples):
 	shutil.rmtree(tempdir, ignore_errors=True)
 
 def write_prevalence(index, species_id, samples, site_depth, max_sites, outdir):
-	""" Count number of samples that have sufficient depth across sites """
+	""" Count number of samples that have sufficient depth at each site """
 	snpfiles = open_infiles(species_id, samples)
-	outpath = '%s/%s.%s.hq_snps' % (outdir, species_id, index)
+	outpath = '%s/%s.snps.list.%s' % (outdir, species_id, index)
 	outfile = open(outpath, 'w')
 	header = ['ref_id', 'ref_pos', 'ref_allele', 'count_samples']
 	outfile.write('\t'.join(header)+'\n')
@@ -386,7 +312,7 @@ def build_snp_matrix(args, samples):
 	# write temporary snp matrixes
 	list = []
 	tempdir = tempfile.mkdtemp(dir=args['outdir'])
-	batches = batch_samples(samples, args['threads'])
+	batches = utility.batch_samples(samples, args['threads'])
 	hq_snps = read_hq_snps(args['outdir'], args['species_id'])
 	for index, batch in enumerate(batches):
 		a = {}
@@ -396,13 +322,13 @@ def build_snp_matrix(args, samples):
 		a['hq_snps'] = hq_snps
 		a['outdir'] = tempdir
 		list.append(a)
-	parallel(build_mini_matrix, list, args['threads'])
+	utility.parallel(build_mini_matrix, list, args['threads'])
 	# open temporary snp matrixes
 	infiles = {}
 	for type in ['ref_freq', 'depth', 'alt_allele']:
 		files = []
 		for index, batch in enumerate(batches):
-			inpath = '%s/%s.%s.%s' % (tempdir, args['species_id'], index, type)
+			inpath = '%s/%s.snps.%s.%s' % (tempdir, args['species_id'], type, index)
 			files.append(open(inpath))
 		infiles[type] = files
 	# merge temporary files
@@ -451,13 +377,13 @@ def build_mini_matrix(outdir, species_id, samples, hq_snps, index):
 
 def write_consensus(args, samples):
 	""" Write consensus sequences from samples """
-	outfile = open('%s/%s.fasta' % (args['outdir'], args['species_id']), 'w')
+	outfile = open('%s/%s.snps.fasta' % (args['outdir'], args['species_id']), 'w')
 	hq_snps = read_hq_snps(args['outdir'], args['species_id']) # get snp list
 	n = len(hq_snps)
 	for sample in samples:
 		i = 0 # index position in hq_snps
 		outfile.write('>%s\n' % sample.id) # sequence header
-		inpath = '%s/snps/%s.snps.gz' % (sample.dir, args['species_id'])
+		inpath = '%s/snps/snps/%s.snps.gz' % (sample.dir, args['species_id'])
 		for snp in parse_snps(inpath):
 			if i == n: # no more snps in list
 				break
@@ -480,15 +406,17 @@ def build_tree(args):
 if __name__ == '__main__':
 
 	args = parse_arguments()
-	print_copyright()
+	utility.print_copyright()
 	print_arguments(args)
 
-	print("Identifying hq samples with species")
+	print("Loading samples")
 	samples = identify_samples(args)
 	
 	if args['snps']:
 		print("Identifying and writing hq snps")
 		identify_snps(args, samples)
+		print("Annotating snps")
+		annotate_snps.main(args)
 
 	if args['freq']:
 		print("Writing allele frequencies & depths")

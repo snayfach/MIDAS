@@ -27,7 +27,7 @@ def map_reads_hsblast(args):
 	if args['m2']: command += ' -2 %s' % args['m2'] # mate
 	if args['max_reads']: command += ' -n %s' % args['max_reads'] # number of reads
 	if args['read_length']: command += ' -l %s' % args['read_length'] # read length
-	command += ' 2> %s.read_count' % args['out'] # tmpfile to store # of reads, bp sampled
+	command += ' 2> %s/species/read_count.txt' % args['outdir'] # tmpfile to store # of reads, bp sampled
 	# hs-blastn
 	command += ' | %s align' % args['hs-blastn']
 	command += ' -word_size %s' % args['word_size']
@@ -35,7 +35,7 @@ def map_reads_hsblast(args):
 	command += ' -db %s/%s/%s' % (args['db'], 'marker_genes', args['db_type'])
 	command += ' -outfmt 6'
 	command += ' -num_threads %s' % args['threads']
-	command += ' -out %s.m8' % args['out']
+	command += ' -out %s/species/alignments.m8' % args['outdir']
 	command += ' -evalue 1e-3'
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
@@ -58,7 +58,7 @@ def find_best_hits(args):
 	marker_cutoffs = get_markers(args)
 	i = 0
 	qcovs = []
-	for aln in parse_blast('%s.m8' % args['out']):
+	for aln in parse_blast('%s/species/alignments.m8' % args['outdir']):
 		i += 1
 		marker_id = aln['target'].split('_')[-1]
 		cutoff = args['mapid'] if args['mapid'] else marker_cutoffs[marker_id]
@@ -187,15 +187,16 @@ def estimate_abundance(args):
 	
 	# write results
 	annotations = read_annotations(args)
-	write_abundance(args['out'], cluster_abundance, annotations)
+	write_abundance(args['outdir'], cluster_abundance, annotations)
 
 	# clean up
 	if args['remove_temp']:
-		os.remove('%s.read_count' % args['out'])
-		os.remove('%s.m8' % args['out'])
+		os.remove('%s/species/read_count.txt' % args['outdir'])
+		os.remove('%s/species/alignments.m8' % args['outdir'])
 
-def write_abundance(outpath, cluster_abundance, annotations):
+def write_abundance(outdir, cluster_abundance, annotations):
 	""" Write cluster results to specified output file """
+	outpath = '%s/species/species_profile.txt' % outdir
 	outfile = open(outpath, 'w')
 	fields = ['species_id', 'species_name', 'count_reads', 'coverage', 'relative_abundance']
 	outfile.write('\t'.join(fields)+'\n')
@@ -206,7 +207,7 @@ def write_abundance(outpath, cluster_abundance, annotations):
 def read_abundance(inpath):
 	""" Parse species abundance file """
 	if not os.path.isfile(inpath):
-		sys.exit("\nCould not locate species profile: %s\nTry rerunning with --species_profile" % inpath)
+		sys.exit("\nCould not locate species profile: %s\nTry rerunning with run_phylo_cnv.py species" % inpath)
 	abun = {}
 	infile = open(inpath)
 	fields = next(infile).rstrip().split('\t')
@@ -222,7 +223,7 @@ def select_genome_clusters(args):
 	cluster_sets = {}
 	# read in cluster abundance if necessary
 	if any([args['gc_topn'], args['gc_cov']]):
-		cluster_abundance = read_abundance(args['profile'])
+		cluster_abundance = read_abundance('%s/species/species_profile.txt' % args['outdir'])
 		# user specifed a coverage threshold
 		if args['gc_cov']:
 			cluster_sets['gc_cov'] = set([])

@@ -15,15 +15,14 @@ class my_install_lib(install_lib.install_lib):
 
 setup(
 	name = 'PhyloCNV',
-	version = '0.0.2',
+	version = '1.0.0',
 	description = 'An integrated pipeline and for estimating species and strain-level genomic variation from metagenomic data',
 	packages = ['phylo_cnv'],
 	package_data={'phylo_cnv': ['data/*', 'bin/Darwin/*', 'bin/Linux/*', 'example/*']},
-	#scripts=['scripts/run_phylo_cnv.py', 'scripts/merge_snps.py', 'scripts/merge_genes.py'],
 	license = 'GPL',
 	author = 'Stephen Nayfach',
 	author_email='snayfach@gmail.com',
 	url='https://github.com/snayfach/PhyloCNV',
-	install_requires = ['biopython', 'numpy', 'pysam', 'MicrobeCensus'],
+	install_requires = ['biopython', 'numpy', 'pysam'],
 	cmdclass={'install_lib':my_install_lib}
 )

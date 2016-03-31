@@ -4,8 +4,6 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-__version__ = '0.0.2'
-
 import argparse, sys, os, gzip, numpy as np
 
 class Sample:

@@ -4,11 +4,8 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-
 # Recipe:
 # Count number
-
-__version__ = '0.0.2'
 
 import argparse, sys, os, gzip, Bio.SeqIO
 
