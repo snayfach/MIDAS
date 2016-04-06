@@ -28,6 +28,8 @@ def read_genes(db, species_id, skip_rna=True):
 	fields = next(infile).rstrip().split()
 	for line in infile:
 		values = line.rstrip().split()
+		if len(values) != len(fields):
+			continue
 		gene = dict([(f,v) for f,v in zip(fields, values)])
 		if skip_rna and gene['gene_type'] == 'rna':
 			continue
@@ -60,7 +62,7 @@ def check_genes(genes, genomes):
 
 def rev_comp(seq):
 	""" Reverse complement sequence """
-	d = {'A':'T', 'T':'A', 'G':'C', 'C':'G'}
+	d = {'A':'T', 'T':'A', 'G':'C', 'C':'G', 'N':'N'}
 	return(''.join([d[i] for i in list(seq[::-1])]))
 
 def get_gene_seq(gene, genome):
@@ -99,18 +101,17 @@ def index_replace(x, y, i):
 	z[i] = y
 	return(''.join(z))
 
-def classify_site(ref_codon, codon_pos):
+def classify_site(site, ref_codon, codon_pos):
 	""" Classify coding site as ND, 2D, 3D, or 4D """
-	count = 0
-	degeneracy = {0:'1D',1:'2D',2:'3D',3:'4D'}
-	ref_aa = translate(ref_codon)
-	ref_allele = list(ref_codon)[codon_pos]
-	for allele in ['A','T','C','G']:
-		if allele == ref_allele:
-			continue
-		elif translate(index_replace(ref_codon, allele, codon_pos)) == ref_aa:
-			count += 1
-	return degeneracy[count]
+	if 'N' in ref_codon:
+		site['site_type'] = 'N'
+	else:
+		ref_aa = translate(ref_codon)
+		for alt_allele in ['A','T','C','G']:
+			alt_codon = index_replace(ref_codon, alt_allele, codon_pos)
+			alt_aa = translate(alt_codon)
+			site['snp_types'][alt_allele] = 'SYN' if alt_aa == ref_aa else 'NS'
+		site['site_type'] = str(site['snp_types'].values().count('SYN'))+'D'
 
 def classify_snp(ref_codon, alt_allele, codon_pos):
 	""" Classify SNP an SYN or NS """
@@ -121,55 +122,55 @@ def classify_snp(ref_codon, alt_allele, codon_pos):
 	else:
 		return 'NS'
 
-def annotate_site(site, genes, genome):
-	""" Annotate variant and reference site """
+def init_site(site):
+	""" Init values for site """
 	site['ref_pos'] = int(site['ref_pos'])
 	site['gene_id'] = 'NA'
-	site['snp_type'] = {'A':'NA','T':'NA','C':'NA','G':'NA'}
+	site['site_type'] = 'NC'
+	site['snp_types'] = {'A':'NA','T':'NA','C':'NA','G':'NA'}
+
+def annotate_site(site, genes, genome, gene_index):
+	""" Annotate variant and reference site """
+	# 0. check if ref_allele is missing
+	if site['ref_allele'] == 'N':
+		site['site_type'] = 'N'
+		return
 	while True:
-		# snp downstream of last gene
-		if len(genes) == 0:
-			site['site_type'] = 'NC'
-			gene = 'NA'
-			break
+		# 1. fetch next gene, unless there are no more, must be non-coding, break
+		if gene_index < len(genes):
+			gene = genes[gene_index]
 		else:
-			gene = genes[0]
-		# snp upstream of next gene
+			return
+		# 2. if snp is upstream of next gene, must be non-coding, break
 		if (site['ref_id'] < gene['accession'] or
-			 (site['ref_id'] == gene['accession'] and
-			  site['ref_pos'] < gene['start'])):
-			site['site_type'] = 'NC'
-			gene = 'NA'
-			break
-		# snp downstream previous gene
+		   (site['ref_id'] == gene['accession'] and site['ref_pos'] < gene['start'])):
+			return
+		# 3. if snp is downstream of next gene, pop gene, check (1) and (2) again
 		elif (site['ref_id'] > gene['accession'] or
-			  (site['ref_id'] == gene['accession'] and
-			  site['ref_pos'] > gene['end'])):
-			genes = genes[1:]
-		# snp in gene
+			 (site['ref_id'] == gene['accession'] and site['ref_pos'] > gene['end'])):
+			gene_index = gene_index + 1
+		# 4. if snp is in gene, annotate site (1D-4D) and SNPs (SYN, NS)
 		else:
 			ref_codon, codon_pos = fetch_ref_codon(site, gene, genome)
 			site['gene_id'] = gene['gene_id'].split('|')[-1]
-			site['site_type'] = classify_site(ref_codon, codon_pos)
-			for alt_allele in ['A','T','C','G']:
-				site['snp_type'][alt_allele] = classify_snp(ref_codon, alt_allele, codon_pos)
-			break
+			classify_site(site, ref_codon, codon_pos)
+			return
 
 def fetch_ref_codon(site, gene, genome):
 	""" Fetch codon within gene for given site """
 	gene_pos = site['ref_pos']-gene['start'] if gene['strand']=='+' else gene['end']-site['ref_pos'] # position of snp in gene
-	codon_pos=gene_pos%3 # position of snp in codon
+	codon_pos = gene_pos % 3 # position of snp in codon
 	seq = get_gene_seq(gene, genome) # gene sequence (oriented start to stop)
-	ref_codon = [seq[i:i+3] for i in range(0, len(seq), 3)][gene_pos/3]
+	ref_codon = seq[gene_pos-codon_pos:gene_pos-codon_pos+3]
 	return ref_codon, codon_pos
 
-def write_record(site, outfile):
+def write_site(site, outfile):
 	""" Write site info to output file """
 	values = []
 	for field in ['ref_id', 'ref_pos', 'ref_allele', 'gene_id', 'site_type']:
 		values.append(str(site[field]))
 	for snp in ['A','T','C','G']:
-		values.append(site['snp_type'][snp])
+		values.append(site['snp_types'][snp])
 	outfile.write('\t'.join(values)+'\n')
 
 def open_outfile(args):
@@ -183,10 +184,13 @@ def main(args):
 	genome = read_genome(args['db'], args['species_id'])
 	genes = read_genes(args['db'], args['species_id'])
 	snpinfo = open_outfile(args)
-	snplist = '%s/%s.snps.list' % (args['outdir'], args['species_id'])
+	snplist = '%s/%s.hq_snps' % (args['outdir'], args['species_id']) # TESTING
+	#snplist = '%s/%s.snps.list' % (args['outdir'], args['species_id'])
+	gene_index = 0
 	for i, site in enumerate(utility.parse_file(snplist)):
-		annotate_site(site, genes, genome)
-		write_record(site, snpinfo)
+		init_site(site)
+		annotate_site(site, genes, genome, gene_index)
+		write_site(site, snpinfo)
 		if args['max_sites'] and i >= args['max_sites']: break
 	snpinfo.close()
 

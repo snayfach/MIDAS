@@ -1,5 +1,21 @@
 CHANGES
 
+2016-04-04
+ * annotate_snps.py: skip invalid records where len(values) != len(fields) in read_genes() function
+ * pn_ps.py: integrated into nucleotide_diversity.py; removed
+ * nucleotide_diversity.py: updated help text
+
+2016-04-03
+ * annotate_snps.py: handle sites and codons that contain 'Ns'
+
+2016-04-02
+ * merge_snps.py: increased speed of SNP annotation by 5 fold
+   changed from genes = genes[1:] to genes = genes[gene_index]; gene_index += 1;
+   speed does not decrease over time
+
+2016-04-01
+ * merge_snps.py: increased speed of SNP annotation from 13,284 to 31,363 sites/min; takes ~1hr for 2M sites  
+
 2016-03-29
  * major update
  * integrated annotation into merge_snps.py and merge_genes.py

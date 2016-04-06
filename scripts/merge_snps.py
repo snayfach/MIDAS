@@ -59,7 +59,6 @@ merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --snps --freq
 
 4) Run a quick test:
 merge_genes.py -s 57955 -o outdir/57955 -i /path/to/samples -t dir --max_samples 10 --max_sites 1000
-
 """)
 	
 	parser.add_argument('--threads', type=int, default=1,
@@ -413,8 +412,8 @@ if __name__ == '__main__':
 	samples = identify_samples(args)
 	
 	if args['snps']:
-		print("Identifying and writing hq snps")
-		identify_snps(args, samples)
+		#print("Identifying and writing hq snps") # TESTING
+		#identify_snps(args, samples)
 		print("Annotating snps")
 		annotate_snps.main(args)
 
