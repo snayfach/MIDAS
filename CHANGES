@@ -1,5 +1,12 @@
 CHANGES
 
+2016-04-06
+ * setup.py
+   specifying version numbers for dependencies
+   removed phylo_cnv as a package
+ * all scripts under scripts/ 
+   phylo_cnv importing using a relative path
+
 2016-04-04
  * annotate_snps.py: skip invalid records where len(values) != len(fields) in read_genes() function
  * pn_ps.py: integrated into nucleotide_diversity.py; removed

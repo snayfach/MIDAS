@@ -6,9 +6,8 @@
 
 ## LIBRARIES
 import argparse, sys, os, gzip, subprocess, tempfile, shutil
-from phylo_cnv import merge
-from phylo_cnv import utility
-from phylo_cnv import annotate_snps
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from phylo_cnv import annotate_snps, merge, utility
 
 ## CLASSES
 class Snp:

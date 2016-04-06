@@ -11,13 +11,14 @@ Download and install the software:
 `python PhyloCNV/setup.py install`  
 [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/install.md)
 
+Update your PATH:  
+`export PATH=$PATH:PhyloCNV/scripts` 
+
 Download the reference database:  
 `python PhyloCNV/scripts/download_ref_db.py`   
 [read more...] (https://github.com/snayfach/PhyloCNV/blob/master/docs/ref_db.md)  
 
 ## Run PhyloCNV
-
-The following directions assume that PhyloCNV/scripts has been added to your PATH  
 
 More information can be obtained for any of the scripts  using the `-h` flag
 

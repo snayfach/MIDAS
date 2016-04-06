@@ -5,9 +5,9 @@ Operating system:
 * Mac OSX
 
 Python dependencies (installed via setup.py): 
-* Numpy (v1.9.1)
-* BioPython (v1.6.2)
-* Pysam (v0.8.1)
+* Numpy (>=1.7.0)
+* BioPython (>=1.6.2)
+* Pysam (>=0.8.1)
 
 External packages (precompiled binaries are included with software):
 * Bowtie2 (v2.2.4)

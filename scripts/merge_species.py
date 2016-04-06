@@ -7,9 +7,8 @@
 import os, sys
 import argparse
 import numpy as np
-from phylo_cnv import species
-from phylo_cnv import merge
-from phylo_cnv import utility
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from phylo_cnv import species, merge, utility
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(

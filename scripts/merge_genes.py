@@ -6,8 +6,8 @@
 
 import argparse, sys, os, gzip
 from collections import defaultdict
-from phylo_cnv import utility
-from phylo_cnv import merge
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from phylo_cnv import merge, utility
 
 def parse_arguments():
 	""" Parse command line arguments """
