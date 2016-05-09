@@ -1,5 +1,16 @@
 CHANGES
 
+2016-05-09
+ * nucleotide_diversity.py: takes inbase, uses new function to parse infiles
+ * snp_sharing.py: added
+ * count_snps.py: added
+
+2016-04-14
+ * nucleotide_diversity.py: computes pi at different site types; uses pi to compute pi(N)/pi(S)
+
+2016-04-11
+ * nucleotide_diversity.py: added --samples to compute diversity for subset of samples
+
 2016-04-06
  * setup.py
    specifying version numbers for dependencies

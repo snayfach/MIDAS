@@ -1,7 +1,5 @@
 # PhyloCNV
 
-test
-
 ####Phylogenetic and gene-copy-number variation of microbial populations
 
 PhyloCNV is an integrated pipeline that estimates bacterial species abundance and strain-level genomic variation from shotgun metagnomes.  Also, population genetic and phylogenetic inferences are performed. PhyloCNV leverage a comprehensive database of ~6,000 bacterial species & ~30,000 genomes.   
