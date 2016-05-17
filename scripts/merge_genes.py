@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
-# PhyloCNV - estimation of single-nucleotide-variants and gene-copy-number from shotgun sequence data
+# MIDAS: Metagenomic Intra-species Diversity Analysis System
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
 import argparse, sys, os, gzip
 from collections import defaultdict
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from phylo_cnv import merge, utility
+from src import merge, utility
 
 def parse_arguments():
 	""" Parse command line arguments """

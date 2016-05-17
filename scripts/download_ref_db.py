@@ -1,17 +1,10 @@
 #!/usr/bin/env python
 
-# PhyloCNV - estimation of single-nucleotide-variants and gene-copy-number from shotgun sequence data
+# MIDAS: Metagenomic Intra-species Diversity Analysis System
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-# Notes
-# Ran into issues when using '-C -' to resume partially downloaded files
-# '--retry' will restart download if it stalls or the internet goes down temporarily
-
-import os
-import sys
-import subprocess
-import platform
+import os, sys, subprocess, platform
 
 def download(url, progress=True):
 	print("Downloading: %s" % url)
