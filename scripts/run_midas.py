@@ -12,9 +12,9 @@ def get_program():
 	""" Get program specified by user (species, genes, or snps) """
 	if len(sys.argv) == 1 or sys.argv[1] in ['-h', '--help']:
 		print('')
-		print('Usage: run_phylo_cnv.py <command> [options]')
+		print('Usage: run_midas.py <command> [options]')
 		print('')
-		print('Note: use run_phylo_cnv.py <command> -h to view usage for a specific command')
+		print('Note: use run_midas.py <command> -h to view usage for a specific command')
 		print('')
 		print('Commands:')
 		print('\tspecies\t estimate the abundance of 5,952 bacterial species')
@@ -67,24 +67,23 @@ def print_arguments(program, args):
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
 	if program == 'species':
-		from phylo_cnv import species
+		from src import species
 		species.estimate_abundance(args)
 	elif program == 'genes':
-		from phylo_cnv import genes
+		from src import genes
 		genes.run_pipeline(args)
 	elif program == 'snps':
-		from phylo_cnv import snps
+		from src import snps
 		snps.run_pipeline(args)
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
-
 
 def species_arguments():
 	parser = argparse.ArgumentParser(
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: run_phylo_cnv.py species outdir [options]
+Usage: run_midas.py species outdir [options]
 
 Description:
 This script will map metagenomic reads to a database of phylogenetic marker genes using HS-BLASTN
@@ -94,16 +93,16 @@ Reads that map equally well to 2 or more species are probabalistically assigned
 """,
 		epilog="""Examples:
 1) run with defaults using a paired-end metagenome:
-run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_midas.py species outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
 2) run using a single-end metagenome with 4 CPUs and only 4M reads:
-run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000
+run_midas.py species outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000
 
 3) run with exactly 80 base-pair reads:
-run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz --read_length 80
+run_midas.py species outdir -1 /path/to/reads_1.fq.gz --read_length 80
 
 4) quantify species abundance using a 16S database:
-run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA
+run_midas.py species outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA
 	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str, help='Path to directory to store results. Name should correspond to sample identifier.')
@@ -134,7 +133,7 @@ run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA
 
 def print_species_arguments(args):
 	print ("===========Parameters===========")
-	print ("Script: run_phylo_cnv.py species")
+	print ("Script: run_midas.py species")
 	print ("Output directory: %s" % args['outdir'])
 	print ("Input reads (1st mate): %s" % args['m1'])
 	print ("Input reads (2nd mate): %s" % args['m2'])
@@ -165,7 +164,7 @@ def gene_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: run_phylo_cnv.py genes outdir [options]
+Usage: run_midas.py genes outdir [options]
 
 Description:
 This script will map metagenomic reads to bacterial pangenomes and quantify these genes in your data
@@ -177,16 +176,16 @@ The pipeline can be broken down into three main steps:
 """,
 		epilog="""Examples:
 1) run entire pipeline using defaults:
-run_phylo_cnv.py genes /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_midas.py genes /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 			
 2) run entire pipeline for a specific species:
-run_phylo_cnv.py genes /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_midas.py genes /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
 3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
-run_phylo_cnv.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
+run_midas.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
 
 4) just quantify genes, keep reads with >=95% alignment identity and reads with an average quality-score >=30:
-run_phylo_cnv.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
+run_midas.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
 	""")
 
 	parser.add_argument('program', help=argparse.SUPPRESS)
@@ -245,7 +244,7 @@ def print_gene_arguments(args):
 
 	print ("===========Parameters===========")
 
-	print ("Script: run_phylo_cnv.py genes")
+	print ("Script: run_midas.py genes")
 	print ("Output directory: %s" % args['outdir'])
 	print ("Remove temporary files: %s" % args['remove_temp'])
 		
@@ -288,7 +287,7 @@ def snp_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: run_phylo_cnv.py snps outdir [options]
+Usage: run_midas.py snps outdir [options]
 
 Description:
 This script will map metagenomic reads to bacterial reference genomes and call SNPs in these genomes
@@ -300,16 +299,16 @@ The pipeline can be broken down into three main steps:
 """,
 		epilog="""Examples:
 1) run entire pipeline using defaults:
-run_phylo_cnv.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_midas.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 			
 2) run entire pipeline for a specific species:
-run_phylo_cnv.py snps /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_midas.py snps /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
 3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
-run_phylo_cnv.py snps /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
+run_midas.py snps /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
 
 4) just call SNPs, keep reads with >=95% alignment identity and keep bases with quality-scores >=35:
-run_phylo_cnv.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35
+run_midas.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35
 	""")
 	
 	parser.add_argument('program', help=argparse.SUPPRESS)
@@ -369,7 +368,7 @@ def print_snp_arguments(args):
 
 	print ("===========Parameters===========")
 
-	print ("Script: run_phylo_cnv.py snps")
+	print ("Script: run_midas.py snps")
 	print ("Output directory: %s" % args['outdir'])
 	print ("Remove temporary files: %s" % args['remove_temp'])
 		
@@ -426,7 +425,7 @@ def check_genes(args):
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
 		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
-			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --sp_topn or --sp_cov you must have run: run_phylo_cnv.py species" % profile)
+			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --sp_topn or --sp_cov you must have run: run_midas.py species" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
@@ -474,7 +473,7 @@ def check_snps(args):
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
 		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
-			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --sp_topn or --sp_cov you must have run: run_phylo_cnv.py species" % profile)
+			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --sp_topn or --sp_cov you must have run: run_midas.py species" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']

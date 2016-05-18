@@ -11,7 +11,7 @@ __version__ = '1.0.0'
 def print_copyright():
 	print ("")
 	print ("MIDAS: Metagenomic Intra-species Diversity Analysis System")
-	print ("version %s; github.com/snayfach/PhyloCNV" % __version__)
+	print ("version %s; github.com/snayfach/MIDAS" % __version__)
 	print ("Copyright (C) 2015-2016 Stephen Nayfach")
 	print ("Freely distributed under the GNU General Public License (GPLv3)")
 	print ("")
@@ -88,13 +88,14 @@ def is_executable(f):
 
 def add_executables(args):
 	""" Identify relative file and directory paths """
-	main_dir = os.path.dirname(os.path.abspath(__file__))
+	src_dir = os.path.dirname(os.path.abspath(__file__))
+	main_dir = os.path.dirname(src_dir)
+	args['stream_bam'] = '/'.join([src_dir, 'stream_bam.py'])
+	args['stream_seqs'] = '/'.join([src_dir, 'stream_seqs.py'])
 	args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
-	args['stream_seqs'] = '/'.join([main_dir, 'stream_seqs.py'])
 	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
 	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-	args['stream_bam'] = '/'.join([main_dir, 'stream_bam.py'])
 	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools', 'stream_bam']:
 		if not os.path.isfile(args[arg]):
 			sys.exit("File not found: %s" % args[arg])
@@ -104,11 +105,12 @@ def add_executables(args):
 
 def add_data_files(args):
 	""" Identify relative file and directory paths """
-	main_dir = os.path.dirname(os.path.abspath(__file__))
-	args['cluster_ids'] = '/'.join([main_dir,'data/cluster_annotations.txt'])
-	args['gene_length'] = '/'.join([main_dir,'data/gene_length.txt'])
-	args['pid_cutoffs'] = '/'.join([main_dir,'data/pid_cutoffs.txt'])
-	args['bad_gcs'] = '/'.join([main_dir,'data/bad_cluster_ids.txt'])
+	src_dir = os.path.dirname(os.path.abspath(__file__))
+	main_dir = os.path.dirname(src_dir)
+	args['cluster_ids'] = '/'.join([main_dir, 'data/cluster_annotations.txt'])
+	args['gene_length'] = '/'.join([main_dir, 'data/gene_length.txt'])
+	args['pid_cutoffs'] = '/'.join([main_dir, 'data/pid_cutoffs.txt'])
+	args['bad_gcs'] = '/'.join([main_dir, 'data/bad_cluster_ids.txt'])
 	for arg in ['cluster_ids', 'gene_length', 'pid_cutoffs', 'bad_gcs']:
 		if not os.path.isfile(args[arg]):
 			sys.exit("File not found: %s" % args[arg])
@@ -153,16 +155,6 @@ def max_mem_usage():
 		return round((max_mem_self + max_mem_child)/float(1e6), 2)
 	else:
 		return round((max_mem_self + max_mem_child)/float(1e9), 2)
-
-def add_paths(args):
-	""" Add paths to external files and binaries """
-	main_dir = os.path.dirname(os.path.abspath(__file__))
-	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
-	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
-	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-	args['pid_cutoffs'] = '/'.join([main_dir, 'data', 'pid_cutoffs.txt'])
-	args['bad_gcs'] = '/'.join([main_dir, 'data', 'bad_cluster_ids.txt'])
-	args['stream_bam'] = '/'.join([main_dir, 'stream_bam.py'])
 
 def check_exit_code(process, command):
 	""" Capture stdout, stderr. Check unix exit code and exit if non-zero """

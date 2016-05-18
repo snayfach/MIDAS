@@ -8,7 +8,7 @@
 #  -Handle rna genes
 
 import argparse, sys, os, gzip, Bio.SeqIO
-from phylo_cnv import utility
+import utility
 
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """
@@ -184,8 +184,7 @@ def main(args):
 	genome = read_genome(args['db'], args['species_id'])
 	genes = read_genes(args['db'], args['species_id'])
 	snpinfo = open_outfile(args)
-	snplist = '%s/%s.hq_snps' % (args['outdir'], args['species_id']) # TESTING
-	#snplist = '%s/%s.snps.list' % (args['outdir'], args['species_id'])
+	snplist = '%s/%s.snps.list' % (args['outdir'], args['species_id'])
 	gene_index = 0
 	for i, site in enumerate(utility.parse_file(snplist)):
 		init_site(site)

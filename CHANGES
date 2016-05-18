@@ -1,12 +1,14 @@
 CHANGES
 
 2016-05-17
+ * combined merging scripts into merge_midas.py
  * renamed software name from PhyloCNV to MIDAS
  * renamed run_phylo_cnv.py to run_midas.py
  * renamed /phylo_cnv to /src
- * moved nucleotide_diversity.py and snp_sharing.py to /analysis
+ * split nucleotide_diversity.py to gene_diversity.py and genome_diversity.py
+ * moved snp_sharing.py to /analysis
  * added snp_prevalence.py and snp_rarefaction.py to /analysis
- * added analyze_snps.py to /src
+ * added analyze_snps.py to /analysis
 
 2016-05-09
  * nucleotide_diversity.py: takes inbase, uses new function to parse infiles
