@@ -77,14 +77,14 @@ def open_infiles(species_id, samples):
 	""" Open SNP files for species across samples """
 	infiles = {}
 	for sample in samples:
-		inpath = '%s/snps/snps/%s.snps.gz' % (sample.dir, species_id)
+		inpath = '%s/snps/output/%s.snps.gz' % (sample.dir, species_id)
 		infiles[sample.id] = utility.parse_file(inpath)
 	return infiles
 
 def read_hq_snps(outdir, species_id):
 	""" Read in list of HQ snps from file"""
 	snps = []
-	infile = open('%s/%s.snps.list' % (outdir, species_id))
+	infile = open('%s/%s/%s.snps.list' % (outdir, species_id, species_id))
 	next(infile)
 	for line in infile:
 		snps.append(line.rstrip().split()[0:2])
@@ -103,13 +103,13 @@ def open_outfiles(outdir, species_id, sample_ids, index=None):
 	""" Open matrices and write headers """
 	outfiles = {}
 	for type in ['ref_freq', 'depth', 'alt_allele']:
-		if index is None: outpath = '%s/%s.snps.%s' % (outdir, species_id, type)
+		if index is None: outpath = '%s/%s/%s.snps.%s' % (outdir, species_id, species_id, type)
 		else: outpath = '%s/%s.snps.%s.%s' % (outdir, species_id, type, index)
 		outfiles[type] = open(outpath, 'w')
 		outfiles[type].write('\t'.join(['ref_id','ref_pos']+sample_ids)+'\n')
 	return outfiles
 
-def identify_snps(args, samples):
+def identify_snps(species_id, samples, args):
 	""" 
 	Write list of high-quality snps to disk
 	  -Split up samples into batches
@@ -118,13 +118,13 @@ def identify_snps(args, samples):
 	"""
 	# write temporary snp lists
 	list = []
-	tempdir = tempfile.mkdtemp(dir=args['outdir'])
+	tempdir = tempfile.mkdtemp(dir='%s/%s' % (args['outdir'], species_id))
 	batches = utility.batch_samples(samples, args['threads'])
 	for index, batch in enumerate(batches):
 		a = {}
 		a['index'] = index
 		a['samples'] = batch
-		a['species_id'] = args['species_id']
+		a['species_id'] = species_id
 		a['outdir'] = tempdir
 		a['site_depth'] = args['site_depth']
 		a['max_sites'] = args['max_sites']
@@ -133,11 +133,11 @@ def identify_snps(args, samples):
 	# open temporary snp lists
 	infiles = []
 	for index, batch in enumerate(batches):
-		infile = open('%s/%s.snps.list.%s' % (tempdir, args['species_id'], index))
+		infile = open('%s/%s.snps.list.%s' % (tempdir, species_id, index))
 		next(infile)
 		infiles.append(infile)
 	# identify hq snps
-	outfile = open('%s/%s.snps.list' % (args['outdir'], args['species_id']), 'w')
+	outfile = open('%s/%s/%s.snps.list' % (args['outdir'], species_id, species_id), 'w')
 	header = ['ref_id', 'ref_pos', 'ref_allele', 'count_samples']
 	outfile.write('\t'.join(header)+'\n')
 	min_samples = int(len(samples) * args['site_prev'])
@@ -157,7 +157,7 @@ def identify_snps(args, samples):
 			count_sites += 1
 			values = [ref_id, ref_pos, ref_allele, count_samples]
 			outfile.write('\t'.join([str(_) for _ in values])+'\n')
-	print "  %s high-quality snps found" % count_sites
+	print "    %s high-quality snps found" % count_sites
 	# clean up temporary snp lists
 	for file in infiles: file.close()
 	shutil.rmtree(tempdir, ignore_errors=True)
@@ -170,7 +170,7 @@ def write_prevalence(index, species_id, samples, site_depth, max_sites, outdir):
 	header = ['ref_id', 'ref_pos', 'ref_allele', 'count_samples']
 	outfile.write('\t'.join(header)+'\n')
 	count_sites = 0
-	while count_sites <= max_sites:
+	while count_sites < max_sites:
 		snp = Snp(snpfiles, samples)
 		if snp.data is None:
 			break
@@ -180,7 +180,7 @@ def write_prevalence(index, species_id, samples, site_depth, max_sites, outdir):
 			values = [snp.id()[0], snp.id()[1], snp.ref_allele(), count_samples]
 			outfile.write('\t'.join([str(_) for _ in values])+'\n')
 
-def build_snp_matrix(args, samples):
+def build_snp_matrix(species_id, samples, args):
 	""" 
 	Write snp matrices: ref_freq, depth, alt_allele
 	  -Split up samples into batches
@@ -189,14 +189,14 @@ def build_snp_matrix(args, samples):
 	"""
 	# write temporary snp matrixes
 	list = []
-	tempdir = tempfile.mkdtemp(dir=args['outdir'])
+	tempdir = tempfile.mkdtemp(dir='%s/%s' % (args['outdir'], species_id))
 	batches = utility.batch_samples(samples, args['threads'])
-	hq_snps = read_hq_snps(args['outdir'], args['species_id'])
+	hq_snps = read_hq_snps(args['outdir'], species_id)
 	for index, batch in enumerate(batches):
 		a = {}
 		a['index'] = index
 		a['samples'] = batch
-		a['species_id'] = args['species_id']
+		a['species_id'] = species_id
 		a['hq_snps'] = hq_snps
 		a['outdir'] = tempdir
 		list.append(a)
@@ -206,12 +206,12 @@ def build_snp_matrix(args, samples):
 	for type in ['ref_freq', 'depth', 'alt_allele']:
 		files = []
 		for index, batch in enumerate(batches):
-			inpath = '%s/%s.snps.%s.%s' % (tempdir, args['species_id'], type, index)
+			inpath = '%s/%s.snps.%s.%s' % (tempdir, species_id, type, index)
 			files.append(open(inpath))
 		infiles[type] = files
 	# merge temporary files
 	sample_ids = [s.id for s in samples]
-	outfiles = open_outfiles(args['outdir'], args['species_id'], sample_ids)
+	outfiles = open_outfiles(args['outdir'], species_id, sample_ids)
 	for type in ['ref_freq', 'depth', 'alt_allele']:
 		files = infiles[type]
 		for file in files: # skip header
@@ -281,25 +281,32 @@ def build_tree(args):
 
 def run_pipeline(args):
 
-	print("Loading samples")
-	samples = identify_samples(args)
-	
-	if args['snps']:
-		print("Identifying and writing hq snps")
-		identify_snps(args, samples)
-		print("Annotating snps")
-		annotate_snps.main(args)
+	print("Identifying species")
+	species = merge.select_species(args, type='snps')
 
-	if args['freq']:
-		print("Writing allele frequencies & depths")
-		build_snp_matrix(args, samples)
+	for sp in species:
 
-	if args['cons']:
-		print("Writing consensus sequences")
-		write_consensus(args, samples)
+		print "Merging: %s (id:%s) for %s samples" % (sp.consensus_name, sp.id, len(sp.samples))
+		outdir = os.path.join(args['outdir'], sp.id)
+		if not os.path.isdir(outdir): os.mkdir(outdir)
 
-	if args['tree']:
-		print("Building phylogenetic tree")
-		build_tree(args)
+		if args['snps']:
+			print("  identifying and writing hq snps")
+			identify_snps(sp.id, sp.samples, args)
+			
+			print("  annotating snps")
+			annotate_snps.main(sp.id, args)
+
+		if args['freq']:
+			print("  writing allele frequencies & depths")
+			build_snp_matrix(sp.id, sp.samples, args)
+
+#		if args['cons']:
+#			print("  writing consensus sequences")
+#			write_consensus(args, samples)
+#
+#		if args['tree']:
+#			print("  building phylogenetic tree")
+#			build_tree(args)
 
 			

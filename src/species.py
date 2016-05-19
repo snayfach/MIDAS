@@ -26,7 +26,7 @@ def map_reads_hsblast(args):
 	if args['m2']: command += ' -2 %s' % args['m2'] # mate
 	if args['max_reads']: command += ' -n %s' % args['max_reads'] # number of reads
 	if args['read_length']: command += ' -l %s' % args['read_length'] # read length
-	command += ' 2> %s/species/read_count.txt' % args['outdir'] # tmpfile to store # of reads, bp sampled
+	command += ' 2> %s/species/temp/read_count.txt' % args['outdir'] # tmpfile to store # of reads, bp sampled
 	# hs-blastn
 	command += ' | %s align' % args['hs-blastn']
 	command += ' -word_size %s' % args['word_size']
@@ -34,7 +34,7 @@ def map_reads_hsblast(args):
 	command += ' -db %s/%s/%s' % (args['db'], 'marker_genes', args['db_type'])
 	command += ' -outfmt 6'
 	command += ' -num_threads %s' % args['threads']
-	command += ' -out %s/species/alignments.m8' % args['outdir']
+	command += ' -out %s/species/temp/alignments.m8' % args['outdir']
 	command += ' -evalue 1e-3'
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
@@ -57,7 +57,7 @@ def find_best_hits(args):
 	marker_cutoffs = get_markers(args)
 	i = 0
 	qcovs = []
-	for aln in parse_blast('%s/species/alignments.m8' % args['outdir']):
+	for aln in parse_blast('%s/species/temp/alignments.m8' % args['outdir']):
 		i += 1
 		marker_id = aln['target'].split('_')[-1]
 		cutoff = args['mapid'] if args['mapid'] else marker_cutoffs[marker_id]
@@ -190,8 +190,8 @@ def estimate_abundance(args):
 
 	# clean up
 	if args['remove_temp']:
-		os.remove('%s/species/read_count.txt' % args['outdir'])
-		os.remove('%s/species/alignments.m8' % args['outdir'])
+		import shutil
+		shutil.rmtree('%s/species/temp' % args['outdir'])
 
 def write_abundance(outdir, cluster_abundance, annotations):
 	""" Write cluster results to specified output file """

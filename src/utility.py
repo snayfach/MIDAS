@@ -70,11 +70,10 @@ def add_ref_db(args):
 		sys.exit("Could not locate reference database: %s" % args['db'])
 	return args
 
-def read_ref_to_cluster(args, type):
+def read_ref_to_cluster(inpath):
 	""" Read in map of scaffold id to genome-cluster id """
 	ref_to_cluster = {}
-	dir = 'snps' if type == 'genomes' else 'genes'
-	infile = open('/'.join([args['outdir'], '%s/db/%s.map' % (dir, type)]))
+	infile = open(inpath)
 	for line in infile:
 		ref_id, cluster_id = line.rstrip().split()
 		ref_to_cluster[ref_id] = cluster_id
@@ -142,9 +141,9 @@ def parse_file(inpath):
 	""" Yields records from tab-delimited file with header """
 	ext = inpath.split('.')[-1]
 	infile = gzip.open(inpath) if ext=='gz' else open(inpath)
-	fields = next(infile).rstrip().split()
+	fields = next(infile).rstrip().split('\t')
 	for line in infile:
-		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split())])
+		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split('\t'))])
 	infile.close()
 
 def max_mem_usage():

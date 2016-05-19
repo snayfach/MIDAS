@@ -107,8 +107,6 @@ merge_midas.py genes -s 57955 -o outdir/57955 -i /path/to/samples -t dir --marke
 4) Use lenient threshold for determining gene presence-absence:
 merge_midas.py genes -s 57955 -o outdir/57955 -i /path/to/samples -t dir --min_copy 0.1
 
-5) Just write pan-genome matrices; do not write results for KEGG, FIGfams, GO, or EC:
-merge_midas.py genes -s 57955 -o outdir/57955 -i /path/to/samples -t dir --no_functions
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	io = parser.add_argument_group('Input/Output')
@@ -120,18 +118,21 @@ see '-t' for details""")
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
-	io.add_argument('-s', dest='species_id', type=str, required=True,
-		help="""species identifier
-a list of prevalent species can be obtained by running 'merge_species.py'
-a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
 	io.add_argument('-o', type=str, dest='outdir', required=True,
 		help="""output directory""")
-	io.add_argument('--no_functions', action='store_true', default=False,
-		help="""do not write function matrices to OUTDIR""")
+	species = parser.add_argument_group('Species selection (select subset of species from INPUT)')
+	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
+		help="""all species with >= MIN_SAMPLES (1)""")
+	species.add_argument('--sp_id', dest='species_id', type=str,
+		help="""comma-separated list of species ids
+a list of prevalent species can be obtained by running 'merge_midas.py species'
+a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
+	species.add_argument('--max_species', type=int, metavar='INT',
+		help="""maximum number of species to merge. useful for testing (use all)""")
 	sample = parser.add_argument_group('Sample filters (select subset of samples from INPUT)')
-	sample.add_argument('--marker_coverage', type=float, default=1.0, metavar='FLOAT',
-		help="""minimum coverage per sample across 15 phylogenetic marker genes (1.0)""")
-	sample.add_argument('--gene_coverage', type=float, default=1.0, metavar='FLOAT',
+	#sample.add_argument('--marker_coverage', type=float, default=1.0, metavar='FLOAT',
+	#	help="""minimum coverage per sample across 15 phylogenetic marker genes (1.0)""")
+	sample.add_argument('--sample_depth', type=float, default=1.0, metavar='FLOAT',
 		help="""minimum coverage per sample across all genes with non-zero coverage (1.0)""")
 	sample.add_argument('--max_samples', type=int, metavar='INT',
 		help="""maximum number of samples to process. useful for testing (use all)""")
@@ -184,10 +185,6 @@ see '-t' for details""")
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
-	io.add_argument('-s', dest='species_id', type=str, required=True,
-		help="""species identifier
-a list of prevalent species can be obtained by running 'merge_species.py'
-a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
 	io.add_argument('-o', type=str, dest='outdir', required=True,
 		help="""output directory""")
 	pipe = parser.add_argument_group("Pipeline options (choose one or more; default=all)")
@@ -199,6 +196,15 @@ a map of species ids to species names can be found in 'ref_db/annotations.txt'""
 		help="generate fasta file of consensus sequences")
 	pipe.add_argument('--tree', default=False, action='store_true',
 		help="build phylogenetic tree")
+	species = parser.add_argument_group('Species selection (select subset of species from INPUT)')
+	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
+		help="""all species with >= MIN_SAMPLES (1)""")
+	species.add_argument('--sp_id', dest='species_id', type=str,
+		help="""comma-separated list of species ids
+a list of prevalent species can be obtained by running 'merge_midas.py species'
+a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
+	species.add_argument('--max_species', type=int, metavar='INT',
+		help="""maximum number of species to merge (use all)""")
 	sample = parser.add_argument_group("Sample filters (select subset of samples from INPUT)")
 	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=5.0,
 		help="""minimum average read depth per sample (5.0)""")
@@ -243,6 +249,7 @@ def check_species(args):
 
 def check_genes(args):
 	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
+	check_input(args)
 
 def check_snps(args):
 	if not os.path.isdir(args['outdir']):
@@ -252,6 +259,20 @@ def check_snps(args):
 		args['freq'] = True
 		args['cons'] = True
 		args['tree'] = True
+	check_input(args)
+
+def check_input(args):
+	error = "\nError: specified input does not exist: %s"
+	if (args['intype'] == 'dir'
+			and not os.path.isdir(args['input'])):
+		sys.exit(error % os.path.abspath(args['input']))
+	elif (args['intype'] == 'file'
+			and not os.path.isfile(args['input'])):
+		sys.exit(error % os.path.abspath(args['input']))
+	elif args['intype'] == 'list':
+		for file in input.split(','):
+			if not os.path.isfile(file):
+				sys.exit(error % file)
 
 def print_arguments(program, args):
 	""" Run program specified by user (species, genes, or snps) """
@@ -279,12 +300,18 @@ def print_genes_arguments(args):
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
-	print ("Species identifier: %s" % args['species_id'])
+	print ("Species selection criteria:")
+	if args['species_id']:
+		print ("  species_ids: %s" % args['species_id'].split(','))
+	if args['min_samples']:
+		print ("  >= %s high-coverage samples per species" % args['min_samples'])
+	if args['max_species']:
+		print ("  analyze up to %s species" % args['max_species'])
 	print ("Sample selection criteria:")
-	if args['marker_coverage']:
-		print ("  >=%s average coverage across 15 universal-single-copy genes" % args['marker_coverage'])
-	if args['gene_coverage']:
-		print ("  >=%s average coverage across all genes with non-zero coverage" % args['gene_coverage'])
+	#if args['marker_coverage']:
+	#	print ("  >=%s average coverage across 15 universal-single-copy genes" % args['marker_coverage'])
+	if args['sample_depth']:
+		print ("  >=%s average read depth across detected genes" % args['sample_depth'])
 	if args['max_samples']:
 		print ("  analyze up to %s samples" % args['max_samples'])
 	print ("Gene quantification criterea:")

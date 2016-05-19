@@ -173,18 +173,18 @@ def write_site(site, outfile):
 		values.append(site['snp_types'][snp])
 	outfile.write('\t'.join(values)+'\n')
 
-def open_outfile(args):
+def open_outfile(species_id, args):
 	""" Open snp_info file for writing """
-	outfile = open('%s/%s.snps.info' % (args['outdir'], args['species_id']), 'w')
+	outfile = open('%s/%s/%s.snps.info' % (args['outdir'], species_id, species_id), 'w')
 	fields = ['ref_id', 'ref_pos', 'ref_allele', 'gene_id', 'site_type', 'snp_A', 'snp_T', 'snp_C', 'snp_G']
 	outfile.write('\t'.join(fields)+'\n')
 	return outfile
 
-def main(args):
-	genome = read_genome(args['db'], args['species_id'])
-	genes = read_genes(args['db'], args['species_id'])
-	snpinfo = open_outfile(args)
-	snplist = '%s/%s.snps.list' % (args['outdir'], args['species_id'])
+def main(species_id, args):
+	genome = read_genome(args['db'], species_id)
+	genes = read_genes(args['db'], species_id)
+	snpinfo = open_outfile(species_id, args)
+	snplist = '%s/%s/%s.snps.list' % (args['outdir'], species_id, species_id)
 	gene_index = 0
 	for i, site in enumerate(utility.parse_file(snplist)):
 		init_site(site)

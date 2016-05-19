@@ -2,7 +2,14 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import os
+import os, random, utility, sys
+
+class Species:
+	""" Base class for species """
+	def __init__(self, id, info):
+		self.id = id
+		self.consensus_name = info[id]['consensus_name']
+		self.samples = []
 
 class Sample:
 	""" Base class for samples """
@@ -16,13 +23,56 @@ class Sample:
 		species = '/'.join([self.dir, 'species/species_profile.txt'])
 		if os.path.isfile(species): paths['species'] = species
 		else: paths['species'] = None
-		snps = '/'.join([self.dir, 'snps/snps_summary_stats.txt'])
+		snps = '/'.join([self.dir, 'snps/summary.txt'])
 		if os.path.isfile(snps): paths['snps'] = snps
 		else: paths['snps'] = None
-		genes = '/'.join([self.dir, 'genes/genes_summary_stats.txt'])
+		genes = '/'.join([self.dir, 'genes/summary.txt'])
 		if os.path.isfile(genes): paths['genes'] = genes
 		else: paths['genes'] = None
 		return paths
+
+
+def select_species(args, type='genes'):
+	""" Select all species with a minimum number of high-coverage samples"""
+	# read species annotations
+	species_info = {}
+	inpath = os.path.join(args['db'], 'annotations.txt')
+	for rec in utility.parse_file(inpath):
+		if 'cluster_id' in rec: rec['species_id'] = rec['cluster_id'] ## temporary fix
+		species_info[rec['species_id']] = rec
+	# fetch all species with at least 1 sample
+	species = {}
+	for sample in load_samples(args):
+		if not sample.paths[type]:
+			sys.stderr.write("Warning: no genes output for sample: %s\n" % sample.dir)
+			continue
+		for id, info in read_stats(sample.paths[type]).items():
+			if (args['species_id']
+					and id not in args['species_id'].split(',')):
+				continue # skip unspecified species
+			elif (args['max_samples']
+					and id in species
+					and len(species[id].samples) >= args['max_samples']):
+				continue # skip species with too many samples
+			elif (type == 'genes'
+					and float(info['mean_coverage']) < args['sample_depth']):
+				continue # skip low-coverage species
+			elif (type == 'snps'
+					and float(info['average_depth']) < args['sample_depth']):
+				continue # skip low-coverage species
+			if id not in species:
+				species[id] = Species(id, species_info) # initialize new species
+			species[id].samples.append(sample) # append sample
+	# remove species with an insufficient number of samples
+	for sp in species.copy():
+		if len(species[sp].samples) < args['min_samples']:
+			del species[sp]
+	species = species.values()
+	# select a subset of species to analyze
+	if args['max_species'] is not None and len(species) > args['max_species']:
+		species = random.sample(species, args['max_species'])
+	print "  found %s species with sufficient high-coverage samples\n" % len(species)
+	return species
 
 def read_stats(inpath):
 	stats = {}
@@ -36,15 +86,9 @@ def read_stats(inpath):
 
 def list_samples(input, intype):
 	if intype == 'dir':
-		if not os.path.isdir(input):
-			sys.exit("\nSpecified input directory does not exist:\n%s" % input)
-		else:
-			return([os.path.join(input, _) for _ in os.listdir(input)])
+		return([os.path.join(input, _) for _ in os.listdir(input)])
 	elif intype == 'file':
-		if not os.path.isfile(input):
-			sys.exit("\nSpecified input file does not exist:\n%s" % input)
-		else:
-			return([x.rstrip() for x in open(input).readlines()])
+		return([x.rstrip() for x in open(input).readlines()])
 	elif intype == 'list':
 		return(input.split(','))
 

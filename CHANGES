@@ -1,5 +1,12 @@
 CHANGES
 
+2016-05-19
+ * run_midas.py: 
+  * automatically generate log file
+  * restructure files: /output, /temp, summary.txt, log.txt 
+ * merge_midas.py:
+  * automatically merge over all species
+
 2016-05-17
  * combined merging scripts into merge_midas.py
  * renamed software name from PhyloCNV to MIDAS
