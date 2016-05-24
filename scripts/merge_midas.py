@@ -36,7 +36,7 @@ def get_arguments(program):
 		args = snps_arguments()
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
-	args = utility.add_ref_db(args)
+	utility.add_ref_db(args)
 	return args
 
 def species_arguments():

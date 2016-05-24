@@ -8,6 +8,37 @@ import sys, os, subprocess, gzip
 from time import time
 from midas import utility
 
+def build_genome_db(args, genome_clusters):
+	""" Build FASTA and BT2 database from genome cluster centroids """
+	# fasta database
+	genomes_fasta = open('/'.join([args['outdir'], 'snps/temp/genomes.fa']), 'w')
+	genomes_map = open('/'.join([args['outdir'], 'snps/temp/genomes.map']), 'w')
+	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
+	for species_id in genome_clusters:
+		if args['tax_mask'] and fetch_centroid(args, species_id) in args['tax_mask']:
+			continue
+		db_stats['genome_clusters'] += 1
+		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'genome.fna.gz'])
+		infile = gzip.open(inpath)
+		for line in infile:
+			genomes_fasta.write(line)
+			db_stats['total_length'] += len(line.rstrip())
+			if line[0] == '>':
+				sid = line.rstrip().lstrip('>').split()[0]
+				genomes_map.write(sid+'\t'+species_id+'\n')
+				db_stats['total_seqs'] += 1
+	# print out database stats
+	print("  total genomes: %s" % db_stats['genome_clusters'])
+	print("  total contigs: %s" % db_stats['total_seqs'])
+	print("  total base-pairs: %s" % db_stats['total_length'])
+	# bowtie2 database
+	inpath = '/'.join([args['outdir'], 'snps/temp/genomes.fa'])
+	outpath = '/'.join([args['outdir'], 'snps/temp/genomes'])
+	command = ' '.join([args['bowtie2-build'], inpath, outpath])
+	args['log'].write('command: '+command+'\n')
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	utility.check_exit_code(process, command)
+
 def genome_align(args):
 	""" Use Bowtie2 to map reads to representative genomes from each genome cluster
 	"""
@@ -92,7 +123,7 @@ def read_ref_bases(args, species_id):
 	""" Read in reference genome by position """
 	import Bio.SeqIO
 	ref = []
-	centroid_path = '/'.join([args['db'], 'genome_clusters', species_id, 'representative.fna.gz'])
+	centroid_path = '/'.join([args['db'], 'genome_clusters', species_id, 'genome.fna.gz'])
 	infile = gzip.open(centroid_path)
 	for rec in Bio.SeqIO.parse(infile, 'fasta'):
 		for pos in range(1, len(rec.seq)+1):
@@ -210,37 +241,6 @@ def fetch_centroid(args, species_id):
 	for line in infile:
 		if line.split()[2] == 'Y':
 			return line.split()[1]
-
-def build_genome_db(args, genome_clusters):
-	""" Build FASTA and BT2 database from genome cluster centroids """
-	# fasta database
-	genomes_fasta = open('/'.join([args['outdir'], 'snps/temp/genomes.fa']), 'w')
-	genomes_map = open('/'.join([args['outdir'], 'snps/temp/genomes.map']), 'w')
-	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
-	for species_id in genome_clusters:
-		if args['tax_mask'] and fetch_centroid(args, species_id) in args['tax_mask']:
-			continue
-		db_stats['genome_clusters'] += 1
-		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'representative.fna.gz'])
-		infile = gzip.open(inpath)
-		for line in infile:
-			genomes_fasta.write(line)
-			db_stats['total_length'] += len(line.rstrip())
-			if line[0] == '>':
-				sid = line.rstrip().lstrip('>').split()[0]
-				genomes_map.write(sid+'\t'+species_id+'\n')
-				db_stats['total_seqs'] += 1
-	# print out database stats
-	print("  total genomes: %s" % db_stats['genome_clusters'])
-	print("  total contigs: %s" % db_stats['total_seqs'])
-	print("  total base-pairs: %s" % db_stats['total_length'])
-	# bowtie2 database
-	inpath = '/'.join([args['outdir'], 'snps/temp/genomes.fa'])
-	outpath = '/'.join([args['outdir'], 'snps/temp/genomes'])
-	command = ' '.join([args['bowtie2-build'], inpath, outpath])
-	args['log'].write('command: '+command+'\n')
-	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	utility.check_exit_code(process, command)
 
 def remove_tmp(args):
 	""" Remove specified temporary files """

@@ -9,6 +9,39 @@ from time import time
 from midas import utility
 from midas.run import stream_bam
 
+def build_pangenome_db(args, genome_clusters):
+	""" Build FASTA and BT2 database from pangene cluster centroids """
+	import Bio.SeqIO
+	# fasta database
+	outdir = '/'.join([args['outdir'], 'genes/temp'])
+	pangenome_fasta = open('/'.join([outdir, 'pangenomes.fa']), 'w')
+	pangenome_map = open('/'.join([outdir, 'pangenome.map']), 'w')
+	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
+	for cluster_id in genome_clusters:
+		db_stats['genome_clusters'] += 1
+		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'pangenome.fa.gz'])
+		infile = gzip.open(inpath)
+		for r in Bio.SeqIO.parse(infile, 'fasta'):
+			genome_id = '.'.join(r.id.split('.')[0:2])
+			if not args['tax_mask'] or genome_id not in args['tax_mask']:
+				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq)))
+				pangenome_map.write('%s\t%s\n' % (r.id, cluster_id))
+				db_stats['total_length'] += len(r.seq)
+				db_stats['total_seqs'] += 1
+	pangenome_fasta.close()
+	pangenome_map.close()
+	# print out database stats
+	print("  total species: %s" % db_stats['genome_clusters'])
+	print("  total genes: %s" % db_stats['total_seqs'])
+	print("  total base-pairs: %s" % db_stats['total_length'])
+	# bowtie2 database
+	inpath = '/'.join([outdir, 'pangenomes.fa'])
+	outpath = '/'.join([outdir, 'pangenomes'])
+	command = ' '.join([args['bowtie2-build'], inpath, outpath])
+	args['log'].write('command: '+command+'\n')
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	utility.check_exit_code(process, command)
+
 def pangenome_align(args):
 	""" Use Bowtie2 to map reads to all specified genome clusters """
 	# Build command
@@ -38,35 +71,6 @@ def pangenome_align(args):
 	# Check for errors
 	utility.check_exit_code(process, command)
 	utility.check_bamfile(args, bampath)
-
-def genes_summary(args):
-	""" Get summary of mapping statistics """
-	# store stats
-	stats = {}
-	inpath = '%s/%s' % (args['outdir'], 'genes/temp/pangenome.map')
-	for cluster_id in set(utility.read_ref_to_cluster(inpath).values()):
-		pangenome_size, covered_genes, total_coverage, marker_coverage = [0,0,0,0]
-		for r in utility.parse_file('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % cluster_id])):
-			pangenome_size += 1
-			coverage = float(r['raw_coverage'])
-			normcov = float(r['normalized_coverage'])
-			if coverage > 0:
-				covered_genes += 1
-				total_coverage += coverage
-			if normcov > 0:
-				marker_coverage = coverage/normcov
-		stats[cluster_id] = {'pangenome_size':pangenome_size,
-							 'covered_genes':covered_genes,
-							 'fraction_covered':covered_genes/float(pangenome_size),
-							 'mean_coverage':total_coverage/covered_genes if covered_genes > 0 else 0.0,
-							 'marker_coverage':marker_coverage}
-	# write stats
-	fields = ['pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage']
-	outfile = open('/'.join([args['outdir'], 'genes/summary.txt']), 'w')
-	outfile.write('\t'.join(['cluster_id'] + fields)+'\n')
-	for cluster_id in stats:
-		record = [cluster_id] + [str(stats[cluster_id][field]) for field in fields]
-		outfile.write('\t'.join(record)+'\n')
 
 def count_mapped_bp(args):
 	""" Count number of bp mapped to each centroid across pangenomes """
@@ -104,7 +108,7 @@ def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 	# read in map of gene to phyeco marker
 	ref_to_phyeco = {}
 	for cluster_id in genome_clusters:
-		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'universal_genes.txt.gz'])
+		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'pangenome.marker_genes.gz'])
 		infile = gzip.open(inpath)
 		next(infile)
 		for line in infile:
@@ -153,44 +157,40 @@ def compute_pangenome_coverage(args):
 		normcov = cov/cluster_to_norm[cluster_id] if cluster_to_norm[cluster_id] > 0 else 0
 		outfile.write('\t'.join([str(x) for x in [ref_id, cov, normcov]])+'\n')
 
-def build_pangenome_db(args, genome_clusters):
-	""" Build FASTA and BT2 database from pangene cluster centroids """
-	import Bio.SeqIO
-	# fasta database
-	outdir = '/'.join([args['outdir'], 'genes/temp'])
-	pangenome_fasta = open('/'.join([outdir, 'pangenomes.fa']), 'w')
-	pangenome_map = open('/'.join([outdir, 'pangenome.map']), 'w')
-	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
-	for cluster_id in genome_clusters:
-		db_stats['genome_clusters'] += 1
-		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'pangenome.fa.gz'])
-		infile = gzip.open(inpath)
-		for r in Bio.SeqIO.parse(infile, 'fasta'):
-			genome_id = '.'.join(r.id.split('.')[0:2])
-			if not args['tax_mask'] or genome_id not in args['tax_mask']:
-				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq)))
-				pangenome_map.write('%s\t%s\n' % (r.id, cluster_id))
-				db_stats['total_length'] += len(r.seq)
-				db_stats['total_seqs'] += 1
-	pangenome_fasta.close()
-	pangenome_map.close()
-	# print out database stats
-	print("  total species: %s" % db_stats['genome_clusters'])
-	print("  total genes: %s" % db_stats['total_seqs'])
-	print("  total base-pairs: %s" % db_stats['total_length'])
-	# bowtie2 database
-	inpath = '/'.join([outdir, 'pangenomes.fa'])
-	outpath = '/'.join([outdir, 'pangenomes'])
-	command = ' '.join([args['bowtie2-build'], inpath, outpath])
-	args['log'].write('command: '+command+'\n')
-	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	utility.check_exit_code(process, command)
-
 def remove_tmp(args):
 	""" Remove specified temporary files """
 	import shutil
 	shutil.rmtree('/'.join([args['outdir'], 'temp']))
-		
+
+def genes_summary(args):
+	""" Get summary of mapping statistics """
+	# store stats
+	stats = {}
+	inpath = '%s/%s' % (args['outdir'], 'genes/temp/pangenome.map')
+	for cluster_id in set(utility.read_ref_to_cluster(inpath).values()):
+		pangenome_size, covered_genes, total_coverage, marker_coverage = [0,0,0,0]
+		for r in utility.parse_file('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % cluster_id])):
+			pangenome_size += 1
+			coverage = float(r['raw_coverage'])
+			normcov = float(r['normalized_coverage'])
+			if coverage > 0:
+				covered_genes += 1
+				total_coverage += coverage
+			if normcov > 0:
+				marker_coverage = coverage/normcov
+		stats[cluster_id] = {'pangenome_size':pangenome_size,
+							 'covered_genes':covered_genes,
+							 'fraction_covered':covered_genes/float(pangenome_size),
+							 'mean_coverage':total_coverage/covered_genes if covered_genes > 0 else 0.0,
+							 'marker_coverage':marker_coverage}
+	# write stats
+	fields = ['pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage']
+	outfile = open('/'.join([args['outdir'], 'genes/summary.txt']), 'w')
+	outfile.write('\t'.join(['cluster_id'] + fields)+'\n')
+	for cluster_id in stats:
+		record = [cluster_id] + [str(stats[cluster_id][field]) for field in fields]
+		outfile.write('\t'.join(record)+'\n')
+
 def run_pipeline(args):
 	""" Run entire pipeline """
 	

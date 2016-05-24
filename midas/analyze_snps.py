@@ -129,30 +129,28 @@ class GenomicSite:
 			self.alleles = next(alleles).rstrip().split('\t')[1:]
 			self.sample_ids = sample_ids
 			self.count_samples = len(self.sample_ids)
+			self.mean_depth = self.mean_depth()
 			self.mean_freq = self.mean_freq()
 			self.prev = self.prev(site_depth)
 			self.maf = maf(self.mean_freq)
 		except StopIteration:
 			self.id = None
 
-	def write_info(self, file, args=None):
-		rec = []
-		rec.append(self.id)
-		rec.append(self.prev)
-		rec.append(self.mean_freq)
-		rec.append(self.allele_props())
-		file.write('\t'.join([str(_) for _ in rec])+'\n')
-
 	def mean_freq(self):
 		freqs = [float(_) for _ in self.freqs if _ != 'NA']
 		if len(freqs) > 0: return np.mean(freqs)
+		else: return 'NA'
+		
+	def mean_depth(self):
+		depths = [int(_) for _ in self.depths if _ != 'NA']
+		if len(depths) > 0: return np.mean(depths)
 		else: return 'NA'
 
 	def prev(self, site_depth):
 		count = len([_ for _ in self.depths if int(_) >= site_depth])
 		return float(count)/self.count_samples
 
-	def allele_props(self, format=True):
+	def alt_alleles(self):
 		d = {'A':0.0, 'T':0.0, 'C':0.0, 'G':0.0}
 		for freq, allele in zip(self.freqs, self.alleles):
 			if allele != 'NA':
@@ -161,10 +159,7 @@ class GenomicSite:
 		if total > 0:
 			for allele in d.copy():
 				d[allele] = d[allele]/total
-		if format:
-			return '|'.join(['%s:%s' % (x, y) for x, y in d.items()])
-		else:
-			return d
+		return d
 
 	def iterate(self, sample_ids):
 		for sample_id, freq, count in zip(self.sample_ids, self.freqs, self.depths):

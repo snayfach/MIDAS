@@ -1,5 +1,14 @@
 CHANGES
 
+2016-05-24
+ * annotate_sites: increased speed to 45k sites/sec from 1k sites/sec 
+   * lookup gene seqs 1x
+   * keep track of gene_index between sites
+ * merge_midas.py snps
+   * added site annotation
+ * download_ref_db.py
+   * points to new reference database
+
 2016-05-23
  * restructured directories
    * renamed /src to /midas

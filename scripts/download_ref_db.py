@@ -4,7 +4,7 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import os, sys, subprocess, platform
+import os, sys, subprocess, shutil
 
 def download(url, progress=True):
 	print("Downloading: %s" % url)
@@ -28,18 +28,15 @@ if __name__ == '__main__':
 	# examples
 	file = "example.tar.gz"
 	download(os.path.join(url_base, file), progress=True)
-	decompress("example.tar.gz", "example")
+	decompress(file, file.split('.tar.gz')[0])
 
 	# reference database
-	refdb_dir = '%s/ref_db' % main_dir
-	if not os.path.isdir(refdb_dir): os.mkdir(refdb_dir)
-	os.chdir(refdb_dir)
-	files = ["README.txt", "annotations.txt", "membership.txt", "marker_genes.tar.gz", "genome_clusters.tar.gz", "ontologies.tar.gz"]
-	for file in files:
-		download(os.path.join(url_base, file), progress=True)
-	decompress("marker_genes.tar.gz", "marker_genes")
-	decompress("genome_clusters.tar.gz", "genome_clusters")
-	decompress("ontologies.tar.gz", "ontologies")
+	file = "midas_db_v1.0.tar.gz"
+	download(os.path.join(url_base, file), progress=True)
+	decompress(file, file.split('.tar.gz')[0])
+	print("Renaming: %s to ref_db" % (file.split('.tar.gz')[0]))
+	shutil.move(file.split('.tar.gz')[0], "ref_db")
+
 
 
 

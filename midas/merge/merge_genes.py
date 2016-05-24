@@ -12,7 +12,7 @@ from midas.merge import merge
 def read_gene_map(species_id, args):
 	""" Map 99% centroids to gene_ids at lower level """
 	gene_to_family = {}
-	inpath = '%s/genome_clusters/%s/gene_family_map.txt.gz' % (args['db'], species_id)
+	inpath = '%s/genome_clusters/%s/pangenome.map.gz' % (args['db'], species_id)
 	infile = gzip.open(inpath)
 	fields = next(infile).rstrip().split()
 	for line in infile:
@@ -24,7 +24,7 @@ def read_gene_map(species_id, args):
 def read_function_map(ref_db, species_id, ontology):
 	""" Map gene ids to functions for given ontology """
 	gene_to_functions = {}
-	inpath = '%s/genome_clusters/%s/functions.txt.gz' % (ref_db, species_id)
+	inpath = '%s/genome_clusters/%s/pangenome.functions.gz' % (ref_db, species_id)
 	infile = gzip.open(inpath)
 	for index, line in enumerate(infile):
 		gene_id, function_id, ont = line.rstrip().split()

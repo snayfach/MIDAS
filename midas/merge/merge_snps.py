@@ -6,8 +6,8 @@
 
 import sys, os, shutil, numpy as np
 from midas import utility
-from midas.merge import merge
-from midas import analyze_snps
+from midas.merge import merge, annotate_sites as annotate
+from midas import analyze_snps as analyze
 
 def store_data(snpfiles):
 	""" List of records from specified sample_ids """
@@ -115,27 +115,70 @@ def merge_matrices(tempdir, species_id, samples, batches, args):
 #	p = subprocess.Popen('FastTree -nt -boot 100 < %s > %s' % (inpath, outpath), shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 #	out, err = p.communicate()
 
+def filter_site(site, args):
+	""" Filter genome site based on prevalence and minor allele frequency """
+	if site.prev < args['site_prev']:
+		return True
+	elif site.maf < args['site_maf']:
+		return True
+	else:
+		return False
+
+def format_dict(d):
+	""" Format dictionary. ex: 'A:SYN|C:NS|T:NS|G:NS' """
+	return '|'.join(['%s:%s' % (x, y) for x, y in d.items()])
+
+def write_site_info(siteinfo, site=None, header=None):
+	""" Write site info to file """
+	if header:
+		fields = ['site_id', 'mean_freq', 'mean_depth', 'site_prev', 'ref_allele',
+			      'alt_alleles', 'site_type', 'gene_id', 'amino_acids', 'snps']
+		siteinfo.write('\t'.join(fields)+'\n')
+	else:
+		rec = []
+		rec.append(site.id)
+		rec.append(site.mean_freq)
+		rec.append(site.mean_depth)
+		rec.append(site.prev)
+		rec.append(site.ref_allele)
+		rec.append(format_dict(site.alt_alleles()))
+		rec.append(site.site_type)
+		rec.append(site.gene_id)
+		rec.append(format_dict(site.amino_acids))
+		rec.append(format_dict(site.snp_types))
+		siteinfo.write('\t'.join([str(_) for _ in rec])+'\n')
+
+def write_matrices(site, matrices):
+	""" Write site to output matrices """
+	matrices['ref_freq'].write(site.id+'\t'+'\t'.join(site.freqs)+'\n')
+	matrices['depth'].write(site.id+'\t'+'\t'.join(site.depths)+'\n')
+	matrices['alt_allele'].write(site.id+'\t'+'\t'.join(site.alleles)+'\n')
+
 def filter_snp_matrix(species_id, samples, args):
 	""" Extract subset of site from SNP-matrix """
-	tempbase = '%s/%s/temp/%s' % (args['outdir'], species_id, species_id)
+	
+	# init variables for site annotation
+	gene_index = [0]
+	contigs = annotate.read_genome(args['db'], species_id)
+	genes = annotate.read_genes(args['db'], species_id, contigs)
+
+	# open site matrixes
 	outbase = '%s/%s/%s' % (args['outdir'], species_id, species_id)
-	if args['site_prev'] == 0:
-		for type in ['ref_freq', 'depth', 'alt_allele']:
-			shutil.move('%s.snps.%s' % (tempbase,type), '%s.snps.%s' % (outbase,type))
-	else:
-		outdir = os.path.join(args['outdir'], species_id)
-		sample_ids = [s.id for s in samples]
-		matrices = open_matrices(outbase, sample_ids)
-		siteinfo = open('%s/%s.snps.info' % (outdir, species_id), 'w')
-		siteinfo.write('\t'.join(['site_id', 'site_prev', 'mean_ref_freq', 'alt_props'])+'\n')
-		for site in analyze_snps.parse_sites(tempbase, site_depth=args['site_depth'], max_sites=args['max_sites']):
-			if (site.prev >= args['site_prev'] # site prevalence filter
-					and (args['site_maf'] == 0.0 # site minor allele frequency filter
-							or (site.maf >= args['site_maf']))):
-				site.write_info(siteinfo, args)
-				matrices['ref_freq'].write(site.id+'\t'+'\t'.join(site.freqs)+'\n')
-				matrices['depth'].write(site.id+'\t'+'\t'.join(site.depths)+'\n')
-				matrices['alt_allele'].write(site.id+'\t'+'\t'.join(site.alleles)+'\n')
+	matrices = open_matrices(outbase, sample_ids=[s.id for s in samples])
+	
+	# open site info file & write header
+	siteinfo = open('%s.snps.info' % outbase, 'w')
+	write_site_info(siteinfo, header=True)
+	
+	# parse genomic sites
+	tempbase = '%s/%s/temp/%s' % (args['outdir'], species_id, species_id)
+	for site in analyze.parse_sites(tempbase, site_depth=args['site_depth'], max_sites=args['max_sites']):
+		if filter_site(site, args):
+			continue
+		else:
+			annotate.annotate_site(site, genes, gene_index, contigs)
+			write_site_info(siteinfo, site)
+			write_matrices(site, matrices)
 
 def run_pipeline(args):
 
@@ -151,11 +194,11 @@ def run_pipeline(args):
 		print("  merging per-site statistics")
 		build_snp_matrix(sp.id, sp.samples, args)
 
-		print("  extracting specified sites")
+		print("  extracting and annotating specified sites")
 		filter_snp_matrix(sp.id, sp.samples, args)
 
-#		print("  removing temporary files")
-#		shutil.rmtree('%s/%s/temp' % (args['outdir'], species_id))
+		print("  removing temporary files")
+		shutil.rmtree('%s/%s/temp' % (args['outdir'], sp.id))
 
 
 

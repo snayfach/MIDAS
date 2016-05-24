@@ -129,11 +129,12 @@ def iopen(inpath):
 
 def parse_file(inpath):
 	""" Yields records from tab-delimited file with header """
-	ext = inpath.split('.')[-1]
-	infile = gzip.open(inpath) if ext=='gz' else open(inpath)
+	infile = iopen(inpath)
 	fields = next(infile).rstrip().split('\t')
 	for line in infile:
-		yield dict([(i,j) for i,j in zip(fields, line.rstrip().split('\t'))])
+		values = line.rstrip().split('\t')
+		if len(fields) == len(values):
+			yield dict([(i,j) for i,j in zip(fields, values)])
 	infile.close()
 
 def max_mem_usage():

@@ -61,9 +61,8 @@ def select_species(args, type='genes'):
 	""" Select all species with a minimum number of high-coverage samples"""
 	# read species annotations
 	species_info = {}
-	inpath = os.path.join(args['db'], 'annotations.txt')
+	inpath = os.path.join(args['db'], 'species_info.txt')
 	for rec in utility.parse_file(inpath):
-		if 'cluster_id' in rec: rec['species_id'] = rec['cluster_id'] ## temporary fix
 		species_info[rec['species_id']] = rec
 	# fetch all species with at least 1 sample
 	species = {}

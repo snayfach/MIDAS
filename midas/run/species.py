@@ -10,11 +10,10 @@ from midas import utility
 
 def read_annotations(args):
 	annotations = {}
-	inpath = '%s/annotations.txt' % args['db']
+	inpath = '%s/species_info.txt' % args['db']
 	if not os.path.isfile(inpath): sys.exit("File not found: %s" % inpath)
 	for rec in utility.parse_file(inpath):
-		if 'cluster_id' in rec: rec['species_id'] = rec['cluster_id']
-		annotations[rec['species_id']] = rec['consensus_name']
+		annotations[rec['species_id']] = rec['species_name']
 	return annotations
 
 def map_reads_hsblast(args):
