@@ -12,5 +12,5 @@ setup(
 	author = 'Stephen Nayfach',
 	author_email='snayfach@gmail.com',
 	url='https://github.com/snayfach/MIDAS',
-	install_requires = ['biopython >= 1.62', 'numpy >= 1.7.0', 'pysam >= 0.8.1']
+	install_requires = ['biopython >= 1.62', 'numpy >= 1.7.0', 'pysam >= 0.8.1', 'pandas >= 0.17.1']
 )

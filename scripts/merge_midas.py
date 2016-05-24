@@ -5,8 +5,7 @@
 # Freely distributed under the GNU General Public License (GPLv3)
 
 import os, sys, platform, argparse, numpy as np
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src import utility
+from midas import utility
 
 def get_program():
 	""" Get program specified by user (species, genes, or snps) """
@@ -120,7 +119,7 @@ see '-t' for details""")
 """)
 	io.add_argument('-o', type=str, dest='outdir', required=True,
 		help="""output directory""")
-	species = parser.add_argument_group('Species selection (select subset of species from INPUT)')
+	species = parser.add_argument_group('Species filters (select subset of species from INPUT)')
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
 	species.add_argument('--sp_id', dest='species_id', type=str,
@@ -174,8 +173,8 @@ merge_midas.py snps -s 57955 -o outdir/57955 -i /path/to/samples -t dir --snps -
 merge_midas.py snps -s 57955 -o outdir/57955 -i /path/to/samples -t dir --max_samples 10 --max_sites 1000
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('--threads', type=int, default=1,
-		help="Number of threads to use")
+	parser.add_argument('--threads', type=int, default=1, metavar='INT',
+		help="number of CPUs to use for merging files (1)\nincreases speed when merging across many samples")
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
 		help="""input to sample directories output by run_midas.py genes
@@ -187,16 +186,7 @@ see '-t' for details""")
 """)
 	io.add_argument('-o', type=str, dest='outdir', required=True,
 		help="""output directory""")
-	pipe = parser.add_argument_group("Pipeline options (choose one or more; default=all)")
-	pipe.add_argument('--snps', default=False, action='store_true',
-		help="identify and store list of hq snps")
-	pipe.add_argument('--freq', default=False, action='store_true',
-		help="build allele frequency & depth matrixes")
-	pipe.add_argument('--cons', default=False, action='store_true',
-		help="generate fasta file of consensus sequences")
-	pipe.add_argument('--tree', default=False, action='store_true',
-		help="build phylogenetic tree")
-	species = parser.add_argument_group('Species selection (select subset of species from INPUT)')
+	species = parser.add_argument_group("Species filters (select subset of species from INPUT)")
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
 	species.add_argument('--sp_id', dest='species_id', type=str,
@@ -206,24 +196,28 @@ a map of species ids to species names can be found in 'ref_db/annotations.txt'""
 	species.add_argument('--max_species', type=int, metavar='INT',
 		help="""maximum number of species to merge (use all)""")
 	sample = parser.add_argument_group("Sample filters (select subset of samples from INPUT)")
-	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=5.0,
+	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=5.0, metavar='FLOAT',
 		help="""minimum average read depth per sample (5.0)""")
-	sample.add_argument('--fract_cov', dest='fract_cov', type=float, default=0.4,
+	sample.add_argument('--fract_cov', dest='fract_cov', type=float, default=0.4, metavar='FLOAT',
 		help="""fraction of reference sites covered by at least 1 read (0.4)""")
-	sample.add_argument('--max_samples', type=int,
+	sample.add_argument('--max_samples', type=int, metavar='INT',
 		help="""maximum number of samples to process.
 useful for quick tests (use all)""")
 	snps = parser.add_argument_group("Site filters (select subset of genomic sites from INPUT)")
-	snps.add_argument('--site_depth', type=int, default=3,
+	snps.add_argument('--site_depth', type=int, default=3, metavar='INT',
 		help="""minimum number of mapped reads per site.
 a high value like 20 will result in accurate allele frequencies, but may discard many sites.
 a low value like 1 will retain many sites but may not result in accurate allele frequencies (3)""")
-	snps.add_argument('--site_prev', type=float, default=0.95,
+	snps.add_argument('--site_prev', type=float, default=0.95, metavar='FLOAT',
 		help="""site has at least <site_depth> coverage in at least <site_prev> proportion of samples.
 a value of 1.0 will select sites that have sufficent coverage in all samples.
 a value of 0.0 will select all sites, including those with low coverage in many samples 
 NAs recorded for included sites with less than <site_depth> in a sample (0.95)""")
-	snps.add_argument('--max_sites', type=int, default=float('Inf'),
+	snps.add_argument('--site_maf', type=float, default=0.0, metavar='FLOAT',
+		help="""minimum minor allele frequency of site across samples.
+setting this to zero (default) will keep invariant sites across samples.
+setting this above zero (e.g. 0.01, 0.02, 0.05) will only keep common variants""")
+	snps.add_argument('--max_sites', type=int, default=float('Inf'), metavar='INT',
 		help="""maximum number of sites to include in output.
 useful for quick tests (use all)""")
 	args = vars(parser.parse_args())
@@ -254,11 +248,11 @@ def check_genes(args):
 def check_snps(args):
 	if not os.path.isdir(args['outdir']):
 		os.mkdir(args['outdir'])
-	if not any([args['snps'], args['freq'], args['cons'], args['tree']]):
-		args['snps'] = True
-		args['freq'] = True
-		args['cons'] = True
-		args['tree'] = True
+#	if not any([args['snps'], args['freq'], args['cons'], args['tree']]):
+#		args['snps'] = True
+#		args['freq'] = True
+#		args['cons'] = True
+#		args['tree'] = True
 	check_input(args)
 
 def check_input(args):
@@ -327,11 +321,7 @@ def print_snps_arguments(args):
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
 	print ("Species identifier: %s" % args['species_id'])
-	print ("Pipeline options:")
-	if args['snps']: print ("  identify sites")
-	if args['freq']: print ("  build allele frequency matrix")
-	if args['cons']: print ("  call consensus sequences")
-	if args['tree']: print ("  build phylogenetic tree")
+	print ("Number of CPUs to use: %s" % args['threads'])
 	print ("Sample selection criteria:")
 	if args['sample_depth']:
 		print ("  keep samples with >=%s average coverage across reference genome" % args['sample_depth'])
@@ -348,13 +338,13 @@ def print_snps_arguments(args):
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
 	if program == 'species':
-		from src import merge_species
+		from midas.merge import merge_species
 		merge_species.run_pipeline(args)
 	elif program == 'genes':
-		from src import merge_genes
+		from midas.merge import merge_genes
 		merge_genes.run_pipeline(args)
 	elif program == 'snps':
-		from src import merge_snps
+		from midas.merge import merge_snps
 		merge_snps.run_pipeline(args)
 	else:
 		sys.error("Unrecognized program: '%s'" % program)

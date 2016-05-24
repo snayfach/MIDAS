@@ -5,8 +5,7 @@
 # Freely distributed under the GNU General Public License (GPLv3)
 
 import argparse, sys, os, platform
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src import utility
+from midas import utility
 
 def get_program():
 	""" Get program specified by user (species, genes, or snps) """
@@ -42,7 +41,8 @@ def get_arguments(program):
 		args = snp_arguments()
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
-	args = utility.add_ref_db(args)
+	utility.add_ref_db(args)
+	utility.add_executables(args)
 	return args
 
 def check_arguments(program, args):
@@ -72,13 +72,13 @@ def print_arguments(program, args):
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
 	if program == 'species':
-		from src import species
+		from midas.run import species
 		species.estimate_abundance(args)
 	elif program == 'genes':
-		from src import genes
+		from midas.run import genes
 		genes.run_pipeline(args)
 	elif program == 'snps':
-		from src import snps
+		from midas.run import snps
 		snps.run_pipeline(args)
 	else:
 		sys.error("Unrecognized program: '%s'" % program)
@@ -421,14 +421,14 @@ def check_genes(args):
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
-		and not os.path.isfile('%s/genes/db/pangenomes.fa' % args['outdir'])):
+		and not os.path.isfile('%s/genes/temp/pangenomes.fa' % args['outdir'])):
 		error = "\nYou've specified --align, but no database has been built"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no bamfile but --cov specified
 	if (args['cov']
 		and not args['align']
-		and not os.path.isfile('%s/genes/pangenome.bam' % args['outdir'])):
+		and not os.path.isfile('%s/genes/temp/pangenome.bam' % args['outdir'])):
 		error = "\nYou've specified --call_genes, but no alignments were found"
 		error += "\nTry running with --align"
 		sys.exit(error)
@@ -469,14 +469,14 @@ def check_snps(args):
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
-		and not os.path.isfile('%s/snps/db/genomes.fa' % args['outdir'])):
+		and not os.path.isfile('%s/snps/temp/genomes.fa' % args['outdir'])):
 		error = "\nYou've specified --align, but no database has been built"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no bamfile but --call specified
 	if (args['call']
 		and not args['align']
-		and not os.path.isfile('%s/snps/genomes.bam' % args['outdir'])
+		and not os.path.isfile('%s/snps/temp/genomes.bam' % args['outdir'])
 		):
 		error = "\nYou've specified --call_snps, but no alignments were found"
 		error += "\nTry running with --align"
@@ -484,7 +484,7 @@ def check_snps(args):
 	# no genomes but --call specified
 	if (args['call']
 		and not args['build_db']
-		and not os.path.isfile('%s/snps/db/genomes.fa' % args['outdir'])
+		and not os.path.isfile('%s/snps/temp/genomes.fa' % args['outdir'])
 		):
 		error = "\nYou've specified --call_snps, but the no genome database was found"
 		error += "\nTry running with --build_db"
@@ -514,6 +514,6 @@ if __name__ == '__main__':
 	check_arguments(program, args)
 	create_directories(program, args)
 	open_log(program, args)
-	utility.print_copyright()
+	utility.print_copyright(args['log'])
 	print_arguments(program, args)
 	run_program(program, args)

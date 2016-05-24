@@ -1,5 +1,26 @@
 CHANGES
 
+2016-05-23
+ * restructured directories
+   * renamed /src to /midas
+   * created /midas/run, /midas/merge
+   * moved /data under /ref_db
+   * moved /analysis under /scripts
+ * merge_midas.py
+   * made compatible with old outputs
+ * merge_midas.py snps
+   * combined ref_id and ref_pos into single field in output files
+   * first merge all sites, then filter sites
+   * no longer annotating snps
+   * added --maf filter
+ * run_midas.py
+   * added shell commands to log.txt
+   * renamed fields in summary.txt
+ * setup.py
+   * added pandas dependency
+ * analysis
+   * added gene_distances.py
+
 2016-05-19
  * run_midas.py: 
   * automatically generate log file
