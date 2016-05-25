@@ -144,7 +144,7 @@ def compute_pangenome_coverage(args):
 	genome_clusters = set(ref_to_cluster.values())
 	for cluster_id in genome_clusters:
 		outfiles[cluster_id] = gzip.open('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % cluster_id]), 'w')
-		outfiles[cluster_id].write('\t'.join(['gene_id', 'raw_coverage', 'normalized_coverage'])+'\n')
+		outfiles[cluster_id].write('\t'.join(['gene_id', 'coverage', 'copy_number'])+'\n')
 	# parse bam into cov files for each cluster_id
 	ref_to_cov = count_mapped_bp(args)
 	# compute normalization factor
@@ -154,7 +154,7 @@ def compute_pangenome_coverage(args):
 		cov = ref_to_cov[ref_id]
 		cluster_id = ref_to_cluster[ref_id]
 		outfile = outfiles[cluster_id]
-		normcov = cov/cluster_to_norm[cluster_id] if cluster_to_norm[cluster_id] > 0 else 0
+		normcov = cov/cluster_to_norm[cluster_id] if cluster_to_norm[cluster_id] > 0 else 0.0
 		outfile.write('\t'.join([str(x) for x in [ref_id, cov, normcov]])+'\n')
 
 def remove_tmp(args):
@@ -171,8 +171,8 @@ def genes_summary(args):
 		pangenome_size, covered_genes, total_coverage, marker_coverage = [0,0,0,0]
 		for r in utility.parse_file('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % cluster_id])):
 			pangenome_size += 1
-			coverage = float(r['raw_coverage'])
-			normcov = float(r['normalized_coverage'])
+			coverage = float(r['coverage'])
+			normcov = float(r['copy_number'])
 			if coverage > 0:
 				covered_genes += 1
 				total_coverage += coverage

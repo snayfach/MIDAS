@@ -43,7 +43,7 @@ def compute_stats(args, data):
 
 def write_abundance(args, samples, species_info, data):
 	for field in ['relative_abundance', 'coverage', 'count_reads']:
-		outfile = open('%s.%s' % (args['outbase'], field), 'w')
+		outfile = open('%s/%s.txt' % (args['outdir'], field), 'w')
 		outfile.write('\t'.join(['species_id']+[s.id for s in samples])+'\n')
 		for species_id in species_info:
 			outfile.write(species_id)
@@ -53,7 +53,7 @@ def write_abundance(args, samples, species_info, data):
 
 def write_stats(args, stats, species_info):
 	# open output file
-	outfile = open('%s.species_prevalence' % args['outbase'], 'w')
+	outfile = open('%s/species_prevalence.txt' % args['outdir'], 'w')
 	fields = ['mean_coverage', 'median_coverage', 'mean_abundance', 'median_abundance', 'prevalence']
 	header = ['species_id', 'species_name']+fields
 	outfile.write('\t'.join(header)+'\n')

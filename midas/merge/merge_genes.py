@@ -48,9 +48,11 @@ def build_gene_matrices(species_id, samples, args):
 			sample.genes[type] = defaultdict(float)
 		inpath = '%s/genes/output/%s.genes.gz' % (sample.dir, species_id)
 		for r in utility.parse_file(inpath):
+			if 'normalized_coverage' in r: r['copy_number'] = r['normalized_coverage']
+			if 'raw_coverage' in r: r['coverage'] = r['raw_coverage']
 			gene_id = gene_to_family[r['gene_id']]
-			sample.genes['copynum'][gene_id] += float(r['normalized_coverage'])
-			sample.genes['depth'][gene_id] += float(r['raw_coverage'])
+			sample.genes['copynum'][gene_id] += float(r['copy_number'])
+			sample.genes['depth'][gene_id] += float(r['coverage'])
 	for sample in samples:
 		for gene_id, copynum in sample.genes['copynum'].items():
 			if copynum >= args['min_copy']: sample.genes['presabs'][gene_id] = 1

@@ -1,5 +1,8 @@
 CHANGES
 
+2016-05-25
+ * updated documentation
+
 2016-05-24
  * annotate_sites: increased speed to 45k sites/sec from 1k sites/sec 
    * lookup gene seqs 1x

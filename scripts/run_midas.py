@@ -195,7 +195,7 @@ The pipeline can be broken down into three main steps:
 run_midas.py genes /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 			
 2) run entire pipeline for a specific species:
-run_midas.py genes /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_midas.py genes /path/to/outdir --species_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
 3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
 run_midas.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
@@ -217,9 +217,9 @@ run_midas.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
 		default=False, help='Compute coverage of genes in pangenome database')
 	db = parser.add_argument_group('Database options (if using --build_db)')
 	db.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
-	db.add_argument('--sp_cov', type=float, dest='gc_cov', help='Include species with >X coverage (3.0)')
-	db.add_argument('--sp_topn', type=int, dest='gc_topn', help='Include top N most abundant species')
-	db.add_argument('--sp_id', type=str, dest='gc_id', help='One or more species identifiers to include in database. Separate ids with a comma')
+	db.add_argument('--species_cov', type=float, dest='gc_cov', metavar='FLOAT', help='Include species with >X coverage (3.0)')
+	db.add_argument('--species_topn', type=int, dest='gc_topn', metavar='INT', help='Include top N most abundant species')
+	db.add_argument('--species_id', type=str, dest='gc_id', metavar='CHAR', help='One or more species identifiers to include in database. Separate ids with a comma')
 	align = parser.add_argument_group('Read alignment options (if using --align)')
 	align.add_argument('-1', type=str, dest='m1',
 		help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
@@ -233,15 +233,15 @@ run_midas.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
 	align.add_argument('-t', dest='threads', default=1,
 		help='Number of threads to use')
 	map = parser.add_argument_group('Quantify genes options (if using --call_genes)')
-	map.add_argument('--readq', type=int,
+	map.add_argument('--readq', type=int, metavar='INT',
 		default=20, help='Discard reads with mean quality < READQ (20)')
-	map.add_argument('--mapid', type=float,
+	map.add_argument('--mapid', type=float, metavar='FLOAT',
 		default=94.0, help='Discard reads with alignment identity < MAPID (94.0)')
-	map.add_argument('--mapq', type=int,
+	map.add_argument('--mapq', type=int, metavar='INT',
 		default=20, help='Discard reads with mapping quality < MAPQ (10)')
-	map.add_argument('--aln_cov', type=float,
+	map.add_argument('--aln_cov', type=float, metavar='FLOAT',
 		default=0.75, help='Discard reads with alignment coverage < ALN_COV (0.75)')
-	map.add_argument('--trim', metavar='INT', type=int, default=0,
+	map.add_argument('--trim', type=int, default=0, metavar='INT',
 		help='Trim N base-pairs from read-tails (0)')
 	args = vars(parser.parse_args())
 	if args['gc_id']: args['gc_id'] = args['gc_id'].split(',')
@@ -305,7 +305,7 @@ The pipeline can be broken down into three main steps:
 run_midas.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 			
 2) run entire pipeline for a specific species:
-run_midas.py snps /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
+run_midas.py snps /path/to/outdir --species_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
 3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
 run_midas.py snps /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
@@ -327,9 +327,9 @@ run_midas.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35
 		default=False, help='Run samtools mpileup and call SNPs')
 	db = parser.add_argument_group('Database options (if using --build_db)')
 	db.add_argument('-D', type=str, dest='db', help=argparse.SUPPRESS)
-	db.add_argument('--sp_cov', type=float, dest='gc_cov', help='Include species with >X coverage (3.0)')
-	db.add_argument('--sp_topn', type=int, dest='gc_topn', help='Include top N most abundant species')
-	db.add_argument('--sp_id', type=str, dest='gc_id', help='One or more species identifiers to include in database. Separate ids with a comma')
+	db.add_argument('--species_cov', type=float, dest='gc_cov', metavar='FLOAT', help='Include species with >X coverage (3.0)')
+	db.add_argument('--species_topn', type=int, dest='gc_topn', metavar='INT', help='Include top N most abundant species')
+	db.add_argument('--species_id', type=str, dest='gc_id', metavar='CHAR', help='One or more species identifiers to include in database. Separate ids with a comma')
 	align = parser.add_argument_group('Read alignment options (if using --align)')
 	align.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
 	align.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
@@ -339,13 +339,13 @@ run_midas.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35
 	align.add_argument('-n', type=int, dest='max_reads', help='# reads to use from input file(s) (use all)')
 	align.add_argument('-t', dest='threads', default=1, help='Number of threads to use')
 	snps = parser.add_argument_group('SNP calling options (if using --call_snps)')
-	snps.add_argument('--mapid', type=float,
+	snps.add_argument('--mapid', type=float, metavar='FLOAT',
 		default=94.0, help='Discard reads with alignment identity < MAPID (94.0)')
-	snps.add_argument('--mapq', type=int,
+	snps.add_argument('--mapq', type=int, metavar='INT',
 		default=20, help='Discard reads with mapping quality < MAPQ (20)')
-	snps.add_argument('--baseq', type=int,
+	snps.add_argument('--baseq', type=int, metavar='INT',
 		default=30, help='Discard bases with quality < BASEQ (30)')
-	snps.add_argument('--readq', type=int,
+	snps.add_argument('--readq', type=int, metavar='INT',
 		default=20, help='Discard reads with mean quality < READQ (20)')
 	snps.add_argument('--trim', metavar='INT', type=int, default=0,
 		help='Trim N base-pairs from read-tails (0)')
@@ -417,7 +417,7 @@ def check_genes(args):
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
 		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
-			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --sp_topn or --sp_cov you must have run: run_midas.py species" % profile)
+			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --species_topn or --species_cov you must have run: run_midas.py species" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
@@ -465,7 +465,7 @@ def check_snps(args):
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
 		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
-			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --sp_topn or --sp_cov you must have run: run_midas.py species" % profile)
+			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --species_topn or --species_cov you must have run: run_midas.py species" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']

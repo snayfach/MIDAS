@@ -6,7 +6,7 @@ If you already have a list of species ids that you're interested, this step can 
 
 ## Usage
 ```
-Usage: run_phylo_cnv.py species outdir [options]
+Usage: run_midas.py species outdir [options]
 
 Description:
 This script will map metagenomic reads to a database of phylogenetic marker genes using HS-BLASTN
@@ -40,32 +40,33 @@ optional arguments:
 
 ## Example
 1) run with defaults using a paired-end metagenome:  
-`run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
+`run_midas.py species outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
 
 2) run using a single-end metagenome with 4 CPUs and only 4M reads:  
-`run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000`
+`run_midas.py species outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000`
 
 3) run with exactly 80 base-pair reads:  
-`run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz --read_length 80`
+`run_midas.py species outdir -1 /path/to/reads_1.fq.gz --read_length 80`
 
 4) quantify species abundance using a 16S database (not recommended!):  
-`run_phylo_cnv.py species outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA`
+`run_midas.py species outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA`
 
 
 ## Output
 A tab delimited file with a header and three fields:  
 * **species_id**: species (i.e. genome-cluster) identifier  
 * **species_name**: consensus genus-species name   
+* **count_reads**: number of reads mapped to marker genes  
 * **coverage**: estimated genome-coverage of species in metagenome  
 * **relative_abundance**: estimated relative abundance of species in metagenome  
         
 Example of species abundance table for one sample:
 
-| species_id      | species_name | coverage      | relative_abundance  |
+| species_id      | species_name | count_reads | coverage      | relative_abundance  |
 | :----------: | :-------------:|:-------------:| :------------------: |
-| 60140         | Bacteroides vulgatus | 100.67        | 0.45              |
+| 60140         | Bacteroides vulgatus | 15000 | 100.67        | 0.45              |
 | ...           | ... | ...           |   ...               |
-| 60415         | Bacteroides fragilis | 5.05          |   0.09              |
+| 60415         | Bacteroides fragilis | 750 |5.05          |   0.09              |
 
 
 ## Memory usage
@@ -78,4 +79,4 @@ Example of species abundance table for one sample:
 * We found that about 1 million reads was sufficient to precisely estimate species relative abundance for a gut community
 
 ## Next step
-[Merge species abundance across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_species.md)
+[Merge species abundance across samples] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_species.md)

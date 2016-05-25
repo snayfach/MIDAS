@@ -52,13 +52,13 @@ Output: relative abundance matrix, genome-coverage matrix, read-count matrix, sp
 """,
 		epilog="""Examples:
 1) provide list of paths to sample directories:
-merge_midas.py species  -i /path/to/samples/sample_1,/path/to/samples/sample_2 -t list -o outbase
+merge_midas.py species  -i /path/to/samples/sample_1,/path/to/samples/sample_2 -t list -o outdir
 
 2) provide directory containing all samples:
-merge_midas.py species  -i /path/to/samples -t dir -o outbase
+merge_midas.py species -i /path/to/samples -t dir -o outdir
 
 3) provide file containing paths to sample directoriess:
-merge_midas.py species  -i /path/to/samples/sample_paths.txt -t file -o outbase
+merge_midas.py species -i /path/to/samples/sample_paths.txt -t file -o outdir
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('-i', type=str, dest='input', required=True,
@@ -73,8 +73,8 @@ see '-t' for details""")
 'file': -i incdicates a file containing paths to sample directories
 	   example: /path/to/sample_paths.txt
 """)
-	parser.add_argument('-o', dest='outbase', type=str, required=True,
-		help="basename for output files")
+	parser.add_argument('-o', dest='outdir', type=str, required=True,
+		help="directory for output files")
 	parser.add_argument('-m', dest='min_cov', type=float, required=False, default=1.0,
 		help="""minimum genome-coverage for estimating species prevalence (1.0)""")
 	args = vars(parser.parse_args())
@@ -94,17 +94,24 @@ Output: pan-genome copy-number matrix, presence/absence matrix, and read-depth m
         matrixes also created for KEGG, FIGfams, Gene Ontology, and Enzyme Comission (E.C.)
 """,
 		epilog="""Examples:
-1) Merge results for species 57955. Provide list of paths to sample directories:
-merge_midas.py genes -s 57955 -o outdir/57955 -i sample_1,sample_2 -t list
+1) Merge results for all species. Provide list of paths to sample directories:
+merge_midas.py genes -o outdir -i sample_1,sample_2 -t list
 
-2) Build matrix for pan-genome genes at lower percent id threshold:
-merge_midas.py genes -s 57955 -o outdir/57955 -i /path/to/samples -t dir --cluster_pid 85
+2) Merge results for one species (id=57955):
+merge_midas.py genes --species_id 57955 -o outdir -i sample_1,sample_2 -t list
 
-3) Exclude low-coverage samples in output matrix:
-merge_midas.py genes -s 57955 -o outdir/57955 -i /path/to/samples -t dir --marker_coverage 5.0
+3) Build matrix for pan-genome genes at lower percent id threshold:
+merge_midas.py genes -o outdir -i /path/to/samples -t dir --cluster_pid 85
 
-4) Use lenient threshold for determining gene presence-absence:
-merge_midas.py genes -s 57955 -o outdir/57955 -i /path/to/samples -t dir --min_copy 0.1
+4) Exclude low-coverage samples in output matrix:
+merge_midas.py genes -o outdir -i /path/to/samples -t dir --sample_depth 5.0
+
+5) Use lenient threshold for determining gene presence-absence:
+merge_midas.py genes -o outdir -i /path/to/samples -t dir --min_copy 0.1
+
+6) Run a quick test:
+merge_midas.py genes -o outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10
+
 
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
@@ -122,7 +129,7 @@ see '-t' for details""")
 	species = parser.add_argument_group('Species filters (select subset of species from INPUT)')
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
-	species.add_argument('--sp_id', dest='species_id', type=str,
+	species.add_argument('--species_id', dest='species_id', type=str, metavar='CHAR',
 		help="""comma-separated list of species ids
 a list of prevalent species can be obtained by running 'merge_midas.py species'
 a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
@@ -160,17 +167,17 @@ Output: core-genome SNPs, SNP annotations, SNP allele frequency matrix, SNP alte
         core-genome consensus sequences, and a phylogenetic tree
 """,
 		epilog="""Examples:
-1) Merge results for species 57955. Provide list of paths to sample directories:
-merge_midas.py snps -s 57955 -o outdir/57955 -i sample_1,sample_2 -t list
+1) Merge results for all species. Provide list of paths to sample directories:
+merge_midas.py snps -o outdir -i sample_1,sample_2 -t list
 
-2) Only use samples with >15x average depth and only use sites covered by >=10 reads in at least >=95% of samples:
-merge_midas.py snps -s 57955 -o outdir/57955 -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 95
+2) Merge results for one species (id=57955):
+merge_midas.py snps --species_id 57955 -o outdir/57955 -i sample_1,sample_2 -t list
 
-3) Just identify core-genome sites and build matrixes; do not build consensus seqs or phylogenetic trees:
-merge_midas.py snps -s 57955 -o outdir/57955 -i /path/to/samples -t dir --snps --freq
+3) Only use samples with >15x average depth and only use sites covered by >=10 reads in at least >=95% of samples:
+merge_midas.py snps -o outdir -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 0.95
 
 4) Run a quick test:
-merge_midas.py snps -s 57955 -o outdir/57955 -i /path/to/samples -t dir --max_samples 10 --max_sites 1000
+merge_midas.py snps -o outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10 --max_sites 1000
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('--threads', type=int, default=1, metavar='INT',
@@ -189,7 +196,7 @@ see '-t' for details""")
 	species = parser.add_argument_group("Species filters (select subset of species from INPUT)")
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
-	species.add_argument('--sp_id', dest='species_id', type=str,
+	species.add_argument('--species_id', dest='species_id', type=str, metavar='CHAR',
 		help="""comma-separated list of species ids
 a list of prevalent species can be obtained by running 'merge_midas.py species'
 a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
@@ -237,9 +244,7 @@ def check_arguments(program, args):
 		sys.exit("Operating system '%s' not supported" % system())
 
 def check_species(args):
-	base_dir = os.path.dirname(os.path.abspath(args['outbase']))
-	if not os.path.isdir(base_dir):
-		sys.exit("Output directory of base name (-o) not found:\n%s" % base_dir)
+	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
 
 def check_genes(args):
 	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
@@ -284,7 +289,7 @@ def print_species_arguments(args):
 	print ("Script: merge_midas.py species")
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
-	print ("Output basename: %s" % args['outbase'])
+	print ("Output directory: %s" % args['outdir'])
 	print ("Minimum coverage for estimating prevalence: %s" % args['min_cov'])
 	print ("")
 
