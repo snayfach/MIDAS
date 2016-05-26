@@ -1,5 +1,66 @@
 CHANGES
 
+2016-05-25
+ * updated documentation
+
+2016-05-24
+ * annotate_sites: increased speed to 45k sites/sec from 1k sites/sec 
+   * lookup gene seqs 1x
+   * keep track of gene_index between sites
+ * merge_midas.py snps
+   * added site annotation
+ * download_ref_db.py
+   * points to new reference database
+
+2016-05-23
+ * restructured directories
+   * renamed /src to /midas
+   * created /midas/run, /midas/merge
+   * moved /data under /ref_db
+   * moved /analysis under /scripts
+ * merge_midas.py
+   * made compatible with old outputs
+ * merge_midas.py snps
+   * combined ref_id and ref_pos into single field in output files
+   * first merge all sites, then filter sites
+   * no longer annotating snps
+   * added --maf filter
+ * run_midas.py
+   * added shell commands to log.txt
+   * renamed fields in summary.txt
+ * setup.py
+   * added pandas dependency
+ * analysis
+   * added gene_distances.py
+
+2016-05-19
+ * run_midas.py: 
+  * automatically generate log file
+  * restructure files: /output, /temp, summary.txt, log.txt 
+ * merge_midas.py:
+  * automatically merge over all species
+
+2016-05-17
+ * combined merging scripts into merge_midas.py
+ * renamed software name from PhyloCNV to MIDAS
+ * renamed run_phylo_cnv.py to run_midas.py
+ * renamed /phylo_cnv to /src
+ * split nucleotide_diversity.py to gene_diversity.py and genome_diversity.py
+ * moved snp_sharing.py to /analysis
+ * added snp_prevalence.py and snp_rarefaction.py to /analysis
+ * added analyze_snps.py to /analysis
+
+2016-05-09
+ * nucleotide_diversity.py: takes inbase, uses new function to parse infiles
+ * snp_sharing.py: added
+ * count_snps.py: added
+
+2016-04-14
+ * nucleotide_diversity.py: computes pi at different site types; uses pi to compute pi(N)/pi(S)
+
+2016-04-11
+ * nucleotide_diversity.py: added --samples to compute diversity for subset of samples
+
 2016-04-06
  * setup.py
    specifying version numbers for dependencies

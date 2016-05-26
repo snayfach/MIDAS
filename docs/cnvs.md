@@ -22,9 +22,9 @@ Pipeline options (choose one or more; default=all):
   --call_genes          Compute coverage of genes in pangenome database
 
 Database options (if using --build_db):
-  --sp_cov GC_COV       Include species with >X coverage (3.0)
-  --sp_topn GC_TOPN     Include top N most abundant species
-  --sp_id GC_ID         One or more species identifiers to include in database. Separate ids with a comma
+  --species_cov FLOAT   Include species with >X coverage (3.0)
+  --species_topn INT    Include top N most abundant species
+  --species_id CHAR     One or more species identifiers to include in database. Separate ids with a comma
 
 Read alignment options (if using --align):
   -1 M1                 FASTA/FASTQ file containing 1st mate if paired or unpaired reads
@@ -35,10 +35,10 @@ Read alignment options (if using --align):
   -t THREADS            Number of threads to use
 
 Quantify genes options (if using --call_genes):
-  --readq READQ         Discard reads with mean quality < READQ (20)
-  --mapid MAPID         Discard reads with alignment identity < MAPID (94.0)
-  --mapq MAPQ           Discard reads with mapping quality < MAPQ (10)
-  --aln_cov ALN_COV     Discard reads with alignment coverage < ALN_COV (0.75)
+  --readq INT           Discard reads with mean quality < READQ (20)
+  --mapid FLOAT         Discard reads with alignment identity < MAPID (94.0)
+  --mapq INT            Discard reads with mapping quality < MAPQ (10)
+  --aln_cov FLOAT       Discard reads with alignment coverage < ALN_COV (0.75)
   --trim INT            Trim N base-pairs from read-tails (0)
 ```
 
@@ -53,8 +53,8 @@ Quantify genes options (if using --call_genes):
 3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:  
 `run_phylo_cnv.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4`
 
-4) just quantify genes, keep reads with >=95% alignment identity and reads with an average quality-score >=30: 
-`run_phylo_cnv.py snps /path/to/outdir --call_genes --mapid 95 --readq 30`
+4) just quantify genes, keep reads with >=95% alignment identity and reads with an average quality-score >=20:
+`run_phylo_cnv.py snps /path/to/outdir --call_genes --mapid 95 --readq 20`
 
 
 

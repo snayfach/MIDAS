@@ -9,7 +9,7 @@ The pipeline can be broken down into three main steps:
 
 ## Usage
 ```
-Usage: run_phylo_cnv.py snps outdir [options]
+Usage: run_midas.py snps outdir [options]
 
 positional arguments:
   outdir                Path to directory to store results. Name should correspond to sample identifier.
@@ -25,9 +25,9 @@ Pipeline options (choose one or more; default=all):
   --call_snps           Run samtools mpileup and call SNPs
 
 Database options (if using --build_db):
-  --sp_cov GC_COV       Include species with >X coverage (3.0)
-  --sp_topn GC_TOPN     Include top N most abundant species
-  --sp_id GC_ID         One or more species identifiers to include in database. Separate ids with a comma
+  --species_cov FLOAT   Include species with >X coverage (3.0)
+  --species_topn INT    Include top N most abundant species
+  --species_id CHAR     One or more species identifiers to include in database. Separate ids with a comma
 
 Read alignment options (if using --align):
   -1 M1                 FASTA/FASTQ file containing 1st mate if paired or unpaired reads
@@ -38,10 +38,10 @@ Read alignment options (if using --align):
   -t THREADS            Number of threads to use
 
 SNP calling options (if using --call_snps):
-  --mapid MAPID         Discard reads with alignment identity < MAPID (94.0)
-  --mapq MAPQ           Discard reads with mapping quality < MAPQ (20)
-  --baseq BASEQ         Discard bases with quality < BASEQ (30)
-  --readq READQ         Discard reads with mean quality < READQ (20)
+  --mapid FLOAT         Discard reads with alignment identity < MAPID (94.0)
+  --mapq INT            Discard reads with mapping quality < MAPQ (20)
+  --baseq INT           Discard bases with quality < BASEQ (30)
+  --readq INT           Discard reads with mean quality < READQ (20)
   --trim INT            Trim N base-pairs from read-tails (0)
   --baq                 Enable BAQ (per-base alignment quality)
   --redo_baq            Recalculate BAQ on the fly
@@ -51,16 +51,16 @@ SNP calling options (if using --call_snps):
 ## Example
 
 1) run entire pipeline using defaults:  
-`run_phylo_cnv.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
+`run_midas.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
 			
 2) run entire pipeline for a specific species:  
-`run_phylo_cnv.py snps /path/to/outdir --sp_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
+`run_midas.py snps /path/to/outdir --species_id 57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
 
 3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:  
-`run_phylo_cnv.py snps /path/to/outdir --align -1 /path/to/reads_1.fq.gz -s very-fast -n 10000000 -t 4`  
+`run_midas.py snps /path/to/outdir --align -1 /path/to/reads_1.fq.gz -s very-fast -n 10000000 -t 4`
 
-4) just call SNPs, keep reads with >=95% alignment identity and keep bases with quality-scores >=35, and map quality scores >=20:  
-`run_phylo_cnv.py snps /path/to/outdir --call_snps --mapid 95 --mapq 20 --baseq 35`
+4) just call SNPs, keep reads with >=95% alignment identity and keep bases with quality-scores >=35:  
+`run_midas.py snps /path/to/outdir --call_snps --mapid 95 --baseq 35`
 
 ## Output
 

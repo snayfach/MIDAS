@@ -3,7 +3,7 @@ Merge species abundance across samples
 
 ## Usage
 ```
-Usage: merge_species.py [options]
+Usage: merge_midas.py species [options]
 
 Description: Merge species abundance files across samples
 Input: list of sample directories
@@ -20,7 +20,7 @@ optional arguments:
                              example: /path/to/samples
                       'file': -i incdicates a file containing paths to sample directories
                       	   example: /path/to/sample_paths.txt
-  -o OUTBASE          basename for output files
+  -o OUTDIR           directory for output files
   -m MIN_COV          minimum genome-coverage for estimating species prevalence (1.0)
 
 ```
@@ -28,20 +28,20 @@ optional arguments:
 ## Examples
 
 1) provide list of paths to sample directories:  
-`merge_species.py species -i /path/to/samples/sample_1,/path/to/samples/sample_2 -t list -o outbase`
+`merge_species.py species -i /path/to/samples/sample_1,/path/to/samples/sample_2 -t list -o outdir`
 
 2) provide directory containing all samples:  
-`merge_species.py species -i /path/to/samples -t dir -o outbase`
+`merge_species.py species -i /path/to/samples -t dir -o outdir`
 
 3) provide file containing paths to sample directoriess:  
-`merge_species.py species -i /path/to/samples/sample_paths.txt -t file -o outbase`
+`merge_species.py species -i /path/to/samples/sample_paths.txt -t file -o outdir`
 
 ## Outputs
 This script generates three output files:  
-* **\<out_base>.relative_abundance**: relative abundance matrix   (columns are samples, rows are species)  
-* **\<out_base>.count_reads**: read count matrix (columns are samples, rows are species)  
-* **\<out_base>.coverage**: genome coverage matrix (columns are samples, rows are species)  
-* **\<out_base>.species_prevalence**: summary statistics for each species across samples  
+* **\<outdir>/relative_abundance.txt**: relative abundance matrix   (columns are samples, rows are species)
+* **\<outdir>/count_reads.txt**: read count matrix (columns are samples, rows are species)
+* **\<outdir>/coverage.txt**: genome coverage matrix (columns are samples, rows are species)
+* **\<outdir>/species_prevalence.txt**: summary statistics for each species across samples
 
 
 Example species_prevalence output:
@@ -56,6 +56,6 @@ Example species_prevalence output:
 * This step takes an insignificant amount of memory  
 
 ## Next steps
-[Profile strain-level gene content of species] (https://github.com/snayfach/PhyloCNV/blob/master/docs/cnvs.md)
-[Profile strain-level SNVs of species] (https://github.com/snayfach/PhyloCNV/blob/master/docs/snvs.md)
+[Profile strain-level gene content of species] (https://github.com/snayfach/MIDAS/blob/master/docs/cnvs.md)
+[Profile strain-level SNVs of species] (https://github.com/snayfach/MIDAS/blob/master/docs/snvs.md)
 
