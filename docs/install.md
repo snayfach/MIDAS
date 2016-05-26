@@ -1,37 +1,39 @@
-### Requirements
+### Download the software
 
-Requires Unix or Mac OSX operating system
+MIDAS is a command-line tool that runs on Unix or Mac OSX
 
-Python dependencies:   
+**Clone the latest version from GitHub (recommended)**   
+`git clone https://github.com/snayfach/MIDAS`  
+This makes it easy to update the software in the future using `git pull` as bugs are fixed and features are added
+
+**Or, download the source code**: 
+https://github.com/snayfach/MIDAS/archive/master.zip  
+And unpack the project: `unzip MIDAS-master.zip`
+
+### Install dependencies
+
+The following Python modules should be pre-installed on your system
+(tested version numbers are indicated in parenthesis):
 
 * Numpy (>=1.7.0)
 * BioPython (>=1.6.2)
 * Pysam (>=0.8.1)
 * Pandas (>=0.17.1)
 
-Dependencies are installed via setup.py  
-Tested version numbers are indicated in parenthesis. Other versions may also work.
+If you have pip installed, you can install these packages by running the following command:
 
-### Download the software
+`pip install -U numpy biopython pysam pandas` or  
+`sudo pip install -U numpy biopython pysam pandas` to install as a superuser, or  
+`pip install --user numpy biopython pysam pandas` to install locally  
 
-
-**Clone the latest version from GitHub (recommended)**   
-`git clone https://github.com/snayfach/MIDAS`
-This makes it easy to update the software in the future using `git pull` as bugs are fixed and features are added
-
-**Or, download the source code**: 
-https://github.com/snayfach/MIDAS/archive/master.zip
-And unpack the project: `unzip MIDAS-master.zip`
-
-### Install the software
-
-**Run setup.py to install python dependencies**  
+If you don't have pip, the packages can be installed by running the setup.py script:  
 `python MIDAS/setup.py install` or  
-`sudo python MIDAS/setup.py install` to install as a superuser or  
-`python MIDAS/setup.py install --user` to install locally (~/.local)
-[Read more] (https://github.com/snayfach/MIDAS/blob/master/docs/ref_db.md)
+`sudo python MIDAS/setup.py install to install` as a superuser, or  
+`python MIDAS/setup.py install` --user to install locally  
 
-**Update your environmental variables**  
+### Update your environmental variables
+
+This will enable you to run MIDAS scripts:  
 `export PYTHONPATH=$PYTHONPATH:/path/to/MIDAS`  
 `export PATH=$PATH:/path/to/MIDAS/scripts` 
 
