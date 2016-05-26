@@ -16,12 +16,12 @@ Tested version numbers are indicated in parenthesis. Other versions may also wor
 
 
 **Clone the latest version from GitHub (recommended)**   
-`git clone https://github.com/snayfach/PhyloCNV`  
+`git clone https://github.com/snayfach/MIDAS`
 This makes it easy to update the software in the future using `git pull` as bugs are fixed and features are added
 
 **Or, download the source code**: 
-https://github.com/snayfach/PhyloCNV/archive/master.zip  
-And unpack the project: `unzip PhyloCNV-master.zip`
+https://github.com/snayfach/MIDAS/archive/master.zip
+And unpack the project: `unzip MIDAS-master.zip`
 
 ### Install the software
 
@@ -29,7 +29,7 @@ And unpack the project: `unzip PhyloCNV-master.zip`
 `python MIDAS/setup.py install` or  
 `sudo python MIDAS/setup.py install` to install as a superuser or  
 `python MIDAS/setup.py install --user` to install locally (~/.local)
-[Read more] (https://github.com/snayfach/PhyloCNV/blob/master/docs/ref_db.md)
+[Read more] (https://github.com/snayfach/MIDAS/blob/master/docs/ref_db.md)
 
 **Update your environmental variables**  
 `export PYTHONPATH=$PYTHONPATH:/path/to/MIDAS`  
@@ -43,7 +43,7 @@ You should be able to enter the command into your terminal without getting an er
 `run_midas.py -h`
 
 For more complete testing, run:   
-`python tests/test_midas.py`
+`python tests/test_midas.py -f`
 
 ### Update MIDAS
 Move to installation directory, pull the latest version, and install:  

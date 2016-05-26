@@ -160,7 +160,7 @@ def compute_pangenome_coverage(args):
 def remove_tmp(args):
 	""" Remove specified temporary files """
 	import shutil
-	shutil.rmtree('/'.join([args['outdir'], 'temp']))
+	shutil.rmtree('/'.join([args['outdir'], 'genes/temp']))
 
 def genes_summary(args):
 	""" Get summary of mapping statistics """

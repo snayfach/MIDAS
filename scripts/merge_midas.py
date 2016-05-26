@@ -44,7 +44,7 @@ def species_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: merge_midas.py species [options]
+Usage: merge_midas.py species outdir [options]
 
 Description: Merge species abundance files across samples
 Input: list of sample directories
@@ -52,15 +52,16 @@ Output: relative abundance matrix, genome-coverage matrix, read-count matrix, sp
 """,
 		epilog="""Examples:
 1) provide list of paths to sample directories:
-merge_midas.py species  -i /path/to/samples/sample_1,/path/to/samples/sample_2 -t list -o outdir
+merge_midas.py species outdir -i /path/to/samples/sample_1,/path/to/samples/sample_2 -t list
 
 2) provide directory containing all samples:
-merge_midas.py species -i /path/to/samples -t dir -o outdir
+merge_midas.py species outdir -i /path/to/samples -t dir
 
 3) provide file containing paths to sample directoriess:
-merge_midas.py species -i /path/to/samples/sample_paths.txt -t file -o outdir
+merge_midas.py species outdir -i /path/to/samples/sample_paths.txt -t file
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
+	parser.add_argument('outdir', type=str, help='Directory for output files')
 	parser.add_argument('-i', type=str, dest='input', required=True,
 		help="""input to sample directories output by run_midas.py species
 can be a list of directories, a directory containing all samples, or a file with paths
@@ -73,8 +74,6 @@ see '-t' for details""")
 'file': -i incdicates a file containing paths to sample directories
 	   example: /path/to/sample_paths.txt
 """)
-	parser.add_argument('-o', dest='outdir', type=str, required=True,
-		help="directory for output files")
 	parser.add_argument('-m', dest='min_cov', type=float, required=False, default=1.0,
 		help="""minimum genome-coverage for estimating species prevalence (1.0)""")
 	args = vars(parser.parse_args())
@@ -86,7 +85,7 @@ def genes_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: merge_midas.py genes [options]
+Usage: merge_midas.py genes outdir [options]
 
 Description: merge results from pan-genome profiling across samples
 Input: list of sample directories
@@ -95,26 +94,27 @@ Output: pan-genome copy-number matrix, presence/absence matrix, and read-depth m
 """,
 		epilog="""Examples:
 1) Merge results for all species. Provide list of paths to sample directories:
-merge_midas.py genes -o outdir -i sample_1,sample_2 -t list
+merge_midas.py genes outdir -i sample_1,sample_2 -t list
 
 2) Merge results for one species (id=57955):
-merge_midas.py genes --species_id 57955 -o outdir -i sample_1,sample_2 -t list
+merge_midas.py genes outdir --species_id 57955 -o outdir -i sample_1,sample_2 -t list
 
 3) Build matrix for pan-genome genes at lower percent id threshold:
-merge_midas.py genes -o outdir -i /path/to/samples -t dir --cluster_pid 85
+merge_midas.py genes outdir -i /path/to/samples -t dir --cluster_pid 85
 
 4) Exclude low-coverage samples in output matrix:
-merge_midas.py genes -o outdir -i /path/to/samples -t dir --sample_depth 5.0
+merge_midas.py genes outdir -i /path/to/samples -t dir --sample_depth 5.0
 
 5) Use lenient threshold for determining gene presence-absence:
-merge_midas.py genes -o outdir -i /path/to/samples -t dir --min_copy 0.1
+merge_midas.py genes outdir -i /path/to/samples -t dir --min_copy 0.1
 
 6) Run a quick test:
-merge_midas.py genes -o outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10
+merge_midas.py genes outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10
 
 
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
+	parser.add_argument('outdir', type=str, help='Directory for output files')
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
 		help="""input to sample directories output by run_midas.py genes
@@ -124,8 +124,6 @@ see '-t' for details""")
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
-	io.add_argument('-o', type=str, dest='outdir', required=True,
-		help="""output directory""")
 	species = parser.add_argument_group('Species filters (select subset of species from INPUT)')
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
@@ -159,7 +157,7 @@ def snps_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: merge_midas.py snps [options]
+Usage: merge_midas.py snps outdir [options]
 
 Description: merge single-nucleotide variants for an individual species across samples
 Input: list of sample directories
@@ -168,18 +166,19 @@ Output: core-genome SNPs, SNP annotations, SNP allele frequency matrix, SNP alte
 """,
 		epilog="""Examples:
 1) Merge results for all species. Provide list of paths to sample directories:
-merge_midas.py snps -o outdir -i sample_1,sample_2 -t list
+merge_midas.py snps outdir -i sample_1,sample_2 -t list
 
 2) Merge results for one species (id=57955):
-merge_midas.py snps --species_id 57955 -o outdir/57955 -i sample_1,sample_2 -t list
+merge_midas.py snps outdir --species_id 57955 -i sample_1,sample_2 -t list
 
 3) Only use samples with >15x average depth and only use sites covered by >=10 reads in at least >=95% of samples:
-merge_midas.py snps -o outdir -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 0.95
+merge_midas.py snps outdir -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 0.95
 
 4) Run a quick test:
-merge_midas.py snps -o outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10 --max_sites 1000
+merge_midas.py snps outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10 --max_sites 1000
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
+	parser.add_argument('outdir', type=str, help='Directory for output files')
 	parser.add_argument('--threads', type=int, default=1, metavar='INT',
 		help="number of CPUs to use for merging files (1)\nincreases speed when merging across many samples")
 	io = parser.add_argument_group('Input/Output')
@@ -191,8 +190,6 @@ see '-t' for details""")
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
-	io.add_argument('-o', type=str, dest='outdir', required=True,
-		help="""output directory""")
 	species = parser.add_argument_group("Species filters (select subset of species from INPUT)")
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
@@ -269,9 +266,9 @@ def check_input(args):
 			and not os.path.isfile(args['input'])):
 		sys.exit(error % os.path.abspath(args['input']))
 	elif args['intype'] == 'list':
-		for file in input.split(','):
-			if not os.path.isfile(file):
-				sys.exit(error % file)
+		for dir in args['input'].split(','):
+			if not os.path.isdir(dir):
+				sys.exit(error % dir)
 
 def print_arguments(program, args):
 	""" Run program specified by user (species, genes, or snps) """
