@@ -4,9 +4,8 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import argparse, sys, os, gzip, numpy as np, analyze_snps as st
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src import utility
+import argparse, sys, os, gzip, numpy as np
+from midas import utility, analyze_snps as analyze
 
 def parse_arguments():
 	""" Parse command line arguments """

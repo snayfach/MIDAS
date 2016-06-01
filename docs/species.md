@@ -1,18 +1,16 @@
 ## Metagenomic species profiling
-Use HS-BLASTN to map metagenomic reads to a panel of 15 universal, single-copy marker genes. 
-These alignments are used to estimate the coverage and relative abundance of 5,952 bacterial species.
-Required for downstream steps if selecting species based on their coverage or relative abundance. 
+
+This script will map metagenomic reads to a database of phylogenetic marker genes using HS-BLASTN
+Mapped reads are used estimate the read depth and relative abundance of 5,952 bacterial species
+Reads are mapped according to gene-specific, species-level mapping thresholds (94.5-98% DNA identity)
+Reads that map equally well to 2 or more species are probabalistically assigned
+
+This module is required for downstream modules (i.e. genes and snps) if you plan to automatically identify abundant species 
 If you already have a list of species ids that you're interested, this step can be skipped.
 
 ## Usage
 ```
 Usage: run_midas.py species outdir [options]
-
-Description:
-This script will map metagenomic reads to a database of phylogenetic marker genes using HS-BLASTN
-Mapped reads are used estimate the read depth and relative abundance of bacterial species
-Reads are mapped according to gene-specific, species-level mapping thresholds (94.5-98% DNA identity)
-Reads that map equally well to 2 or more species are probabalistically assigned
 
 positional arguments:
   outdir             Path to directory to store results. Name should correspond to sample identifier.
@@ -40,34 +38,32 @@ optional arguments:
 
 ## Example
 1) run with defaults using a paired-end metagenome:  
-`run_midas.py species outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
+`run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
 
 2) run using a single-end metagenome with 4 CPUs and only 4M reads:  
-`run_midas.py species outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000`
+`run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000`
 
 3) run with exactly 80 base-pair reads:  
-`run_midas.py species outdir -1 /path/to/reads_1.fq.gz --read_length 80`
+`run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz --read_length 80`
 
 4) quantify species abundance using a 16S database (not recommended!):  
-`run_midas.py species outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA`
+`run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA`
 
 
 ## Output
-A tab delimited file with a header and three fields:  
-* **species_id**: species (i.e. genome-cluster) identifier  
-* **species_name**: consensus genus-species name   
-* **count_reads**: number of reads mapped to marker genes  
-* **coverage**: estimated genome-coverage of species in metagenome  
-* **relative_abundance**: estimated relative abundance of species in metagenome  
-        
-Example of species abundance table for one sample:
+The output of this script contains the following: 
+ 
+* **species_profile.txt**: tab-delimited output file containing abundances of 5,952 species  
+* **temp/**: intermediate files. use `--remove_temp` to remove these files   
+* **log.txt**: log file containing parameters used  
 
-| species_id      | species_name | count_reads | coverage      | relative_abundance  |
-| :----------: | :-------------:|:-------------:| :------------------: |
-| 60140         | Bacteroides vulgatus | 15000 | 100.67        | 0.45              |
-| ...           | ... | ...           |   ...               |
-| 60415         | Bacteroides fragilis | 750 |5.05          |   0.09              |
-
+output file format:
+  
+* species_id: species (i.e. genome-cluster) identifier  
+* species_name: unique species name  
+* count_reads: number of reads mapped to marker genes  
+* coverage: estimated genome-coverage of species in metagenome  
+* relative_abundance: estimated relative abundance of species in metagenome  
 
 ## Memory usage
 * < 1.5 Gb for most samples

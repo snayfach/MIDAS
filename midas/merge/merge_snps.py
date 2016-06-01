@@ -25,12 +25,12 @@ def open_infiles(species_id, samples):
 		infiles.append(utility.parse_file(inpath))
 	return infiles
 
-def open_matrices(outbase, sample_ids, index=None):
+def open_matrices(outdir, sample_ids, index=None):
 	""" Open matrices and write headers """
 	matrices = {}
 	for type in ['ref_freq', 'depth', 'alt_allele']:
-		if index is None: outpath = '%s.snps.%s' % (outbase, type)
-		else: outpath = '%s.snps.%s.%s' % (outbase, type, index)
+		if index is None: outpath = '%s/snps_%s.txt' % (outdir, type)
+		else: outpath = '%s/snps_%s.%s.txt' % (outdir, type, index)
 		matrices[type] = open(outpath, 'w')
 		matrices[type].write('\t'.join(['site_id']+sample_ids)+'\n')
 	return matrices
@@ -52,8 +52,7 @@ def build_snp_matrix(species_id, samples, args):
 def temp_matrix(tempdir, species_id, samples, index, max_sites):
 	""" Build SNP matrices using a subset of total samples """
 	sample_ids = [s.id for s in samples]
-	outbase = '%s/%s' % (tempdir, species_id)
-	matrices = open_matrices(outbase, sample_ids, index)
+	matrices = open_matrices(tempdir, sample_ids, index)
 	snpfiles = open_infiles(species_id, samples)
 	nsites = 0
 	while True:
@@ -73,8 +72,8 @@ def merge_matrices(tempdir, species_id, samples, batches, args):
 	""" Merge together temp SNP matrices """
 	if len(batches) == 1: # if only one batch, just rename files
 		for type in ['ref_freq', 'depth', 'alt_allele']:
-			inpath = '%s/%s.snps.%s.0' % (tempdir, species_id, type)
-			outpath = '%s/%s.snps.%s' % (tempdir, species_id, type)
+			inpath = '%s/snps_%s.0.txt' % (tempdir, type)
+			outpath = '%s/snps_%s.txt' % (tempdir, type)
 			shutil.move(inpath, outpath)
 	else:  # if > one batch, merge temp matrices
 		# open temporary matrixes
@@ -82,13 +81,11 @@ def merge_matrices(tempdir, species_id, samples, batches, args):
 		for type in ['ref_freq', 'depth', 'alt_allele']:
 			files = []
 			for index, batch in enumerate(batches):
-				inpath = '%s/%s.snps.%s.%s' % (tempdir, species_id, type, index)
+				inpath = '%s/snps_%s.%s.txt' % (tempdir, type, index)
 				files.append(open(inpath))
 			infiles[type] = files
 		# merge temporary matrixes
-		sample_ids = [s.id for s in samples]
-		outbase = '%s.%s' % (tempdir, species_id)
-		matrices = open_matrices(outbase, sample_ids)
+		matrices = open_matrices(tempdir, sample_ids=[s.id for s in samples])
 		for type in ['ref_freq', 'depth', 'alt_allele']:
 			files = infiles[type]
 			for file in files: next(file) # skip header
@@ -163,16 +160,17 @@ def filter_snp_matrix(species_id, samples, args):
 	genes = annotate.read_genes(args['db'], species_id, contigs)
 
 	# open site matrixes
-	outbase = '%s/%s/%s' % (args['outdir'], species_id, species_id)
-	matrices = open_matrices(outbase, sample_ids=[s.id for s in samples])
+	outdir = os.path.join(args['outdir'], species_id)
+	sample_ids = [s.id for s in samples]
+	matrices = open_matrices(outdir, sample_ids)
 	
 	# open site info file & write header
-	siteinfo = open('%s.snps.info' % outbase, 'w')
+	siteinfo = open('%s/snps_info.txt' % outdir, 'w')
 	write_site_info(siteinfo, header=True)
 	
 	# parse genomic sites
-	tempbase = '%s/%s/temp/%s' % (args['outdir'], species_id, species_id)
-	for site in analyze.parse_sites(tempbase, site_depth=args['site_depth'], max_sites=args['max_sites']):
+	tempdir = '%s/%s/temp' % (args['outdir'], species_id)
+	for site in analyze.parse_sites(tempdir, site_depth=args['site_depth'], max_sites=args['max_sites']):
 		if filter_site(site, args):
 			continue
 		else:

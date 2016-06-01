@@ -17,15 +17,15 @@ def build_pangenome_db(args, genome_clusters):
 	pangenome_fasta = open('/'.join([outdir, 'pangenomes.fa']), 'w')
 	pangenome_map = open('/'.join([outdir, 'pangenome.map']), 'w')
 	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
-	for cluster_id in genome_clusters:
+	for species_id in genome_clusters:
 		db_stats['genome_clusters'] += 1
-		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'pangenome.fa.gz'])
+		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'pangenome.fa.gz'])
 		infile = gzip.open(inpath)
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
 			genome_id = '.'.join(r.id.split('.')[0:2])
 			if not args['tax_mask'] or genome_id not in args['tax_mask']:
 				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq)))
-				pangenome_map.write('%s\t%s\n' % (r.id, cluster_id))
+				pangenome_map.write('%s\t%s\n' % (r.id, species_id))
 				db_stats['total_length'] += len(r.seq)
 				db_stats['total_seqs'] += 1
 	pangenome_fasta.close()
@@ -107,8 +107,8 @@ def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 		phyeco_ids.add(phyeco_id)
 	# read in map of gene to phyeco marker
 	ref_to_phyeco = {}
-	for cluster_id in genome_clusters:
-		inpath = '/'.join([args['db'], 'genome_clusters', cluster_id, 'pangenome.marker_genes.gz'])
+	for species_id in genome_clusters:
+		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'pangenome.marker_genes.gz'])
 		infile = gzip.open(inpath)
 		next(infile)
 		for line in infile:
@@ -116,45 +116,45 @@ def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 			ref_to_phyeco[gene_id] = phyeco_id
 	# init phyeco coverage
 	cluster_to_phyeco_to_cov = {}
-	for cluster_id in genome_clusters:
-		cluster_to_phyeco_to_cov[cluster_id] = {}
+	for species_id in genome_clusters:
+		cluster_to_phyeco_to_cov[species_id] = {}
 		for phyeco_id in phyeco_ids:
-			cluster_to_phyeco_to_cov[cluster_id][phyeco_id] = 0.0
+			cluster_to_phyeco_to_cov[species_id][phyeco_id] = 0.0
 	# compute phyeco coverages
 	for ref_id, phyeco_id in ref_to_phyeco.items():
-		cluster_id = ref_to_cluster[ref_id]
+		species_id = ref_to_cluster[ref_id]
 		if phyeco_id in phyeco_ids and ref_id in ref_to_cov:
-			cluster_to_phyeco_to_cov[cluster_id][phyeco_id] += ref_to_cov[ref_id]
+			cluster_to_phyeco_to_cov[species_id][phyeco_id] += ref_to_cov[ref_id]
 	# compute median phyeco cov
 	cluster_to_norm = {}
-	for cluster_id in cluster_to_phyeco_to_cov:
-		covs = cluster_to_phyeco_to_cov[cluster_id].values()
-		cluster_to_norm[cluster_id] = median(covs)
+	for species_id in cluster_to_phyeco_to_cov:
+		covs = cluster_to_phyeco_to_cov[species_id].values()
+		cluster_to_norm[species_id] = median(covs)
 	return cluster_to_norm
 
 def compute_pangenome_coverage(args):
-	""" Compute coverage of pangenome for cluster_id and write results to disk """
-	# map ref_id to cluster_id
+	""" Compute coverage of pangenome for species_id and write results to disk """
+	# map ref_id to species_id
 	ref_to_cluster = {}
 	for line in open('/'.join([args['outdir'], 'genes/temp/pangenome.map'])):
-		ref_id, cluster_id = line.rstrip().split()
-		ref_to_cluster[ref_id] = cluster_id
-	# open outfiles for each cluster_id
+		ref_id, species_id = line.rstrip().split()
+		ref_to_cluster[ref_id] = species_id
+	# open outfiles for each species_id
 	outfiles = {}
 	genome_clusters = set(ref_to_cluster.values())
-	for cluster_id in genome_clusters:
-		outfiles[cluster_id] = gzip.open('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % cluster_id]), 'w')
-		outfiles[cluster_id].write('\t'.join(['gene_id', 'coverage', 'copy_number'])+'\n')
-	# parse bam into cov files for each cluster_id
+	for species_id in genome_clusters:
+		outfiles[species_id] = gzip.open('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id]), 'w')
+		outfiles[species_id].write('\t'.join(['gene_id', 'coverage', 'copy_number'])+'\n')
+	# parse bam into cov files for each species_id
 	ref_to_cov = count_mapped_bp(args)
 	# compute normalization factor
 	cluster_to_norm = compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster)
 	# write to output files
 	for ref_id in sorted(ref_to_cov):
 		cov = ref_to_cov[ref_id]
-		cluster_id = ref_to_cluster[ref_id]
-		outfile = outfiles[cluster_id]
-		normcov = cov/cluster_to_norm[cluster_id] if cluster_to_norm[cluster_id] > 0 else 0.0
+		species_id = ref_to_cluster[ref_id]
+		outfile = outfiles[species_id]
+		normcov = cov/cluster_to_norm[species_id] if cluster_to_norm[species_id] > 0 else 0.0
 		outfile.write('\t'.join([str(x) for x in [ref_id, cov, normcov]])+'\n')
 
 def remove_tmp(args):
@@ -167,9 +167,9 @@ def genes_summary(args):
 	# store stats
 	stats = {}
 	inpath = '%s/%s' % (args['outdir'], 'genes/temp/pangenome.map')
-	for cluster_id in set(utility.read_ref_to_cluster(inpath).values()):
+	for species_id in set(utility.read_ref_to_cluster(inpath).values()):
 		pangenome_size, covered_genes, total_coverage, marker_coverage = [0,0,0,0]
-		for r in utility.parse_file('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % cluster_id])):
+		for r in utility.parse_file('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])):
 			pangenome_size += 1
 			coverage = float(r['coverage'])
 			normcov = float(r['copy_number'])
@@ -178,7 +178,7 @@ def genes_summary(args):
 				total_coverage += coverage
 			if normcov > 0:
 				marker_coverage = coverage/normcov
-		stats[cluster_id] = {'pangenome_size':pangenome_size,
+		stats[species_id] = {'pangenome_size':pangenome_size,
 							 'covered_genes':covered_genes,
 							 'fraction_covered':covered_genes/float(pangenome_size),
 							 'mean_coverage':total_coverage/covered_genes if covered_genes > 0 else 0.0,
@@ -186,9 +186,9 @@ def genes_summary(args):
 	# write stats
 	fields = ['pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage']
 	outfile = open('/'.join([args['outdir'], 'genes/summary.txt']), 'w')
-	outfile.write('\t'.join(['cluster_id'] + fields)+'\n')
-	for cluster_id in stats:
-		record = [cluster_id] + [str(stats[cluster_id][field]) for field in fields]
+	outfile.write('\t'.join(['species_id'] + fields)+'\n')
+	for species_id in stats:
+		record = [species_id] + [str(stats[species_id][field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 
 def run_pipeline(args):
