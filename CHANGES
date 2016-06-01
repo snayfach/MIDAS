@@ -1,5 +1,13 @@
 CHANGES
 
+2016-06-01
+ * updated documentation
+ * updated help-text for run_midas.py and merge_midas.py
+   * added sections for output files, formats
+ * merge_midas.py
+   * fixed bug when specifying input with trailing '/'
+   * changed output file names for genes and snps
+
 2016-05-25
  * updated documentation
 

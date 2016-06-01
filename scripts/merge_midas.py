@@ -44,26 +44,40 @@ def species_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: merge_midas.py species outdir [options]
-
 Description: Merge species abundance files across samples
-Input: list of sample directories
-Output: relative abundance matrix, genome-coverage matrix, read-count matrix, species prevalence
+
+Usage: merge_midas.py species outdir [options]
 """,
 		epilog="""Examples:
 1) provide list of paths to sample directories:
-merge_midas.py species outdir -i /path/to/samples/sample_1,/path/to/samples/sample_2 -t list
+merge_midas.py species /path/to/outdir -i /path/to/samples/sample_1,/path/to/samples/sample_2 -t list
 
 2) provide directory containing all samples:
-merge_midas.py species outdir -i /path/to/samples -t dir
+merge_midas.py species /path/to/outdir -i /path/to/samples -t dir
 
 3) provide file containing paths to sample directoriess:
-merge_midas.py species outdir -i /path/to/samples/sample_paths.txt -t file
+merge_midas.py species /path/to/outdir -i /path/to/samples/sample_paths.txt -t file
+
+Output files:
+1) relative_abundance.txt: relative abundance matrix (columns are samples, rows are species)
+2) count_reads.txt: read count matrix (columns are samples, rows are species)
+3) coverage.txt: genome coverage matrix (columns are samples, rows are species)
+4) species_prevalence.txt: summary statistics for each species across samples
+
+Output formats:
+species_prevalence.txt
+1) species_id: species identifier
+2) species_name: unique species name
+3) mean_coverage: average read-depth across samples
+4) median_coverage: median read-depth across samples
+5) mean_abundance: average relative abundance across samples
+6) median_abundance: median relative abundance across samples
+7) prevalence: number of samples with >= `MIN_COV`
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('outdir', type=str, help='Directory for output files')
+	parser.add_argument('outdir', type=str, help='directory for output files')
 	parser.add_argument('-i', type=str, dest='input', required=True,
-		help="""input to sample directories output by run_midas.py species
+		help="""input to sample directories output by run_midas.py
 can be a list of directories, a directory containing all samples, or a file with paths
 see '-t' for details""")
 	parser.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
@@ -85,39 +99,58 @@ def genes_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: merge_midas.py genes outdir [options]
-
 Description: merge results from pan-genome profiling across samples
-Input: list of sample directories
-Output: pan-genome copy-number matrix, presence/absence matrix, and read-depth matrix
-        matrixes also created for KEGG, FIGfams, Gene Ontology, and Enzyme Comission (E.C.)
+
+Usage: merge_midas.py genes outdir [options]
 """,
 		epilog="""Examples:
 1) Merge results for all species. Provide list of paths to sample directories:
-merge_midas.py genes outdir -i sample_1,sample_2 -t list
+merge_midas.py genes /path/to/outdir -i sample_1,sample_2 -t list
 
 2) Merge results for one species (id=57955):
-merge_midas.py genes outdir --species_id 57955 -o outdir -i sample_1,sample_2 -t list
+merge_midas.py genes /path/to/outdir --species_id 57955 -i sample_1,sample_2 -t list
 
 3) Build matrix for pan-genome genes at lower percent id threshold:
-merge_midas.py genes outdir -i /path/to/samples -t dir --cluster_pid 85
+merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --cluster_pid 85
 
 4) Exclude low-coverage samples in output matrix:
-merge_midas.py genes outdir -i /path/to/samples -t dir --sample_depth 5.0
+merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --sample_depth 5.0
 
 5) Use lenient threshold for determining gene presence-absence:
-merge_midas.py genes outdir -i /path/to/samples -t dir --min_copy 0.1
+merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --min_copy 0.1
 
 6) Run a quick test:
-merge_midas.py genes outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10
+merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10
 
+Output files:
+1) genes_copynum.txt: gene copy-number matrix (columns are samples, rows are gene families)
+2) genes_presabs.txt: gene presence-absence (0/1) matrix (columns are samples, rows are gene families). genes with copy-number >= MIN_COPY are called as present and genes below MIN_COPY are called as absent
+3) genes_depth.txt: gene coverage (i.e. read depth) matrix (columns are samples, rows are gene families)
+4) genes_info.txt: detailed information of genes
+5) genes_summary.txt: alignment summary statistics of genes across samples
+
+Output formats:
+genes_info.txt
+1) gene_id: identifier of 99% identity gene family
+2) family_id: mapping to gene family clustered at CLUSTER_PID
+3) function_id: identifier of function
+4) function_db: database (kegg, figfam, go, ec) corresponding to function_id
+
+genes_summary.txt
+1) sample_id: sample identifier
+2) pangenome_size: total number of gene families (99% identity clustering cutoff) in reference pangenome
+3) covered_genes: number of pangenome gene families with non-zero coverage
+4) fraction_covered: fraction of pangenome gene families with non-zero coverage
+5) mean_coverage: mean read-depth across gene families with non-zero coverage
+6) marker_coverage: median read-depth across 15 universal single copy genes
 
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('outdir', type=str, help='Directory for output files')
+	parser.add_argument('outdir', type=str,
+		help="directory for output files. a subdirectory will be created for each species_id")
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
-		help="""input to sample directories output by run_midas.py genes
+		help="""input to sample directories output by run_midas.py
 see '-t' for details""")
 	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
 		help="""'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
@@ -134,8 +167,6 @@ a map of species ids to species names can be found in 'ref_db/annotations.txt'""
 	species.add_argument('--max_species', type=int, metavar='INT',
 		help="""maximum number of species to merge. useful for testing (use all)""")
 	sample = parser.add_argument_group('Sample filters (select subset of samples from INPUT)')
-	#sample.add_argument('--marker_coverage', type=float, default=1.0, metavar='FLOAT',
-	#	help="""minimum coverage per sample across 15 phylogenetic marker genes (1.0)""")
 	sample.add_argument('--sample_depth', type=float, default=1.0, metavar='FLOAT',
 		help="""minimum coverage per sample across all genes with non-zero coverage (1.0)""")
 	sample.add_argument('--max_samples', type=int, metavar='INT',
@@ -157,33 +188,59 @@ def snps_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Usage: merge_midas.py snps outdir [options]
+Description: merge single-nucleotide variant results across samples
 
-Description: merge single-nucleotide variants for an individual species across samples
-Input: list of sample directories
-Output: core-genome SNPs, SNP annotations, SNP allele frequency matrix, SNP alternate alleles, SNP depth,
-        core-genome consensus sequences, and a phylogenetic tree
+Usage: merge_midas.py snps outdir [options]
 """,
 		epilog="""Examples:
 1) Merge results for all species. Provide list of paths to sample directories:
-merge_midas.py snps outdir -i sample_1,sample_2 -t list
+merge_midas.py snps /path/to/outdir -i sample_1,sample_2 -t list
 
 2) Merge results for one species (id=57955):
-merge_midas.py snps outdir --species_id 57955 -i sample_1,sample_2 -t list
+merge_midas.py snps /path/to/outdir --species_id 57955 -i sample_1,sample_2 -t list
 
 3) Only use samples with >15x average depth and only use sites covered by >=10 reads in at least >=95% of samples:
-merge_midas.py snps outdir -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 0.95
+merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 0.95
 
 4) Run a quick test:
-merge_midas.py snps outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10 --max_sites 1000
+merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10 --max_sites 1000
+
+Output files:
+1) snps_ref_freq.txt: reference allele frequency matrix (sites x samples). each value is the proportion of reads that matched the reference allele for a sample at a genomic site
+2) snps_alt_allele.txt: alternate allele matrix (sites x samples). each value is the alternate allele observed for a sample at a genomic site
+3) snps_depth.txt: site depth matrix (sites x samples). each value is the total number of reads observed for a sample at a genomic site
+4) snps_info.txt: detailed information for each genomic site included in output
+5) snps_summary.txt: alignment summary statistics for all samples
+
+File formats:
+snps_info.txt
+1) site_id: identifier of genomic site
+2) mean_freq: average frequency of reference allele across samples
+3) mean_depth: average number of mapped reads across samples
+4) site_prev: proportion of samples with sufficient depth
+5) ref_allele: reference allele
+6) alt_alleles: distribution of alternate alleles
+7) site_type: NC=non-coding site, 1D-4D=coding site
+8) gene_id: gene identifier
+9) amino_acids: amino acid for each possible allele
+10) snps: indicates whether an allele is synonymous (SYN) or non-synonymous (NS)
+
+snps_summary.txt
+1) sample_id: sample identifier
+2) genome_length: length of reference genome used for read-mapping
+3) covered_bases: number of genomic positions covered
+4) fraction_covered: fraction of genomic positions with non-zero coverage
+5) mean_coverage: mean read-depth at covered genomic positions
+
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('outdir', type=str, help='Directory for output files')
+	parser.add_argument('outdir', type=str,
+		help="directory for output files. a subdirectory will be created for each species_id")
 	parser.add_argument('--threads', type=int, default=1, metavar='INT',
 		help="number of CPUs to use for merging files (1)\nincreases speed when merging across many samples")
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
-		help="""input to sample directories output by run_midas.py genes
+		help="""input to sample directories output by run_midas.py
 see '-t' for details""")
 	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
 		help="""'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
@@ -242,6 +299,7 @@ def check_arguments(program, args):
 
 def check_species(args):
 	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
+	check_input(args)
 
 def check_genes(args):
 	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
@@ -258,17 +316,24 @@ def check_snps(args):
 	check_input(args)
 
 def check_input(args):
-	error = "\nError: specified input does not exist: %s"
+	args['indirs'] = []
+	error = "\nError: specified input %s does not exist: %s"
 	if (args['intype'] == 'dir'
 			and not os.path.isdir(args['input'])):
-		sys.exit(error % os.path.abspath(args['input']))
-	elif (args['intype'] == 'file'
-			and not os.path.isfile(args['input'])):
-		sys.exit(error % os.path.abspath(args['input']))
+		sys.exit(error % (args['intype'], os.path.abspath(args['input'])))
+		args['indirs'].append(args['input'])
+	elif args['intype'] == 'file':
+		if not os.path.isfile(args['input']):
+			sys.exit(error % (args['intype'], os.path.abspath(args['input'])))
+		else:
+			for line in open(args['input']):
+				dir = line.rstrip().rstrip('/')
+				if not os.path.isdir(dir): sys.exit(error % ('dir', dir))
+				else: args['indirs'].append(dir)
 	elif args['intype'] == 'list':
 		for dir in args['input'].split(','):
-			if not os.path.isdir(dir):
-				sys.exit(error % dir)
+			if not os.path.isdir(dir): sys.exit(error % ('dir', dir))
+			else: args['indirs'].append(dir)
 
 def print_arguments(program, args):
 	""" Run program specified by user (species, genes, or snps) """
@@ -304,8 +369,6 @@ def print_genes_arguments(args):
 	if args['max_species']:
 		print ("  analyze up to %s species" % args['max_species'])
 	print ("Sample selection criteria:")
-	#if args['marker_coverage']:
-	#	print ("  >=%s average coverage across 15 universal-single-copy genes" % args['marker_coverage'])
 	if args['sample_depth']:
 		print ("  >=%s average read depth across detected genes" % args['sample_depth'])
 	if args['max_samples']:

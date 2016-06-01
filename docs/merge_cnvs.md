@@ -6,18 +6,20 @@ Output: pan-genome copy-number matrix, presence/absence matrix, and read-depth m
 
 ## Usage
 ```
-Usage: merge_midas.py genes [options]
+Usage: merge_midas.py genes outdir [options]
+
+positional arguments:
+  outdir                directory for output files. a subdirectory will be created for each species_id
 
 optional arguments:
   -h, --help            show this help message and exit
 
 Input/Output:
-  -i INPUT              input to sample directories output by run_midas.py genes
+  -i INPUT              input to sample directories output by run_midas.py
                         see '-t' for details
   -t {list,file,dir}    'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
                         'dir': -i is a  directory containing all samples (ex: /samples_dir)
                         'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
-  -o OUTDIR             output directory
 
 Species filters (select subset of species from INPUT):
   --min_samples INT     all species with >= MIN_SAMPLES (1)
@@ -43,44 +45,48 @@ Presence/Absence:
 
 Examples:
 1) Merge results for all species. Provide list of paths to sample directories:
-`merge_midas.py genes -o outdir -i sample_1,sample_2 -t list`
+`merge_midas.py genes /path/to/outdir -i sample_1,sample_2 -t list`
 
 2) Merge results for one species (id=57955):
-`merge_midas.py genes --species_id 57955 -o outdir -i sample_1,sample_2 -t list`
+`merge_midas.py genes /path/to/outdir --species_id 57955 -i sample_1,sample_2 -t list`
 
 3) Build matrix for pan-genome genes at lower percent id threshold:
-`merge_midas.py genes -o outdir -i /path/to/samples -t dir --cluster_pid 85`
+`merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --cluster_pid 85`
 
 4) Exclude low-coverage samples in output matrix:
-`merge_midas.py genes -o outdir -i /path/to/samples -t dir --sample_depth 5.0`
+`merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --sample_depth 5.0`
 
 5) Use lenient threshold for determining gene presence-absence:
-`merge_midas.py genes -o outdir -i /path/to/samples -t dir --min_copy 0.1`
+`merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --min_copy 0.1`
 
 6) Run a quick test:
-`merge_midas.py genes -o outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10`
+`merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10`
 
 
 ## Outputs
-This module generates the following output files:
+The output of this script generates the following files: 
 
-* **{species_id}.depth**: coverage (i.e. read depth) of each reference gene
-* **{species_id}.copynum**: gene copy-number matrix 
-  * gene-coverages normalized by the coverage of universal-single-copy genes
-* **{species_id}.presabs**: gene presence absence matrix 
-  * genes with copy-number >= `min_copy` are called as present and genes below `min_copy` are called as absent (0)
+* **genes_copy_number.txt**: gene copy-number matrix (columns are samples, rows are gene families)
+* **genes_presence_absence.txt**: gene presence-absence (0/1) matrix (columns are samples, rows are gene families). genes with copy-number >= `MIN_COPY` are called as present and genes below `MIN_COPY` are called as absent
+* **genes_coverage.txt**: gene coverage (i.e. read depth) matrix (columns are samples, rows are gene families)
+* **genes_info.txt**: detailed information of genes 
+* **genes_summary.txt**: alignment summary statistics of genes across samples
 
+**genes_info.txt** output format:
 
-Example gene presence/absence matrix:
+* gene_id: identifier of 99% identity gene family
+* family_id: mapping to gene family clustered at CLUSTER_PID
+* function_id: identifier of function     
+* function_db: database (kegg, figfam, go, ec) corresponding to function_id
 
-| gene_id | sample_1 | sample_2 | ...  | sample_n | genome_1 | ...  | genome_n |
-| :----------:|:-------: | :-------:| :--: | :-------:| :-------:| :--: | :-------:|
-| 1235786.3.peg.1010       | 1      | 1      | ...  | 1      | 1      | ...  | 1      |
-| ...         | ...      | ...      | ...  | ...      | ...      | ...  | ...      |
-| 997891.3.rna.48       | 0      | 0      | ...  | 0      | 1      | ...  | 0      |
+**genes_summary.txt** output format:
 
-* Matrix will include reference genomes if `--add_ref` is used
-* **gene_id**: gene identifer; `peg` and `rna` indicate coding & non-coding genes respectively
+* sample_id: sample identifier      
+* pangenome_size: total number of gene families (99% identity clustering cutoff) in reference pangenome 
+* covered_genes: number of pangenome gene families with non-zero coverage   
+* fraction_covered: fraction of pangenome gene families with non-zero coverage           
+* mean_coverage: mean read-depth across gene families with non-zero coverage
+* marker_coverage: median read-depth across 15 universal single copy genes
 
 ## Memory usage  
 * This step takes an insignificant amount of memory

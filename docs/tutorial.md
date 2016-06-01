@@ -76,23 +76,22 @@ For options, examples, and more info, use the `-h` flag:
 `merge_midas.py snps -h`   
 
 Basic command usage (see below for details):  
- `merge_midas.py {species, genes, snps} -i input -t intype -o outdir [options]`
+ `merge_midas.py {species, genes, snps} outdir -i input -t intype [options]`
 
 * `-i` indicates the sample directories output by run_midas.py  
-* `-t` indicates the input type 
-* `-o` is the directory for output files 
+* `-t` indicates the input type
 
 **1) Merge species abundance across samples**  
-`merge_species.py -i samples/sample_1,samples/sample_2 -t list -o species`  
+`merge_midas.py species ./merged_species -i samples/sample_1,samples/sample_2 -t list`
 
 * [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_species.md)
 
 **2) Merge strain-level pan-genome results across samples**  
-`merge_genes.py -i samples/sample_1,samples/sample_2 -t list -o genes`
+`merge_midas.py genes ./merged_genes -i samples/sample_1,samples/sample_2 -t list`
 
 * [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_cnvs.md)
 
 **3) Merge strain-level nucleotide variant results across samples**  
-`merge_snps.py -i samples/sample_1,samples/sample_2 -t list -o snps`
+`merge_midas.py snps ./merged_snps -i samples/sample_1,samples/sample_2 -t list`
 
 * [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md)

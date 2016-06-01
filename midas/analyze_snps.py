@@ -170,13 +170,13 @@ class GenomicSite:
 			else:
 				yield sample_id, float(freq), int(count)
 
-def parse_sites(basename, site_depth=0, info_path=None, max_sites=None):
+def parse_sites(indir, site_depth=0, info_path=None, max_sites=None):
 	""" Parse reference frequency matrix and snp info file """
 	index = 0
-	sample_ids = list_sample_ids('%s.snps.ref_freq' % basename)
-	freq = open('%s.snps.ref_freq' % basename); next(freq)
-	depth = open('%s.snps.depth' % basename); next(depth)
-	alleles = open('%s.snps.alt_allele' % basename); next(alleles)
+	sample_ids = list_sample_ids('%s/snps_ref_freq.txt' % indir)
+	freq = open('%s/snps_ref_freq.txt' % indir); next(freq)
+	depth = open('%s/snps_depth.txt' % indir); next(depth)
+	alleles = open('%s/snps_alt_allele.txt' % indir); next(alleles)
 	info = utility.parse_file(info_path) if info_path else None
 	while True:
 		site = GenomicSite(sample_ids, freq, depth, alleles, site_depth, info)

@@ -36,7 +36,7 @@ class Sample:
 
 def write_summary_stats(species_id, samples, args, type):
 	""" Write summary file for samples """
-	outfile = open('%s/%s/%s.%s.summary' % (args['outdir'], species_id, species_id, type), 'w')
+	outfile = open('%s/%s/%s_summary.txt' % (args['outdir'], species_id, type), 'w')
 	if type == 'snps':
 		fields = ['genome_length', 'covered_bases', 'fraction_covered', 'mean_coverage']
 	else:
@@ -112,17 +112,9 @@ def read_stats(inpath, type):
 		stats[rec['species_id']] = rec
 	return stats
 
-def list_samples(input, intype):
-	if intype == 'dir':
-		return([os.path.join(input, _) for _ in os.listdir(input)])
-	elif intype == 'file':
-		return([x.rstrip() for x in open(input).readlines()])
-	elif intype == 'list':
-		return(input.split(','))
-
 def load_samples(args):
 	samples = []
-	for dir in list_samples(args['input'], args['intype']):
+	for dir in args['indirs']:
 		if os.path.isdir(dir):
 			samples.append(Sample(dir))
 		else:

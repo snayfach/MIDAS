@@ -63,7 +63,7 @@ def write_gene_matrices(species_id, samples, args):
 	# open outfiles
 	outfiles = {}
 	for type in ['presabs', 'copynum', 'depth']:
-		outfiles[type] = open('%s/%s/%s.genes.%s' % (args['outdir'], species_id, species_id, type), 'w')
+		outfiles[type] = open('%s/%s/genes_%s.txt' % (args['outdir'], species_id, type), 'w')
 		outfiles[type].write('\t'.join(['gene_id'] + [s.id for s in samples])+'\n')
 	# write values
 	genes = sorted(samples[0].genes['depth'])
@@ -79,7 +79,7 @@ def write_gene_matrices(species_id, samples, args):
 def write_gene_info(species_id, args):
 	""" Write gene info file """
 	gene_to_family = read_gene_map(species_id, args)
-	outfile = open('%s/%s/%s.genes.info' % (args['outdir'], species_id, species_id), 'w')
+	outfile = open('%s/%s/genes_info.txt' % (args['outdir'], species_id), 'w')
 	fields = ['gene_id', 'family_id', 'function_id', 'function_db']
 	outfile.write('\t'.join(fields)+'\n')
 	for ontology in ['figfam', 'kegg', 'go', 'ec']:

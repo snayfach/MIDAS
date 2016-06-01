@@ -209,7 +209,7 @@ def write_abundance(outdir, cluster_abundance, annotations):
 def read_abundance(inpath):
 	""" Parse species abundance file """
 	if not os.path.isfile(inpath):
-		sys.exit("\nCould not locate species profile: %s\nTry rerunning with run_phylo_cnv.py species" % inpath)
+		sys.exit("\nCould not locate species profile: %s\nTry rerunning with run_midas.py species" % inpath)
 	abun = {}
 	for rec in utility.parse_file(inpath):
 		# format record
