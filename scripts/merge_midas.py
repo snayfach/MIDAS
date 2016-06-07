@@ -55,8 +55,11 @@ merge_midas.py species /path/to/outdir -i /path/to/samples/sample_1,/path/to/sam
 2) provide directory containing all samples:
 merge_midas.py species /path/to/outdir -i /path/to/samples -t dir
 
-3) provide file containing paths to sample directoriess:
+3) provide file containing paths to sample directories:
 merge_midas.py species /path/to/outdir -i /path/to/samples/sample_paths.txt -t file
+
+4) run a quick test:
+merge_midas.py species /path/to/outdir -i /path/to/samples -t dir --max_samples 2
 
 Output files:
 1) relative_abundance.txt: relative abundance matrix (columns are samples, rows are species)
@@ -88,8 +91,10 @@ see '-t' for details""")
 'file': -i incdicates a file containing paths to sample directories
 	   example: /path/to/sample_paths.txt
 """)
-	parser.add_argument('-m', dest='min_cov', type=float, required=False, default=1.0,
-		help="""minimum genome-coverage for estimating species prevalence (1.0)""")
+	parser.add_argument('--min_cov', metavar='FLOAT', type=float, default=1.0,
+		help="""minimum marker-gene-coverage for estimating species prevalence (1.0)""")
+	parser.add_argument('--max_samples', type=int, metavar='INT',
+		help="""maximum number of samples to process. useful for testing (use all)""")
 	args = vars(parser.parse_args())
 	return args
 
@@ -219,7 +224,7 @@ snps_info.txt
 3) mean_depth: average number of mapped reads across samples
 4) site_prev: proportion of samples with sufficient depth
 5) ref_allele: reference allele
-6) alt_alleles: distribution of alternate alleles
+6) allele_props: distribution of allele frequencies across samples
 7) site_type: NC=non-coding site, 1D-4D=coding site
 8) gene_id: gene identifier
 9) amino_acids: amino acid for each possible allele
@@ -318,10 +323,12 @@ def check_snps(args):
 def check_input(args):
 	args['indirs'] = []
 	error = "\nError: specified input %s does not exist: %s"
-	if (args['intype'] == 'dir'
-			and not os.path.isdir(args['input'])):
-		sys.exit(error % (args['intype'], os.path.abspath(args['input'])))
-		args['indirs'].append(args['input'])
+	if args['intype'] == 'dir':
+		if not os.path.isdir(args['input']):
+			sys.exit(error % (args['intype'], os.path.abspath(args['input'])))
+		else:
+			for dir in os.listdir(args['input']):
+				args['indirs'].append(os.path.join(args['input'], dir))
 	elif args['intype'] == 'file':
 		if not os.path.isfile(args['input']):
 			sys.exit(error % (args['intype'], os.path.abspath(args['input'])))
@@ -353,6 +360,8 @@ def print_species_arguments(args):
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
 	print ("Minimum coverage for estimating prevalence: %s" % args['min_cov'])
+	if args['max_samples']:
+		print ("Maximum samples to analyze: %s" % args['max_samples'])
 	print ("")
 
 def print_genes_arguments(args):

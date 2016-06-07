@@ -1,5 +1,12 @@
 CHANGES
 
+2016-06-07
+ * added scripts/analysis/allele_prevalence.py; computes the fraction of samples where each nucleotide is observed
+ * added midas/parse.py; tools for parsing midas output files
+
+2016-06-02
+ * merge_midas.py: fixed check_input() when specifying 'dir' as intype
+
 2016-06-01
  * updated documentation
  * updated help-text for run_midas.py and merge_midas.py

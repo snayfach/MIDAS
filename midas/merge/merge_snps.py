@@ -129,7 +129,7 @@ def write_site_info(siteinfo, site=None, header=None):
 	""" Write site info to file """
 	if header:
 		fields = ['site_id', 'mean_freq', 'mean_depth', 'site_prev', 'ref_allele',
-			      'alt_alleles', 'site_type', 'gene_id', 'amino_acids', 'snps']
+			      'allele_props', 'site_type', 'gene_id', 'amino_acids', 'snps']
 		siteinfo.write('\t'.join(fields)+'\n')
 	else:
 		rec = []
@@ -138,7 +138,7 @@ def write_site_info(siteinfo, site=None, header=None):
 		rec.append(site.mean_depth)
 		rec.append(site.prev)
 		rec.append(site.ref_allele)
-		rec.append(format_dict(site.alt_alleles()))
+		rec.append(format_dict(site.allele_props()))
 		rec.append(site.site_type)
 		rec.append(site.gene_id)
 		rec.append(format_dict(site.amino_acids))
