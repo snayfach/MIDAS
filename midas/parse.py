@@ -15,6 +15,8 @@ class GenomicSite:
 			self.alt_allele = next(files['alt_allele'])
 			self.info = next(files['info'])
 			self.id = self.info['site_id']
+			self.ref_id = self.id.rsplit('|', 1)[0]
+			self.ref_pos = int(self.id.rsplit('|', 1)[1])
 		except StopIteration:
 			self.id = None
 

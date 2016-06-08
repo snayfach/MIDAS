@@ -1,5 +1,13 @@
 CHANGES
 
+2016-06-08
+ * id_marker_alleles.py 
+   * renamed from allele_prevalence.py
+   * added option --min_reads for determining allele +/-
+   * script now identified bi-allelic marker alleles after computing prevalence
+ * added sharing_marker_alleles.py
+   * identified and computes sharing of marker alleles between all pairs of samples
+
 2016-06-07
  * added scripts/analysis/allele_prevalence.py; computes the fraction of samples where each nucleotide is observed
  * added midas/parse.py; tools for parsing midas output files
