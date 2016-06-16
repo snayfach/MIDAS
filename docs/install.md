@@ -45,7 +45,7 @@ You should be able to enter the command into your terminal without getting an er
 `run_midas.py -h`
 
 For more complete testing, run:   
-`python tests/test_midas.py -f`
+`python test/test_midas.py -f`
 
 ### Update MIDAS
 Move to installation directory, pull the latest version, and install:  
