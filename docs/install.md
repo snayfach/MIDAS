@@ -28,8 +28,8 @@ If you have pip installed, you can install these packages by running the followi
 
 If you don't have pip, the packages can be installed by running the setup.py script:  
 `python MIDAS/setup.py install` or  
-`sudo python MIDAS/setup.py install to install` as a superuser, or  
-`python MIDAS/setup.py install` --user to install locally  
+`sudo python MIDAS/setup.py install` to install as a superuser, or  
+`python MIDAS/setup.py install --user` to install locally  
 
 ### Update your environmental variables
 
