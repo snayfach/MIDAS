@@ -31,6 +31,10 @@ If you don't have pip, the packages can be installed by running the setup.py scr
 `sudo python MIDAS/setup.py install` to install as a superuser, or  
 `python MIDAS/setup.py install --user` to install locally  
 
+If you are using Ubuntu Linux, the packages can be installed using:
+`sudo apt-get install python-numpy python-biopython python-pysam python-pandas`
+(Tested on Ubuntu 16)
+
 ### Update your environmental variables
 
 This will enable you to run MIDAS scripts:  
@@ -41,12 +45,14 @@ Be sure to replace '/path/to' with the appropriate path on your system
 Add these commands to your .bash_profile to avoid entering the commands in the future
 
 ### Testing
-You should be able to enter the command into your terminal without getting an error:  
+You should be able to enter these commands into your terminal without getting an error:  
 `run_midas.py -h`
 
 For more complete testing, run:   
+`cd /path/to/MIDAS`
 `python test/test_midas.py -f`
 
+Be sure to replace '/path/to' with the appropriate path on your system.
 ### Update MIDAS
 Move to installation directory, pull the latest version, and install:  
 `cd MIDAS`  
