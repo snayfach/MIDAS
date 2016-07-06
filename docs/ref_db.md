@@ -10,7 +10,7 @@ For each of the 5,952 species groups, we identified:
 ## Download the reference database
 Download the MIDAS reference database of marker genes, pangenomes, and representative genomes:
 `python MIDAS/scripts/download_ref_db.py`
-This may take several minutes to several hours, depending on your internet speed. The entire database requires ~17G of free space.  
+This may take several minutes to several hours, depending on your internet speed. The entire database requires ~35 GB of free space to install, once installed it takes about ~17G of free space.  
 
 ## A comprehensive genomic resource
 <img src="https://github.com/snayfach/MIDAS/blob/master/images/ref_db.jpg" width="350" align="right"/>  **Contruction of MIDAS reference database**
