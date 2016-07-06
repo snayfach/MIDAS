@@ -32,8 +32,11 @@ If you don't have pip, the packages can be installed by running the setup.py scr
 `python MIDAS/setup.py install --user` to install locally  
 
 If you are using Ubuntu Linux, the packages can be installed using:
-`sudo apt-get install python-numpy python-biopython python-pysam python-pandas`
-(Tested on Ubuntu 16)
+```
+sudo apt-get install python-numpy python-biopython python-pysam python-pandas
+sudo pip install pysam --upgrade
+```
+(Tested on Ubuntu 16, note the need to upgrade pysam, since Ubuntu 16 is still at 0.7.7)
 
 ### Update your environmental variables
 
