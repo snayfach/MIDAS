@@ -50,18 +50,26 @@ class HelpText(unittest.TestCase):
 class RunSpecies(unittest.TestCase):
 	""" test run_midas.py species """
 	def setUp(self):
-		self.command = '%s/run_midas.py species ./sample -1 ./test.fq.gz -n 100'
+		# self.command = '%s/run_midas.py species ./sample -1 ./test.fq.gz -n 100'
+		# kludge below:
+		self.command = 'run_midas.py species ./sample -1 ./test.fq.gz -n 100'
 	def test_help_text(self):
 		error = "Failed to execute the command: %s " % self.command
-		self.assertTrue(run(self.command % script_dir)==0, msg=error)
+		# self.assertTrue(run(self.command % script_dir)==0, msg=error)
+		# kludge below:
+		self.assertTrue(run(self.command)==0, msg=error)
 
 class RunGenes(unittest.TestCase):
 	""" test run_midas.py genes """
 	def setUp(self):
-		self.command = '%s/run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
+		# self.command = '%s/run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
+		# kludge:
+		self.command = 'run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
 	def test_help_text(self):
 		error = "Failed to execute the command: %s " % self.command
-		self.assertTrue(run(self.command % script_dir)==0, msg=error)
+		# self.assertTrue(run(self.command % script_dir)==0, msg=error)
+		# kludge:
+		self.assertTrue(run(self.command)==0, msg=error)
 
 class RunSNPs(unittest.TestCase):
 	""" test run_midas.py snps """
