@@ -26,13 +26,11 @@ The dependencies can be installed by running the setup.py script:
 `python MIDAS/setup.py install --user` to install locally  
 
 If you have pip installed, you can install these dependencies by running the following command:
-
 `pip install -U numpy biopython pysam pandas` or  
 `sudo pip install -U numpy biopython pysam pandas` to install as a superuser, or  
 `pip install --user numpy biopython pysam pandas` to install locally  
 
-### Dependencies: Alternate methods
-[More detailed instructions for installing the dependencies on brand new CentOS and Ubuntu installs] (https://github.com/snayfach/MIDAS/blob/master/docs/install_.md)
+[Detailed instructions for installation on a brand new CentOS/Ubuntu system] (https://github.com/snayfach/MIDAS/blob/master/docs/install_other.md)
 
 ### Update your environmental variables
 
