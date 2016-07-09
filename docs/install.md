@@ -20,20 +20,19 @@ The following Python modules should be pre-installed on your system
 * Pysam (>=0.8.1)
 * Pandas (>=0.17.1)
 
-If you have pip installed, you can install these packages by running the following command:
+The dependencies can be installed by running the setup.py script:  
+`python MIDAS/setup.py install` or  
+`sudo python MIDAS/setup.py install` to install as a superuser, or  
+`python MIDAS/setup.py install --user` to install locally  
+
+If you have pip installed, you can install these dependencies by running the following command:
 
 `pip install -U numpy biopython pysam pandas` or  
 `sudo pip install -U numpy biopython pysam pandas` to install as a superuser, or  
 `pip install --user numpy biopython pysam pandas` to install locally  
 
-If you don't have pip, the packages can be installed by running the setup.py script:  
-`python MIDAS/setup.py install` or  
-`sudo python MIDAS/setup.py install` to install as a superuser, or  
-`python MIDAS/setup.py install --user` to install locally  
-
-If you are using Ubuntu Linux, the packages can be installed using:
-`sudo apt-get install python-numpy python-biopython python-pysam python-pandas`
-(Tested on Ubuntu 16)
+### Dependencies: Alternate methods
+[More detailed instructions for installing the dependencies on brand new CentOS and Ubuntu installs] (https://github.com/snayfach/MIDAS/blob/master/docs/install_.md)
 
 ### Update your environmental variables
 
