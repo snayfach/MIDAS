@@ -18,7 +18,7 @@ sudo python setup.py install
 
 These instructions have been tested on a CentOS 7 VM in the Google Cloud Engine (GCE).
 
-# #Ubuntu 16.04LTS
+## Ubuntu 16.04LTS
 If the user has a brand new install of Ubuntu 16.04, the following instructions will work to install the pre-requisites:
 ```
 sudo apt-get install gcc cpp python-pip python-nose python-setuptools python-numpy python-pandas python-pysam python-biopython
