@@ -25,8 +25,15 @@ Download the reference database:
 
 Running MIDAS can be conceptually broken down in three steps:  
 1) run MIDAS per sample: `run_midas.py [species, genes, snps]`  
+* run_midas.py species should be run prior to genes or snps
+* run_midas.py genes and snps are independent of eachother and do not need to both be run  
+
 2) merge results across samples: `merge_midas.py [species, genes, snps]`  
-3) analyze results: `gene_diversity.py, snp_sharing.py, etc.` (these are the scripts currently in `/path/to/MIDAS/scripts/analysis` , at the moment they are a bit experimental but they will be available directly on `/path/to/MIDAS/scripts` in the next update.
+* creates output files that can facilitate comparative analysis across samples and species/genes/snps  
+
+3) analyze results: `gene_diversity.py, snp_sharing.py, etc.`  
+* these are the scripts currently in `/path/to/MIDAS/scripts/analysis`
+* at the moment they experimental but will be available directly on `/path/to/MIDAS/scripts` in the next update
 
 First, move to the example directory and create a new directory to store per-sample outputs:  
 `cd MIDAS/example`  
@@ -82,7 +89,7 @@ Basic command usage (see below for details):
 * `-t` indicates the input type
 
 **1) Merge species abundance across samples**  
-`merge_midas.py species ./merged_species -i samples/sample_1,samples/sample_2 -t list` 
+`merge_midas.py species ./merged_species -i samples/sample_1,samples/sample_2 -t list`   
 The results will be in the folder named `./merged_species`, and it will contain four files:
 ```
 count_reads.txt
@@ -95,7 +102,7 @@ Those files can be looked at with your favorite spreadsheet or text editor for m
 * [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_species.md)
 
 **2) Merge strain-level pan-genome results across samples**  
-`merge_midas.py genes ./merged_genes -i samples/sample_1,samples/sample_2 -t list`
+`merge_midas.py genes ./merged_genes -i samples/sample_1,samples/sample_2 -t list`  
 The results will be in a folder named `./merged_genes`, which will contain a sub-folder for each species that satisfies the coverage criterion for inclusion.
 For these example files, the screen should show:
 ```
@@ -143,7 +150,7 @@ Those files can be looked at with your favorite spreadsheet or text editor for m
 * [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_cnvs.md)
 
 **3) Merge strain-level nucleotide variant results across samples**  
-`merge_midas.py snps ./merged_snps -i samples/sample_1,samples/sample_2 -t list`
+`merge_midas.py snps ./merged_snps -i samples/sample_1,samples/sample_2 -t list`  
 The results will be in a folder named `./merged_snps`, which will contain a sub-folder for each species that satisfies the coverage criterion for inclusion.
 For these example files, the screen should show:
 ```
