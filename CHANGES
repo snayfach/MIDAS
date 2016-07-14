@@ -1,5 +1,8 @@
 CHANGES
 
+2016-06-15
+ * gene_distances.py: fixed and added more documentation
+
 2016-06-08
  * id_marker_alleles.py 
    * renamed from allele_prevalence.py

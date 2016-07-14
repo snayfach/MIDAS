@@ -34,75 +34,73 @@ class HelpText(unittest.TestCase):
 	""" check help text for all scripts """
 	def setUp(self):
 		self.scripts = [
-			'%s/run_midas.py -h',
-			'%s/run_midas.py species -h',
-			'%s/run_midas.py genes -h',
-			'%s/run_midas.py snps -h',
-			'%s/merge_midas.py -h',
-			'%s/merge_midas.py species -h',
-			'%s/merge_midas.py genes -h',
-			'%s/merge_midas.py snps -h']
-		self.exit_codes = [run(_ % script_dir) for _ in self.scripts]
-	
+			'run_midas.py -h',
+			'run_midas.py species -h',
+			'run_midas.py genes -h',
+			'run_midas.py snps -h',
+			'merge_midas.py -h',
+			'merge_midas.py species -h',
+			'merge_midas.py genes -h',
+			'merge_midas.py snps -h']
+		self.exit_codes = [run(_) for _ in self.scripts]
 	def test_help_text(self):
-		self.assertTrue(all([_ == 0 for _ in self.exit_codes]))
+		error = "\n\nFailed to run MIDAS.\nMake sure you've appended /path/to/MIDAS/scripts to your PATH and /path/to/MIDAS to your PYTHONPATH variables"
+		self.assertTrue(all([_ == 0 for _ in self.exit_codes]), msg=error)
 
 class RunSpecies(unittest.TestCase):
 	""" test run_midas.py species """
 	def setUp(self):
-		self.command = '%s/run_midas.py species ./sample -1 ./test.fq.gz -n 100'
+		self.command = 'run_midas.py species ./sample -1 ./test.fq.gz -n 100'
 	def test_help_text(self):
-		error = "Failed to execute the command: %s " % self.command
-		self.assertTrue(run(self.command % script_dir)==0, msg=error)
+		error = "\n\nFailed to execute the command: %s " % self.command
+		self.assertTrue(run(self.command)==0, msg=error)
 
 class RunGenes(unittest.TestCase):
 	""" test run_midas.py genes """
 	def setUp(self):
-		self.command = '%s/run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
+		self.command = 'run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
 	def test_help_text(self):
-		error = "Failed to execute the command: %s " % self.command
-		self.assertTrue(run(self.command % script_dir)==0, msg=error)
+		error = "\n\nFailed to execute the command: %s " % self.command
+		self.assertTrue(run(self.command)==0, msg=error)
 
 class RunSNPs(unittest.TestCase):
 	""" test run_midas.py snps """
 	def setUp(self):
-		self.command = '%s/run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
+		self.command = 'run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
 	def test_help_text(self):
-		error = "Failed to execute the command: %s " % self.command
-		self.assertTrue(run(self.command % script_dir)==0, msg=error)
+		error = "\n\nFailed to execute the command: %s " % self.command
+		self.assertTrue(run(self.command)==0, msg=error)
 
 class MergeSpecies(unittest.TestCase):
 	""" test merge_midas.py species """
 	def setUp(self):
 		self.retcodes = []
-		self.retcodes.append(run('%s/run_midas.py species ./sample -1 ./test.fq.gz -n 100' % script_dir))
-		self.retcodes.append(run('%s/merge_midas.py species ./species -i ./sample -t list' % script_dir))
+		self.retcodes.append(run('run_midas.py species ./sample -1 ./test.fq.gz -n 100'))
+		self.retcodes.append(run('merge_midas.py species ./species -i ./sample -t list'))
 	def test_help_text(self):
-		error = "Failed to execute the command: merge_midas.py species "
+		error = "\n\nFailed to execute the command: merge_midas.py species "
 		self.assertTrue(sum(self.retcodes)==0, msg=error)
 
 class MergeGenes(unittest.TestCase):
 	""" test merge_midas.py species """
 	def setUp(self):
 		self.retcodes = []
-		self.retcodes.append(run('%s/run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955' % script_dir))
-		self.retcodes.append(run('%s/merge_midas.py genes ./genes -i ./sample -t list --species_id 57955 --sample_depth 0.0' % script_dir))
+		self.retcodes.append(run('run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955'))
+		self.retcodes.append(run('merge_midas.py genes ./genes -i ./sample -t list --species_id 57955 --sample_depth 0.0'))
 	def test_help_text(self):
-		error = "Failed to execute the command: merge_midas.py genes "
+		error = "\n\nFailed to execute the command: merge_midas.py genes "
 		self.assertTrue(sum(self.retcodes)==0, msg=error)
 
 class MergeSNPs(unittest.TestCase):
 	""" test merge_midas.py species """
 	def setUp(self):
 		self.retcodes = []
-		self.retcodes.append(run('%s/run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id 57955' % script_dir))
-		self.retcodes.append(run('%s/merge_midas.py snps ./snps -i ./sample -t list --species_id 57955 --sample_depth 0.0 --max_sites 100 --fract_cov 0.0' % script_dir))
+		self.retcodes.append(run('run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id 57955'))
+		self.retcodes.append(run('merge_midas.py snps ./snps -i ./sample -t list --species_id 57955 --sample_depth 0.0 --max_sites 100 --fract_cov 0.0'))
 	def test_help_text(self):
-		error = "Failed to execute the command: merge_midas.py snps "
+		error = "\n\nFailed to execute the command: merge_midas.py snps "
 		self.assertTrue(sum(self.retcodes)==0, msg=error)
 
 if __name__ == '__main__':
-	test_dir = os.path.dirname(os.path.abspath(__file__))
-	script_dir = '%s/../scripts' % test_dir
 	unittest.main()
 	shutil.rmtree('test')

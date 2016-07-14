@@ -68,7 +68,7 @@ def select_species(args, type='genes'):
 	species = {}
 	for sample in load_samples(args):
 		if not sample.paths[type]:
-			sys.stderr.write("Warning: no genes output for sample: %s\n" % sample.dir)
+			sys.stderr.write("Warning: no %s output for sample: %s\n" % (type, sample.dir))
 			continue
 		for id, info in read_stats(sample.paths[type], type).items():
 			if (args['species_id']
