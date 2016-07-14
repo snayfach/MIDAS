@@ -124,6 +124,7 @@ class GenomicSite:
 			rec_freq = next(freq)
 			self.id = rec_freq.split('\t')[0]
 			self.info = next(info) if info else None
+			self.ref_allele = self.info['ref_allele'] if self.info else None
 			self.freqs = rec_freq.rstrip().split('\t')[1:]
 			self.depths = next(depth).rstrip().split('\t')[1:]
 			self.alleles = next(alleles).rstrip().split('\t')[1:]
@@ -150,16 +151,21 @@ class GenomicSite:
 		count = len([_ for _ in self.depths if int(_) >= site_depth])
 		return float(count)/self.count_samples
 
-	def alt_alleles(self):
-		d = {'A':0.0, 'T':0.0, 'C':0.0, 'G':0.0}
+	def allele_props(self):
+		sums = {'A':0.0, 'T':0.0, 'C':0.0, 'G':0.0}
+		props = {}
+		# sum alternate allele proportions
 		for freq, allele in zip(self.freqs, self.alleles):
-			if allele != 'NA':
-				d[allele] += 1-float(freq)
-		total = sum(d.values())
+			if allele != 'NA': sums[allele] += 1-float(freq)
+		# sum reference allele proportions
+		for freq in self.freqs:
+			if freq != 'NA': sums[self.ref_allele] += float(freq)
+		# normalize proportions
+		total = sum(sums.values())
 		if total > 0:
-			for allele in d.copy():
-				d[allele] = d[allele]/total
-		return d
+			for allele in sums:
+				props[allele] = sums[allele]/total
+		return props
 
 	def iterate(self, sample_ids):
 		for sample_id, freq, count in zip(self.sample_ids, self.freqs, self.depths):

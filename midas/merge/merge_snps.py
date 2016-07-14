@@ -41,11 +41,9 @@ def build_snp_matrix(species_id, samples, args):
 	list = []
 	tempdir = '%s/%s/temp' % (args['outdir'], species_id)
 	if not os.path.isdir(tempdir): os.mkdir(tempdir)
-	batches = utility.batch_samples(samples, args['threads'])
+	batches = utility.batch_samples(samples, threads=1)
 	for index, batch in enumerate(batches):
-		list.append({'index':index, 'samples':batch, 'species_id':species_id,
-		            'tempdir':tempdir, 'max_sites':args['max_sites']})
-	utility.parallel(temp_matrix, list, args['threads'])
+		temp_matrix(tempdir, species_id, samples, index, args['max_sites'])
 	# merge temp matrixes
 	merge_matrices(tempdir, species_id, samples, batches, args)
 
@@ -105,13 +103,6 @@ def merge_matrices(tempdir, species_id, samples, batches, args):
 			for file in infiles[type]:
 				file.close()
 
-#def build_tree(args):
-#	"""	Use FastTree to build phylogenetic tree of consensus sequences """
-#	inpath = '%s/%s.fasta' % (args['outdir'], args['species_id'])
-#	outpath = '%s/%s.tree' % (args['outdir'], args['species_id'])
-#	p = subprocess.Popen('FastTree -nt -boot 100 < %s > %s' % (inpath, outpath), shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-#	out, err = p.communicate()
-
 def filter_site(site, args):
 	""" Filter genome site based on prevalence and minor allele frequency """
 	if site.prev < args['site_prev']:
@@ -129,7 +120,7 @@ def write_site_info(siteinfo, site=None, header=None):
 	""" Write site info to file """
 	if header:
 		fields = ['site_id', 'mean_freq', 'mean_depth', 'site_prev', 'ref_allele',
-			      'alt_alleles', 'site_type', 'gene_id', 'amino_acids', 'snps']
+			      'allele_props', 'site_type', 'gene_id', 'amino_acids', 'snps']
 		siteinfo.write('\t'.join(fields)+'\n')
 	else:
 		rec = []
@@ -138,7 +129,7 @@ def write_site_info(siteinfo, site=None, header=None):
 		rec.append(site.mean_depth)
 		rec.append(site.prev)
 		rec.append(site.ref_allele)
-		rec.append(format_dict(site.alt_alleles()))
+		rec.append(format_dict(site.allele_props()))
 		rec.append(site.site_type)
 		rec.append(site.gene_id)
 		rec.append(format_dict(site.amino_acids))
@@ -178,25 +169,32 @@ def filter_snp_matrix(species_id, samples, args):
 			write_site_info(siteinfo, site)
 			write_matrices(site, matrices)
 
+def merge_snps(args, species):
+	log = open('%s/%s/snps_log.txt' % (args['outdir'], species.id), 'w')
+	log.write("Merging: %s (id:%s) for %s samples\n" % (species.consensus_name, species.id, len(species.samples)))
+	log.write("  merging per-sample statistics\n")
+	merge.write_summary_stats(species.id, species.samples, args, 'snps')
+	log.write("  merging per-site statistics\n")
+	build_snp_matrix(species.id, species.samples, args)
+	log.write("  extracting and annotating specified sites\n")
+	filter_snp_matrix(species.id, species.samples, args)
+	log.write("  removing temporary files\n")
+	shutil.rmtree('%s/%s/temp' % (args['outdir'], species.id))
+	log.close()
+
+
 def run_pipeline(args):
 
 	print("Identifying species")
 	species = merge.select_species(args, type='snps')
-	for sp in species:
+	
+	print("Merging snps")
+	batches =[]
+	for species in species:
+		batches.append({'args':args, 'species':species})
+	utility.parallel(merge_snps, batches, args['threads'])
 
-		print "Merging: %s (id:%s) for %s samples" % (sp.consensus_name, sp.id, len(sp.samples))
 
-		print("  merging per-sample statistics")
-		merge.write_summary_stats(sp.id, sp.samples, args, 'snps')
-
-		print("  merging per-site statistics")
-		build_snp_matrix(sp.id, sp.samples, args)
-
-		print("  extracting and annotating specified sites")
-		filter_snp_matrix(sp.id, sp.samples, args)
-
-		print("  removing temporary files")
-		shutil.rmtree('%s/%s/temp' % (args['outdir'], sp.id))
 
 
 

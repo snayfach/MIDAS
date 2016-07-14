@@ -20,7 +20,7 @@ def decompress(tar, file, remove=True):
 
 if __name__ == '__main__':
 	
-	url_base = "http://lighthouse.ucsf.edu/phylocnv"
+	url_base = "http://lighthouse.ucsf.edu/MIDAS"
 	script_dir = os.path.dirname(os.path.abspath(__file__))
 	main_dir = os.path.dirname(script_dir)
 	os.chdir(main_dir)

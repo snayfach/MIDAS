@@ -65,7 +65,10 @@ def write_stats(args, stats, species_info):
 		outfile.write(species_id)
 		outfile.write('\t%s' % species_info[species_id])
 		for field in fields:
-			outfile.write('\t%s' % str(round(stats[species_id][field], 2)))
+			if field == 'prevalence':
+				outfile.write('\t%s' % str(stats[species_id][field]))
+			else:
+				outfile.write('\t%s' % str(round(stats[species_id][field], 2)))
 		outfile.write('\n')
 
 def identify_samples(args):
@@ -79,6 +82,9 @@ def identify_samples(args):
 			samples.append(sample)
 	if len(samples)==0:
 		sys.exit("\nError: no samples with species profiles\n")
+	# select a subset of species to analyze
+	if args['max_samples'] is not None and len(samples) > args['max_samples']:
+		samples = samples[0:args['max_samples']]
 	return samples
 
 def run_pipeline(args):

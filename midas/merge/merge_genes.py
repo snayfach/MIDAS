@@ -48,7 +48,8 @@ def build_gene_matrices(species_id, samples, args):
 			sample.genes[type] = defaultdict(float)
 		inpath = '%s/genes/output/%s.genes.gz' % (sample.dir, species_id)
 		for r in utility.parse_file(inpath):
-			if 'normalized_coverage' in r: r['copy_number'] = r['normalized_coverage']
+			if 'ref_id' in r: r['gene_id'] = r['ref_id'] # fix old fields if present
+			if 'normalized_coverage' in r: r['copy_number'] = r['normalized_coverage'] 
 			if 'raw_coverage' in r: r['coverage'] = r['raw_coverage']
 			gene_id = gene_to_family[r['gene_id']]
 			sample.genes['copynum'][gene_id] += float(r['copy_number'])
