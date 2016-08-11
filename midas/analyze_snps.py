@@ -123,8 +123,10 @@ class GenomicSite:
 		try:
 			rec_freq = next(freq)
 			self.id = rec_freq.split('\t')[0]
+			self.ref_id = self.id.rsplit('|', 1)[0]
+			self.ref_allele = self.id.split('|')[-1]
+			self.ref_pos = int(self.id.split('|')[-2])
 			self.info = next(info) if info else None
-			self.ref_allele = self.info['ref_allele'] if self.info else None
 			self.freqs = rec_freq.rstrip().split('\t')[1:]
 			self.depths = next(depth).rstrip().split('\t')[1:]
 			self.alleles = next(alleles).rstrip().split('\t')[1:]
