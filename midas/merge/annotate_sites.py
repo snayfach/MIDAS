@@ -120,10 +120,6 @@ def annotate_site(site, genes, gene_index, contigs):
 	# genes: list of genes, each gene contains info
 	# contig: contig sequence
 	# gene_index: current position in list of genes; global variable
-	
-	site.ref_id = site.id.rsplit('|', 1)[0]
-	site.ref_pos = int(site.id.rsplit('|', 1)[1])
-	site.ref_allele = contigs[site.ref_id][int(site.ref_pos)-1]
 	site.snp_types = {}
 	site.amino_acids = {}
 	

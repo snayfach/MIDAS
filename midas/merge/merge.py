@@ -88,7 +88,7 @@ def select_species(args, type='genes'):
 	# dict to list
 	species = species.values()
 	# remove species with an insufficient number of samples
-	species = [sp for sp in species if len(sp.samples) >= args['min_samples']]
+	species = [sp for sp in species if len(sp.samples) >= int(args['min_samples'])]
 	# sort by number of samples
 	species = sort_species(species)
 	# select a subset of species to analyze

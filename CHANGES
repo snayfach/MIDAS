@@ -1,5 +1,10 @@
 CHANGES
 
+2016-08-11
+ * merge_midas.py snps:
+   * added ref_allele to site_id
+   * skipping sites where ref_allele == 'N' 
+
 2016-06-15
  * gene_distances.py: fixed and added more documentation
 

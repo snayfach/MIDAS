@@ -43,7 +43,7 @@ def build_snp_matrix(species_id, samples, args):
 	if not os.path.isdir(tempdir): os.mkdir(tempdir)
 	batches = utility.batch_samples(samples, threads=1)
 	for index, batch in enumerate(batches):
-		temp_matrix(tempdir, species_id, samples, index, args['max_sites'])
+		temp_matrix(tempdir, species_id, batch, index, args['max_sites'])
 	# merge temp matrixes
 	merge_matrices(tempdir, species_id, samples, batches, args)
 
@@ -61,7 +61,7 @@ def temp_matrix(tempdir, species_id, samples, index, max_sites):
 			break
 		else:
 			nsites += 1
-			site_id = '|'.join([records[0]['ref_id'], records[0]['ref_pos']])
+			site_id = '|'.join([records[0]['ref_id'], records[0]['ref_pos'], records[0]['ref_allele']])
 			for field in ['ref_freq', 'depth', 'alt_allele']:
 				values = [rec[field] for rec in records]
 				matrices[field].write(site_id+'\t'+'\t'.join(values)+'\n')
@@ -109,6 +109,8 @@ def filter_site(site, args):
 		return True
 	elif site.maf < args['site_maf']:
 		return True
+	elif site.ref_allele == 'N':
+		return True
 	else:
 		return False
 
@@ -119,8 +121,7 @@ def format_dict(d):
 def write_site_info(siteinfo, site=None, header=None):
 	""" Write site info to file """
 	if header:
-		fields = ['site_id', 'mean_freq', 'mean_depth', 'site_prev', 'ref_allele',
-			      'allele_props', 'site_type', 'gene_id', 'amino_acids', 'snps']
+		fields = ['site_id', 'mean_freq', 'mean_depth', 'site_prev', 'allele_props', 'site_type', 'gene_id', 'amino_acids', 'snps']
 		siteinfo.write('\t'.join(fields)+'\n')
 	else:
 		rec = []
