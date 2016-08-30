@@ -4,12 +4,33 @@ import unittest
 import shutil
 import os
 import subprocess
+from distutils.version import StrictVersion
 
 def run(command):
 	""" run shell command & return unix exit code """
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
 	return(process.returncode)
+
+class CheckEnv(unittest.TestCase):
+	""" check environmental variables """
+	def setUp(self):
+		self.path_contents = []
+		for _ in os.environ['PATH'].strip(':').split(':'):
+			if os.path.isdir(_): self.path_contents += os.listdir(_)
+		self.python_contents = []
+		for _ in os.environ['PYTHONPATH'].strip(':').split(':'):
+			if os.path.isdir(_): self.python_contents += os.listdir(_)
+		
+	def test_dependencies(self):
+		self.assertTrue(
+			'run_midas.py' in self.path_contents,
+			msg="""\n\n'run_midas.py' not found in PATH environmental variable.\nMake sure '/path/to/MIDAS/scripts' has been added to your PATH"""
+			)
+		self.assertTrue(
+			'midas' in self.python_contents,
+			msg="""\n\n'midas' not found in PYTHONPATH environmental variable.\nMake sure '/path/to/MIDAS' has been added to your PYTHONPATH"""
+			)
 
 class ImportDependencies(unittest.TestCase):
 	""" test that all dependencies can be imported """
@@ -29,6 +50,19 @@ class ImportDependencies(unittest.TestCase):
 	def test_dependencies(self):
 		self.assertTrue(len(self.failures)==0,
 		msg="""\n\nThe following dependencies failed to import: %s.\nMake sure that dependencies have been properly installed""" % str(self.failures))
+
+class CheckVersions(unittest.TestCase):
+	""" check version numbers for dependencies """
+	def setUp(self):
+		self.names = ['numpy', 'pandas', 'pysam', 'Bio.SeqIO']
+		self.modules = map(__import__, self.names)
+		self.versions = ['1.7.0', '0.17.1', '0.8.1', '1.6.2']
+		
+	def test_dependencies(self):
+		for name, module, version in zip(self.names, self.modules, self.versions):
+			self.assertTrue(
+				StrictVersion(module.__version__) >= StrictVersion(version),
+			msg="""\n\nImported library '%s %s' is out of date. Required version is >= %s""" % (name, module.__version__, version) )
 
 class HelpText(unittest.TestCase):
 	""" check help text for all scripts """

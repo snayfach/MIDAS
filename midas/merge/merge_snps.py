@@ -7,7 +7,7 @@
 import sys, os, shutil, numpy as np
 from midas import utility
 from midas.merge import merge, annotate_sites as annotate
-from midas import analyze_snps as analyze
+from midas import parse
 
 def store_data(snpfiles):
 	""" List of records from specified sample_ids """
@@ -103,22 +103,11 @@ def merge_matrices(tempdir, species_id, samples, batches, args):
 			for file in infiles[type]:
 				file.close()
 
-def filter_site(site, args):
-	""" Filter genome site based on prevalence and minor allele frequency """
-	if site.prev < args['site_prev']:
-		return True
-	elif site.maf < args['site_maf']:
-		return True
-	elif site.ref_allele == 'N':
-		return True
-	else:
-		return False
-
 def format_dict(d):
 	""" Format dictionary. ex: 'A:SYN|C:NS|T:NS|G:NS' """
 	return '|'.join(['%s:%s' % (x, y) for x, y in d.items()])
 
-def write_site_info(siteinfo, site=None, header=None):
+def write_site_info(siteinfo, site_depth=None, site=None, header=None):
 	""" Write site info to file """
 	if header:
 		fields = ['site_id', 'mean_freq', 'mean_depth', 'site_prev', 'allele_props', 'site_type', 'gene_id', 'amino_acids', 'snps']
@@ -126,10 +115,9 @@ def write_site_info(siteinfo, site=None, header=None):
 	else:
 		rec = []
 		rec.append(site.id)
-		rec.append(site.mean_freq)
-		rec.append(site.mean_depth)
-		rec.append(site.prev)
-		rec.append(site.ref_allele)
+		rec.append(site.mean_freq())
+		rec.append(site.mean_depth())
+		rec.append(site.prev(site_depth))
 		rec.append(format_dict(site.allele_props()))
 		rec.append(site.site_type)
 		rec.append(site.gene_id)
@@ -139,9 +127,9 @@ def write_site_info(siteinfo, site=None, header=None):
 
 def write_matrices(site, matrices):
 	""" Write site to output matrices """
-	matrices['ref_freq'].write(site.id+'\t'+'\t'.join(site.freqs)+'\n')
-	matrices['depth'].write(site.id+'\t'+'\t'.join(site.depths)+'\n')
-	matrices['alt_allele'].write(site.id+'\t'+'\t'.join(site.alleles)+'\n')
+	matrices['ref_freq'].write(site.id+'\t'+'\t'.join(site.ref_freq)+'\n')
+	matrices['depth'].write(site.id+'\t'+'\t'.join(site.depth)+'\n')
+	matrices['alt_allele'].write(site.id+'\t'+'\t'.join(site.alt_allele)+'\n')
 
 def filter_snp_matrix(species_id, samples, args):
 	""" Extract subset of site from SNP-matrix """
@@ -162,12 +150,14 @@ def filter_snp_matrix(species_id, samples, args):
 	
 	# parse genomic sites
 	tempdir = '%s/%s/temp' % (args['outdir'], species_id)
-	for site in analyze.parse_sites(tempdir, site_depth=args['site_depth'], max_sites=args['max_sites']):
-		if filter_site(site, args):
+	for index, site in enumerate(parse.parse_sites(tempdir)):
+		if args['max_sites'] is not None and index >= args['max_sites']:
+			break
+		elif site.filter(args['site_depth'], args['site_prev'], args['site_maf']):
 			continue
 		else:
 			annotate.annotate_site(site, genes, gene_index, contigs)
-			write_site_info(siteinfo, site)
+			write_site_info(siteinfo, args['site_depth'], site)
 			write_matrices(site, matrices)
 
 def merge_snps(args, species):
@@ -194,7 +184,6 @@ def run_pipeline(args):
 	for species in species:
 		batches.append({'args':args, 'species':species})
 	utility.parallel(merge_snps, batches, args['threads'])
-
 
 
 

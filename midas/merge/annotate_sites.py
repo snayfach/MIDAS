@@ -69,8 +69,9 @@ def check_genes(genes, contigs):
 
 def complement(base):
 	""" Complement nucleotide """
-	d = {'A':'T', 'T':'A', 'G':'C', 'C':'G', 'N':'N'}
-	return d[base]
+	d = {'A':'T', 'T':'A', 'G':'C', 'C':'G'}
+	if base in d: return d[base]
+	else: return base
 
 def rev_comp(seq):
 	""" Reverse complement sequence """
@@ -123,10 +124,6 @@ def annotate_site(site, genes, gene_index, contigs):
 	site.snp_types = {}
 	site.amino_acids = {}
 	
-	# 0. check if ref_allele is missing
-	if site.ref_allele == 'N':
-		site.site_type = 'NA'; site.gene_id = ''
-		return
 	while True:
 		# 1. fetch next gene, unless there are no more, must be non-coding, break
 		if gene_index[0] < len(genes):
@@ -147,7 +144,7 @@ def annotate_site(site, genes, gene_index, contigs):
 		else:
 			site.gene_id = gene['gene_id'].split('|')[-1]
 			site.ref_codon, site.codon_pos = fetch_ref_codon(site, gene)
-			if 'N' in site.ref_codon:
+			if not all([_ in ['A','T','C','G'] for _ in site.ref_codon]): # check for invalid bases in codon
 				site.site_type = 'NA'; site.gene_id = ''
 			else:
 				site.ref_aa = translate(site.ref_codon)
