@@ -4,7 +4,7 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import os, stat, sys, resource, gzip, platform, subprocess
+import io, os, stat, sys, resource, gzip, platform, subprocess
 
 __version__ = '1.0.0'
 
@@ -113,19 +113,19 @@ def auto_detect_file_type(inpath):
 		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
 	infile.close()
 
-def iopen(inpath):
+def iopen(inpath, mode='r'):
 	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
 	ext = inpath.split('.')[-1]
 	# Python2
 	if sys.version_info[0] == 2:
-		if ext == 'gz': return gzip.open(inpath)
-		elif ext == 'bz2': return bz2.BZ2File(inpath)
-		else: return open(inpath)
+		if ext == 'gz': return gzip.open(inpath, mode)
+		elif ext == 'bz2': return bz2.BZ2File(inpath, mode)
+		else: return open(inpath, mode)
 	# Python3
 	elif sys.version_info[0] == 3:
-		if ext == 'gz': return io.TextIOWrapper(gzip.open(inpath))
-		elif ext == 'bz2': return bz2.BZ2File(inpath)
-		else: return open(inpath)
+		if ext == 'gz': return io.TextIOWrapper(gzip.open(inpath, mode))
+		elif ext == 'bz2': return bz2.BZ2File(inpath, mode)
+		else: return open(inpath, mode)
 
 def parse_file(inpath):
 	""" Yields records from tab-delimited file with header """
@@ -158,6 +158,6 @@ def check_bamfile(args, bampath):
 	command = '%s view %s > /dev/null' % (args['samtools'], bampath)
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
-	if err != '':
-		err_message = "\nWarning, bamfile may be corrupt: %s\nSamtools reported this error: %s\nTry rerunning with --align" % (bampath, err.rstrip())
+	if err.decode('ascii') != '': # need to use decode to convert to characters for python3
+		err_message = "\nWarning, bamfile may be corrupt: %s\nSamtools reported this error: %s\n" % (bampath, err.rstrip())
 		sys.exit(err_message)

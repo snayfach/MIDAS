@@ -1,5 +1,16 @@
 CHANGES
 
+2016-08-30
+ * compatability with python3
+
+2016-08-29
+ * removed scripts/analysis, midas/analyze_snps.py
+
+2016-08-15
+ * test.py: check PATH, PYTHONPATH, module versions
+ * annotate_sites.py: check for invalid bases when translating gene
+ * merge_midas.py snps: skipping reference sites with invalid bases
+
 2016-08-11
  * merge_midas.py snps:
    * added ref_allele to site_id

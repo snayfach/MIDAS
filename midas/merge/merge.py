@@ -98,7 +98,7 @@ def select_species(args, type='genes'):
 	for sp in species:
 		outdir = os.path.join(args['outdir'], sp.id)
 		if not os.path.isdir(outdir): os.mkdir(outdir)
-	print "  found %s species with sufficient high-coverage samples\n" % len(species)
+	print("  found %s species with sufficient high-coverage samples\n" % len(species))
 	return species
 
 def read_stats(inpath, type):
