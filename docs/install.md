@@ -1,7 +1,7 @@
 ### Requirements
 
 * Operating systems: Unix, OSX
-* Python 2.7 (currently Python3 is not supported)
+* Python >=2.7
 
 Python modules (installed via setup.py):
 
