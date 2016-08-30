@@ -13,7 +13,7 @@ def read_gene_map(species_id, args):
 	""" Map 99% centroids to gene_ids at lower level """
 	gene_to_family = {}
 	inpath = '%s/genome_clusters/%s/pangenome.map.gz' % (args['db'], species_id)
-	infile = gzip.open(inpath)
+	infile = utility.iopen(inpath)
 	fields = next(infile).rstrip().split()
 	for line in infile:
 		values = line.rstrip().split()
@@ -25,7 +25,7 @@ def read_function_map(ref_db, species_id, ontology):
 	""" Map gene ids to functions for given ontology """
 	gene_to_functions = {}
 	inpath = '%s/genome_clusters/%s/pangenome.functions.gz' % (ref_db, species_id)
-	infile = gzip.open(inpath)
+	infile = utility.iopen(inpath)
 	for index, line in enumerate(infile):
 		gene_id, function_id, ont = line.rstrip().split()
 		if ont == ontology:
@@ -97,7 +97,7 @@ def run_pipeline(args):
 
 	for sp in species:
 
-		print "Merging: %s (id:%s) for %s samples" % (sp.consensus_name, sp.id, len(sp.samples))
+		print("Merging: %s (id:%s) for %s samples" % (sp.consensus_name, sp.id, len(sp.samples)))
 		outdir = os.path.join(args['outdir'], sp.id)
 		if not os.path.isdir(outdir): os.mkdir(outdir)
 			

@@ -166,8 +166,8 @@ def estimate_abundance(args):
 	print("\nAligning reads to marker-genes database")
 	args['log'].write("\nAligning reads to marker-genes database\n")
 	map_reads_hsblast(args)
-	print("  %s minutes" % round((time() - start)/60, 2) )
-	print("  %s Gb maximum memory") % utility.max_mem_usage()
+	print("  %s minutes" % round((time() - start)/60, 2))
+	print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# find best hit for each read
 	start = time()
@@ -176,8 +176,8 @@ def estimate_abundance(args):
 	best_hits = find_best_hits(args)
 	unique_alns = assign_unique(args, best_hits, species_info)
 	cluster_alns = assign_non_unique(args, best_hits, unique_alns)
-	print("  %s minutes" % round((time() - start)/60, 2) )
-	print("  %s Gb maximum memory") % utility.max_mem_usage()
+	print("  %s minutes" % round((time() - start)/60, 2))
+	print("  %s Gb maximum memory" % utility.max_mem_usage())
 	
 	# estimate genome cluster abundance
 	start = time()
@@ -186,7 +186,7 @@ def estimate_abundance(args):
 	total_gene_length = read_gene_lengths(args, species_info)
 	species_abundance = normalize_counts(cluster_alns, total_gene_length)
 	print("  %s minutes" % round((time() - start)/60, 2) )
-	print("  %s Gb maximum memory") % utility.max_mem_usage()
+	print("  %s Gb maximum memory" % utility.max_mem_usage())
 	
 	# write results
 	write_abundance(args['outdir'], species_abundance, species_info)

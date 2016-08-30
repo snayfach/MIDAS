@@ -313,11 +313,6 @@ def check_genes(args):
 def check_snps(args):
 	if not os.path.isdir(args['outdir']):
 		os.mkdir(args['outdir'])
-#	if not any([args['snps'], args['freq'], args['cons'], args['tree']]):
-#		args['snps'] = True
-#		args['freq'] = True
-#		args['cons'] = True
-#		args['tree'] = True
 	check_input(args)
 
 def check_input(args):
@@ -360,8 +355,7 @@ def print_species_arguments(args):
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
 	print ("Minimum coverage for estimating prevalence: %s" % args['min_cov'])
-	if args['max_samples']:
-		print ("Maximum samples to analyze: %s" % args['max_samples'])
+	if args['max_samples']: print ("Keep <= %s samples" % args['max_samples'])
 	print ("")
 
 def print_genes_arguments(args):
@@ -371,20 +365,15 @@ def print_genes_arguments(args):
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
 	print ("Species selection criteria:")
-	if args['species_id']:
-		print ("  species_ids: %s" % args['species_id'].split(','))
-	if args['min_samples']:
-		print ("  >= %s high-coverage samples per species" % args['min_samples'])
-	if args['max_species']:
-		print ("  analyze up to %s species" % args['max_species'])
+	if args['species_id']: print ("  keep species ids: %s" % args['species_id'].split(','))
+	else: print ("  keep species with >= %s samples" % args['min_samples'])
+	if args['max_species']: print ("  keep <= %s species" % args['max_species'])
 	print ("Sample selection criteria:")
-	if args['sample_depth']:
-		print ("  >=%s average read depth across detected genes" % args['sample_depth'])
-	if args['max_samples']:
-		print ("  analyze up to %s samples" % args['max_samples'])
+	print ("  keep samples with >=%s mean coverage across genes with non-zero coverage" % args['sample_depth'])
+	if args['max_samples']: print ("  keep <= %s samples" % args['max_samples'])
 	print ("Gene quantification criterea:")
-	print ("  present (1): genes with copy number >=%s" % args['min_copy'])
-	print ("  absent (0): genes with copy number <%s" % args['min_copy'])
+	print ("  present (1): genes with copy number >= %s" % args['min_copy'])
+	print ("  absent (0): genes with copy number < %s" % args['min_copy'])
 	print ("  cluster genes at %s percent identity" % args['cluster_pid'])
 	print ("")
 
@@ -394,19 +383,18 @@ def print_snps_arguments(args):
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
-	print ("Species identifier: %s" % args['species_id'])
-	print ("Number of CPUs to use: %s" % args['threads'])
+	print ("Species selection criteria:")
+	if args['species_id']: print ("  keep species ids: %s" % args['species_id'].split(','))
+	else: print ("  keep species with >= %s samples" % args['min_samples'])
+	if args['max_species']: print ("  keep <= %s species" % args['max_species'])
 	print ("Sample selection criteria:")
-	if args['sample_depth']:
-		print ("  keep samples with >=%s average coverage across reference genome" % args['sample_depth'])
-	if args['fract_cov']:
-		print ("  keep samples where >=%s percent of reference genome has non-zero coverage" % (100*args['fract_cov']))
-	if args['max_samples']:
-		print ("  analyze up to %s samples" % args['max_samples'])
+	print ("  keep samples with >= %s mean coverage across sites with non-zero coverage" % args['sample_depth'])
+	print ("  keep samples where >= %s percent of sites have non-zero coverage" % (100*args['fract_cov']))
+	if args['max_samples']: print ("  keep <= %s samples" % args['max_samples'])
 	print ("Site selection criteria:")
-	print ("  site must be covered by at least %s reads across %s percent of samples" % (args['site_depth'], 100*args['site_prev']))
-	if args['max_sites'] != float('Inf'):
-		print ("  analyze up to %s sites" % (args['max_sites']))
+	print ("  keep sites covered by >= %s reads across %s percent of samples" % (args['site_depth'], 100*args['site_prev']))
+	if args['max_sites'] != float('Inf'): print ("  keep <= %s sites" % (args['max_sites']))
+	print ("Number of CPUs to use: %s" % args['threads'])
 	print ("")
 
 def run_program(program, args):

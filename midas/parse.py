@@ -94,7 +94,7 @@ def init_paths(indir):
 
 def parse_tsv(inpath):
 	""" yield records from tab-delimited file with header """
-	infile = open(inpath)
+	infile = utility.iopen(inpath)
 	next(infile)
 	for line in infile:
 		split_line = line.rstrip('\n').split('\t')

@@ -54,15 +54,17 @@ class ImportDependencies(unittest.TestCase):
 class CheckVersions(unittest.TestCase):
 	""" check version numbers for dependencies """
 	def setUp(self):
-		self.names = ['numpy', 'pandas', 'pysam', 'Bio.SeqIO']
-		self.modules = map(__import__, self.names)
-		self.versions = ['1.7.0', '0.17.1', '0.8.1', '1.6.2']
+		self.modules = ['numpy', 'pandas', 'pysam', 'Bio.SeqIO']
+		self.installeds = [module.__version__ for module in map(__import__, self.modules)]
+		self.requireds = ['1.7.0', '0.17.1', '0.8.1', '1.6.2']
 		
 	def test_dependencies(self):
-		for name, module, version in zip(self.names, self.modules, self.versions):
+		for module, installed, required in zip(self.modules, self.installeds, self.requireds):
+			if len(installed.split('.')) > 3:
+				installed = '.'.join(installed.split('.')[0:3])
 			self.assertTrue(
-				StrictVersion(module.__version__) >= StrictVersion(version),
-			msg="""\n\nImported library '%s %s' is out of date. Required version is >= %s""" % (name, module.__version__, version) )
+				StrictVersion(installed) >= StrictVersion(required),
+			msg="""\n\nImported library '%s %s' is out of date. Required version is >= %s""" % (module, installed, required) )
 
 class HelpText(unittest.TestCase):
 	""" check help text for all scripts """

@@ -20,7 +20,7 @@ def build_pangenome_db(args, genome_clusters):
 	for species_id in genome_clusters:
 		db_stats['genome_clusters'] += 1
 		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'pangenome.fa.gz'])
-		infile = gzip.open(inpath)
+		infile = utility.iopen(inpath)
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
 			genome_id = '.'.join(r.id.split('.')[0:2])
 			if not args['tax_mask'] or genome_id not in args['tax_mask']:
@@ -69,7 +69,9 @@ def pangenome_align(args):
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	# Check for errors
+	print("  finished aligning")
 	utility.check_exit_code(process, command)
+	print("  checking bamfile integrity")
 	utility.check_bamfile(args, bampath)
 
 def count_mapped_bp(args):
@@ -109,7 +111,7 @@ def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 	ref_to_phyeco = {}
 	for species_id in genome_clusters:
 		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'pangenome.marker_genes.gz'])
-		infile = gzip.open(inpath)
+		infile = utility.iopen(inpath)
 		next(infile)
 		for line in infile:
 			gene_id, phyeco_id = line.rstrip().split()
@@ -128,7 +130,7 @@ def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 	# compute median phyeco cov
 	cluster_to_norm = {}
 	for species_id in cluster_to_phyeco_to_cov:
-		covs = cluster_to_phyeco_to_cov[species_id].values()
+		covs = list(cluster_to_phyeco_to_cov[species_id].values())
 		cluster_to_norm[species_id] = median(covs)
 	return cluster_to_norm
 
@@ -143,7 +145,8 @@ def compute_pangenome_coverage(args):
 	outfiles = {}
 	genome_clusters = set(ref_to_cluster.values())
 	for species_id in genome_clusters:
-		outfiles[species_id] = gzip.open('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id]), 'w')
+		outpath = '/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])
+		outfiles[species_id] = utility.iopen(outpath, 'w')
 		outfiles[species_id].write('\t'.join(['gene_id', 'coverage', 'copy_number'])+'\n')
 	# parse bam into cov files for each species_id
 	ref_to_cov = count_mapped_bp(args)
@@ -196,14 +199,14 @@ def run_pipeline(args):
 	
 	# Build pangenome database for selected GCs
 	if args['build_db']:
-		import species
+		from midas.run import species
 		print("\nBuilding pangenome database")
 		args['log'].write("\nBuilding pangenome database\n")
 		start = time()
 		genome_clusters = species.select_genome_clusters(args)
 		build_pangenome_db(args, genome_clusters)
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Use bowtie2 to align reads to pangenome database
 	if args['align']:
@@ -213,7 +216,7 @@ def run_pipeline(args):
 		args['file_type'] = utility.auto_detect_file_type(args['m1'])
 		pangenome_align(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Compute pangenome coverage for each species
 	if args['cov']:
@@ -223,7 +226,7 @@ def run_pipeline(args):
 		compute_pangenome_coverage(args)
 		genes_summary(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Optionally remove temporary files
 	if args['remove_temp']: remove_tmp(args)

@@ -28,7 +28,7 @@ def read_genes(db, species_id, contigs):
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """
 	inpath = '%s/genome_clusters/%s/genome.fna.gz' % (db, species_id)
-	infile = gzip.open(inpath)
+	infile = utility.iopen(inpath)
 	genome = {}
 	for r in Bio.SeqIO.parse(infile, 'fasta'):
 		genome[r.id] = r.seq.upper()

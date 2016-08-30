@@ -1,5 +1,8 @@
 CHANGES
 
+2016-08-30
+ * compatability with python3
+
 2016-08-29
  * removed scripts/analysis, midas/analyze_snps.py
 

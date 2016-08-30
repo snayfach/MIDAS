@@ -19,7 +19,7 @@ def build_genome_db(args, genome_clusters):
 			continue
 		db_stats['genome_clusters'] += 1
 		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'genome.fna.gz'])
-		infile = gzip.open(inpath)
+		infile = utility.iopen(inpath)
 		for line in infile:
 			genomes_fasta.write(line)
 			db_stats['total_length'] += len(line.rstrip())
@@ -70,6 +70,8 @@ def genome_align(args):
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	# Check for errors
+	print("   finished aligning")
+	print("   checking bamfile integrity")
 	utility.check_exit_code(process, command)
 	utility.check_bamfile(args, bam_path)
 
@@ -124,7 +126,7 @@ def read_ref_bases(args, species_id):
 	import Bio.SeqIO
 	ref = []
 	centroid_path = '/'.join([args['db'], 'genome_clusters', species_id, 'genome.fna.gz'])
-	infile = gzip.open(centroid_path)
+	infile = utility.iopen(centroid_path)
 	for rec in Bio.SeqIO.parse(infile, 'fasta'):
 		for pos in range(1, len(rec.seq)+1):
 			ref.append([rec.id, pos, rec.seq[pos-1].upper()])
@@ -151,7 +153,8 @@ def format_vcf(args):
 	ref_to_species = utility.read_ref_to_cluster(inpath)
 	for species_id in set(ref_to_species.values()):
 		# open outfile
-		outfile = gzip.open('/'.join([args['outdir'], 'snps/output/%s.snps.gz' % species_id]), 'w')
+		outpath = '/'.join([args['outdir'], 'snps/output/%s.snps.gz' % species_id])
+		outfile = utility.iopen(outpath, 'w')
 		write_snp_record(outfile, header=True)
 		# read sorted reference
 		ref = read_ref_bases(args, species_id)
@@ -237,7 +240,7 @@ def snps_summary(args):
 def fetch_centroid(args, species_id):
 	""" Get the genome_id corresponding to cluster centroid """
 	inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'genomes.txt.gz'])
-	infile = gzip.open(inpath)
+	infile = utility.iopen(inpath)
 	for line in infile:
 		if line.split()[2] == 'Y':
 			return line.split()[1]
@@ -252,14 +255,14 @@ def run_pipeline(args):
 	
 	# Build genome database for selected GCs
 	if args['build_db']:
-		import species
+		from midas.run import species
 		print("\nBuilding database of representative genomes")
 		args['log'].write("\nBuilding database of representative genomes\n")
 		start = time()
 		genome_clusters = species.select_genome_clusters(args)
 		build_genome_db(args, genome_clusters)
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Use bowtie2 to map reads to a representative genome for each genome-cluster
 	if args['align']:
@@ -269,7 +272,7 @@ def run_pipeline(args):
 		start = time()
 		genome_align(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Use mpileup to identify SNPs
 	if args['call']:
@@ -278,7 +281,7 @@ def run_pipeline(args):
 		args['log'].write("\nRunning mpileup\n")
 		pileup(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Split vcf into files for each GC, format, and report summary statistics
 		print("\nFormatting output")
@@ -287,7 +290,7 @@ def run_pipeline(args):
 		format_vcf(args)
 		snps_summary(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory") % utility.max_mem_usage()
+		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Optionally remove temporary files
 	if args['remove_temp']: remove_tmp(args)
