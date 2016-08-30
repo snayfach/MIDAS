@@ -1,6 +1,16 @@
-### Download the software
+### Requirements
 
-MIDAS is a command-line tool that runs on Unix or Mac OSX
+* Operating systems: Unix, OSX
+* Python 2.7 (currently Python3 is not supported)
+
+Python modules (installed via setup.py):
+
+* Numpy (>=1.7.0)
+* BioPython (>=1.6.2)
+* Pysam (>=0.8.1)
+* Pandas (>=0.17.1)
+
+### Download the software
 
 **Clone the latest version from GitHub (recommended)**   
 `git clone https://github.com/snayfach/MIDAS`  
@@ -11,14 +21,6 @@ https://github.com/snayfach/MIDAS/archive/master.zip
 And unpack the project: `unzip MIDAS-master.zip`
 
 ### Install dependencies
-
-The following Python modules should be pre-installed on your system
-(tested version numbers are indicated in parenthesis):
-
-* Numpy (>=1.7.0)
-* BioPython (>=1.6.2)
-* Pysam (>=0.8.1)
-* Pandas (>=0.17.1)
 
 The dependencies can be installed by running the setup.py script:  
 `python MIDAS/setup.py install` or  
@@ -42,20 +44,19 @@ Be sure to replace '/path/to' with the appropriate path on your system
 Add these commands to your .bash_profile to avoid entering the commands in the future
 
 ### Testing
-You should be able to enter these commands into your terminal without getting an error:  
-`run_midas.py -h`
 
-For more complete testing, run:   
-`cd /path/to/MIDAS`
-`python test/test_midas.py -f`
+Run the following command to test MIDAS:
 
-Be sure to replace '/path/to' with the appropriate path on your system.
+`cd /path/to/MIDAS/test`  
+`python test_midas.py -f`
+
+Be sure to replace '/path/to' with the appropriate path on your system.  
+
 ### Update MIDAS
 Move to installation directory, pull the latest version, and install:  
 `cd MIDAS`  
 `git pull`  
 `python setup.py install`
-
 
 ## Next step
 [Download the reference database] (https://github.com/snayfach/MIDAS/blob/master/docs/ref_db.md)
