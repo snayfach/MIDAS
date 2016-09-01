@@ -23,10 +23,15 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
  * [Merge species abundance] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_species.md)  
  * [Merge gene content] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_cnvs.md)
  * [Merge SNPs] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md)
+6. Applications:
+ * [Strain tracking] (https://github.com/snayfach/MIDAS/blob/master/docs/strain_tracking.md)  
+ * Population genetic inference (coming soon)
+ * Gene content dynamics (coming soon)
+
 
 ## Citation
 If you use this tool, please cite:
-Nayfach, S. and Pollard, KS. "Population genetic analyses of metagenomes reveal extensive strain-level variation in prevalent human-associated bacteria". bioRxiv 2015.
+S Nayfach, B Rodriguez-Mueller, N Garud, and KS Pollard. "An integrated metagenomics pipeline for strain profiling reveals novel patterns of transmission and global biogeography of bacteria". bioRxiv 2016.
 
 ## Pipeline
 <img src="https://github.com/snayfach/MIDAS/blob/master/images/pipeline.jpg" width="600" align="middle"/>   

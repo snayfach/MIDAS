@@ -1,5 +1,8 @@
 CHANGES
 
+2016-09-01
+ * added strain_tracking.py code and documentation_
+
 2016-08-30
  * compatability with python3
 

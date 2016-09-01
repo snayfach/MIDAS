@@ -40,7 +40,7 @@ def get_arguments(program):
 	elif program == 'snps':
 		args = snp_arguments()
 	else:
-		sys.error("Unrecognized program: '%s'" % program)
+		sys.exit("Unrecognized program: '%s'" % program)
 	utility.add_ref_db(args)
 	utility.add_executables(args)
 	return args
@@ -54,7 +54,7 @@ def check_arguments(program, args):
 	elif program == 'snps':
 		check_snps(args)
 	else:
-		sys.error("Unrecognized program: '%s'" % program)
+		sys.exit("Unrecognized program: '%s'" % program)
 	if platform.system() not in ['Linux', 'Darwin']:
 		sys.exit("Operating system '%s' not supported" % system())
 
@@ -67,7 +67,7 @@ def print_arguments(program, args):
 	elif program == 'snps':
 		print_snp_arguments(args)
 	else:
-		sys.error("Unrecognized program: '%s'" % program)
+		sys.exit("Unrecognized program: '%s'" % program)
 	
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
@@ -81,7 +81,7 @@ def run_program(program, args):
 		from midas.run import snps
 		snps.run_pipeline(args)
 	else:
-		sys.error("Unrecognized program: '%s'" % program)
+		sys.exit("Unrecognized program: '%s'" % program)
 
 def species_arguments():
 	parser = argparse.ArgumentParser(

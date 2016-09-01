@@ -35,7 +35,7 @@ def get_arguments(program):
 	elif program == 'snps':
 		args = snps_arguments()
 	else:
-		sys.error("Unrecognized program: '%s'" % program)
+		sys.exit("Unrecognized program: '%s'" % program)
 	utility.add_ref_db(args)
 	return args
 
@@ -298,7 +298,7 @@ def check_arguments(program, args):
 	elif program == 'snps':
 		check_snps(args)
 	else:
-		sys.error("Unrecognized program: '%s'" % program)
+		sys.exit("Unrecognized program: '%s'" % program)
 	if platform.system() not in ['Linux', 'Darwin']:
 		sys.exit("Operating system '%s' not supported" % system())
 
@@ -346,7 +346,7 @@ def print_arguments(program, args):
 	elif program == 'snps':
 		print_snps_arguments(args)
 	else:
-		sys.error("Unrecognized program: '%s'" % program)
+		sys.exit("Unrecognized program: '%s'" % program)
 
 def print_species_arguments(args):
 	print ("===========Parameters===========")
@@ -409,7 +409,7 @@ def run_program(program, args):
 		from midas.merge import merge_snps
 		merge_snps.run_pipeline(args)
 	else:
-		sys.error("Unrecognized program: '%s'" % program)
+		sys.exit("Unrecognized program: '%s'" % program)
 
 if __name__ == '__main__':
 	program = get_program()
