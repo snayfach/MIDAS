@@ -91,7 +91,8 @@ if '--sample_map' is not specified, each sample_id is treated as a separate grou
 		help="""maximum number of genomic sites to process (use all)
 useful for quick tests""")
 	args = vars(parser.parse_args())
-	args['samples'] = dict([_.rstrip().split() for _ in open(args['sample_to_group'])])
+	if args['sample_map']: args['samples'] = dict([_.rstrip().split() for _ in open(args['sample_map'])])
+	else: args['samples'] = dict([(_.split()[0],_.split()[0]) for _ in open('%s/snps_summary.txt' % args['indir'])])
 	return args
 
 def track_arguments():

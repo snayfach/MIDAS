@@ -3,8 +3,6 @@ import argparse, sys, os, platform, itertools
 from operator import itemgetter
 from midas import parse, utility
 
-
-
 def allele_counts(site, samples, min_freq, min_reads):
 	""" compute the prevelance of the 4 nucleotides for site across samples """
 	total = set([]) # number of samples with non-zero coverage for site
@@ -26,10 +24,10 @@ def allele_counts(site, samples, min_freq, min_reads):
 	counts = dict([(allele, len(group)) for allele, group in groups.items()])
 	return counts, len(total)
 
-def id_snps(args):
+def id_markers(args):
 	# open output file & write header
 	bases = ['A', 'T', 'C', 'G']
-	outfile = open(args['outpath'], 'w')
+	outfile = open(args['out'], 'w')
 	header = ['site_id', 'allele', 'count_samples'] + ['count_'+b for b in bases]
 	outfile.write('\t'.join(header)+'\n')
 	count_alleles = 0
@@ -102,9 +100,9 @@ def allele_sharing(x, y):
 	u = len(set(x.keys()) | set(y.keys()))
 	return a, b, i, u
 
-def track_snps(args):
+def track_markers(args):
 	# open output file
-	outfile = open(args['outpath'], 'w')
+	outfile = open(args['out'], 'w')
 	header = ['sample1', 'sample2', 'count1', 'count2', 'count_both', 'count_either']
 	outfile.write('\t'.join(header)+'\n')
 	# determine marker alleles present in each sample
