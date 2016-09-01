@@ -1,10 +1,11 @@
 ## Strain tracking
 
-These scripts will allow you to identify rare SNPs that discriminate individual strains and to track these SNPs between hosts to elucidate transmission patterns. Before running these scripts, you'll need to have run merge_midas.py snps [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snps.md).
+These scripts will allow you to identify rare SNPs that discriminate individual strains and to track these SNPs between hosts to elucidate transmission patterns. Before running these scripts, you'll need to have run `merge_midas.py snps` [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snps.md).
 
 
 
 #### Step 1: identify rare SNPs that disriminate individual strains of a particular species
+
  * Scan across the entire genome of a patricular species
  * At each genomic site, compute the presence-absence of the four nucleotides across metagenomic samples
  * Identify SNPs (particular nucleotide at a genomic site) that rarely occur across samples
