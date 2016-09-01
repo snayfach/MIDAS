@@ -1,6 +1,16 @@
-### Download the software
+### Requirements
 
-MIDAS is a command-line tool that runs on Unix or Mac OSX
+* Operating systems: Unix, OSX
+* Python >=2.7
+
+Python modules (installed via setup.py):
+
+* Numpy (>=1.7.0)
+* BioPython (>=1.6.2)
+* Pysam (>=0.8.1)
+* Pandas (>=0.17.1)
+
+### Download the software
 
 **Clone the latest version from GitHub (recommended)**   
 `git clone https://github.com/snayfach/MIDAS`  
@@ -12,24 +22,17 @@ And unpack the project: `unzip MIDAS-master.zip`
 
 ### Install dependencies
 
-The following Python modules should be pre-installed on your system
-(tested version numbers are indicated in parenthesis):
+The dependencies can be installed by running the setup.py script:  
+`python MIDAS/setup.py install` or  
+`sudo python MIDAS/setup.py install` to install as a superuser, or  
+`python MIDAS/setup.py install --user` to install locally  
 
-* Numpy (>=1.7.0)
-* BioPython (>=1.6.2)
-* Pysam (>=0.8.1)
-* Pandas (>=0.17.1)
-
-If you have pip installed, you can install these packages by running the following command:
-
+If you have pip installed, you can install these dependencies by running the following command:
 `pip install -U numpy biopython pysam pandas` or  
 `sudo pip install -U numpy biopython pysam pandas` to install as a superuser, or  
 `pip install --user numpy biopython pysam pandas` to install locally  
 
-If you don't have pip, the packages can be installed by running the setup.py script:  
-`python MIDAS/setup.py install` or  
-`sudo python MIDAS/setup.py install to install` as a superuser, or  
-`python MIDAS/setup.py install` --user to install locally  
+[Detailed instructions for installation on a brand new CentOS/Ubuntu system] (https://github.com/snayfach/MIDAS/blob/master/docs/install_other.md)
 
 ### Update your environmental variables
 
@@ -41,18 +44,19 @@ Be sure to replace '/path/to' with the appropriate path on your system
 Add these commands to your .bash_profile to avoid entering the commands in the future
 
 ### Testing
-You should be able to enter the command into your terminal without getting an error:  
-`run_midas.py -h`
 
-For more complete testing, run:   
-`python tests/test_midas.py -f`
+Run the following command to test MIDAS:
+
+`cd /path/to/MIDAS/test`  
+`python test_midas.py -f`
+
+Be sure to replace '/path/to' with the appropriate path on your system.  
 
 ### Update MIDAS
 Move to installation directory, pull the latest version, and install:  
 `cd MIDAS`  
 `git pull`  
 `python setup.py install`
-
 
 ## Next step
 [Download the reference database] (https://github.com/snayfach/MIDAS/blob/master/docs/ref_db.md)
