@@ -125,22 +125,25 @@ def annotate_site(site, genes, gene_index, contigs):
 	site.amino_acids = {}
 	
 	while True:
-		# 1. fetch next gene, unless there are no more, must be non-coding, break
+		# 1. fetch next gene
+		#    if there are no more genes, snp must be non-coding so break
 		if gene_index[0] < len(genes):
 			gene = genes[gene_index[0]]
 		else:
 			site.site_type = 'NC'; site.gene_id = ''
 			return
-		# 2. if snp is upstream of next gene, must be non-coding, break
+		# 2. if snp is upstream of next gene, snp must be non-coding so break
 		if (site.ref_id < gene['accession'] or
 		   (site.ref_id == gene['accession'] and site.ref_pos < gene['start'])):
 			site.site_type = 'NC'; site.gene_id = ''
 			return
 		# 3. if snp is downstream of next gene, pop gene, check (1) and (2) again
-		elif (site.ref_id > gene['accession'] or
+		if (site.ref_id > gene['accession'] or
 			 (site.ref_id == gene['accession'] and site.ref_pos > gene['end'])):
 			gene_index[0] += 1
-		# 4. if snp is in gene, annotate site (1D-4D) and SNPs (SYN, NS)
+			continue
+		# 4. otherwise, snp must be in gene
+		#    annotate site (1D-4D) and snp (SYN, NS)
 		else:
 			site.gene_id = gene['gene_id'].split('|')[-1]
 			site.ref_codon, site.codon_pos = fetch_ref_codon(site, gene)

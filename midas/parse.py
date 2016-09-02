@@ -9,12 +9,12 @@ from midas import utility
 
 class GenomicSite:
 	""" Base class for genomic sites """
-	def __init__(self, files, samples):
+	def __init__(self, files, samples, info=None):
 		try:
 			self.id, self.ref_freq = next(files['ref_freq'])
 			self.id, self.depth = next(files['depth'])
 			self.id, self.alt_allele = next(files['alt_allele'])
-			#self.info = next(files['info'])[1] if 'info' in files else None
+			self.info = next(info) if info else None
 
 			self.ref_id, self.ref_pos, self.ref_allele = self.parse_id()
 			self.samples = samples
@@ -23,7 +23,7 @@ class GenomicSite:
 			self.id = None
 
 	def parse_id(self):
-		ref_id = self.id.rsplit('|', 1)[0]
+		ref_id = self.id.rsplit('|', 2)[0]
 		ref_pos = int(self.id.split('|')[2])
 		ref_allele = self.id.split('|')[3] if len(self.id.split('|')) >= 4 else '' # testing
 		return ref_id, ref_pos, ref_allele
@@ -69,7 +69,7 @@ class GenomicSite:
 		total = sum(sums.values())
 		if total > 0:
 			for allele in sums:
-				props[allele] = sums[allele]/total
+				props[allele] = float('%.3g' % (sums[allele]/total))
 		return props
 
 	def filter(self, site_depth, site_prev, site_maf):
@@ -95,7 +95,7 @@ def init_paths(indir):
 def parse_tsv(inpath):
 	""" yield records from tab-delimited file with header """
 	infile = utility.iopen(inpath)
-	next(infile)
+	header = next(infile).rstrip('\n').split('\t')
 	for line in infile:
 		split_line = line.rstrip('\n').split('\t')
 		id = split_line[0]
