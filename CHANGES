@@ -1,5 +1,8 @@
 CHANGES
 
+2016-09-02
+ * fixed bug in parse.py; now correctly parses site.ref_id
+
 2016-09-01
  * added strain_tracking.py code and documentation_
 
