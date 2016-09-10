@@ -406,10 +406,10 @@ summary.txt:
 		default=20, help='Discard reads with mean quality < READQ (20)')
 	snps.add_argument('--trim', metavar='INT', type=int, default=0,
 		help='Trim N base-pairs from read-tails (0)')
+	snps.add_argument('--discard', default=False, action='store_true',
+		help='Discard discordant read-pairs')
 	snps.add_argument('--baq', default=False, action='store_true',
 		help='Enable BAQ (per-base alignment quality)')
-	snps.add_argument('--redo_baq', default=False, action='store_true',
-		help='Recalculate BAQ on the fly')
 	snps.add_argument('--adjust_mq', default=False, action='store_true',
 		help='Adjust MAPQ')
 	args = vars(parser.parse_args())
@@ -451,8 +451,8 @@ def print_snp_arguments(args):
 		lines.append("  -minimum base quality score: %s" % args['baseq'])
 		lines.append("  -minimum read quality score: %s" % args['readq'])
 		lines.append("  -trim %s base-pairs from read-tails" % args['trim'])
+		if args['discard']: lines.append("  -discard discordant read-pairs")
 		if args['baq']: lines.append("  -enable BAQ (per-base alignment quality)")
-		if args['redo_baq']: lines.append("  -recalculate BAQ on the fly")
 		if args['adjust_mq']: lines.append("  -adjust MAPQ")
 	args['log'].write('\n'.join(lines)+'\n')
 	sys.stdout.write('\n'.join(lines)+'\n')
@@ -474,7 +474,9 @@ def check_genes(args):
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
 		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
-			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --species_topn or --species_cov you must have run: run_midas.py species" % profile)
+			sys.exit("\nCould not find species abundance profile: %s\n\
+To specify species with --species_topn or --species_cov you must have run: run_midas.py species\n\
+Alternatively, you can manually specify one or more species using --species_id" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
@@ -522,7 +524,9 @@ def check_snps(args):
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
 		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
-			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --species_topn or --species_cov you must have run: run_midas.py species" % profile)
+			sys.exit("\nCould not find species abundance profile: %s\n\
+To specify species with --species_topn or --species_cov you must have run: run_midas.py species\n\
+Alternatively, you can manually specify one or more species using --species_id" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']

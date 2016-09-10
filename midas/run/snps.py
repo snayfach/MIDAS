@@ -4,7 +4,7 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import sys, os, subprocess, gzip
+import sys, os, subprocess, shutil
 from time import time
 from midas import utility
 
@@ -40,81 +40,67 @@ def build_genome_db(args, genome_clusters):
 	utility.check_exit_code(process, command)
 
 def genome_align(args):
-	""" Use Bowtie2 to map reads to representative genomes from each genome cluster
-	"""
-	# Build command
-	#	bowtie2
-	command = '%s --no-unal ' % args['bowtie2']
-	#   index
-	command += '-x %s ' % '/'.join([args['outdir'], 'snps/temp/genomes'])
-	#   specify reads
-	if args['max_reads']: command += '-u %s ' % args['max_reads']
-	#   trim reads
-	if args['trim']: command += '--trim3 %s ' % args['trim']
-	#   speed/sensitivity
-	command += '--%s ' % args['speed']
-	#   threads
-	command += '--threads %s ' % args['threads']
-	#   file type
-	if args['file_type'] == 'fasta': command += '-f '
-	else: command += '-q '
-	#   input file
-	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
-	else: command += '-U %s' % args['m1']
-	#   convert to bam
-	command += '| %s view -b - ' % args['samtools']
-	#   sort bam
+	""" Use Bowtie2 to map reads to representative genomes from each genome cluster """
+	# Bowtie2
 	bam_path = os.path.join(args['outdir'], 'snps/temp/genomes.bam')
-	command += '| %s sort -f - %s ' % (args['samtools'], bam_path)
+	command = '%s --no-unal ' % args['bowtie2']
+	command += '-x %s ' % '/'.join([args['outdir'], 'snps/temp/genomes']) # index
+	if args['max_reads']: command += '-u %s ' % args['max_reads'] # max num of reads
+	if args['trim']: command += '--trim3 %s ' % args['trim'] # trim 3'
+	command += '--%s ' % args['speed'] # speed/sensitivity
+	command += '--threads %s ' % args['threads'] # threads
+	command += '-f ' if args['file_type'] == 'fasta' else '-q ' # input type
+	command += '-1 %s -2 %s '  % (args['m1'], args['m2']) if args['m2'] else '-U %s ' % args['m1'] # input reads
+	# Pipe to samtools
+	command += '| %s view -b - ' % args['samtools'] # convert to bam
+	command += '| %s sort -f - %s ' % (args['samtools'], bam_path) # sort bam
 	# Run command
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	# Check for errors
-	print("   finished aligning")
-	print("   checking bamfile integrity")
+	print("  finished aligning")
+	print("  checking bamfile integrity")
 	utility.check_exit_code(process, command)
 	utility.check_bamfile(args, bam_path)
 
 def pileup(args):
-	""" Filter alignments by % id, use samtools to create pileup, filter low quality bases, and write results to VCF file """
-	# Build command
-	#   percent id filtering
-	bam_path = os.path.join(args['outdir'], 'snps/temp/genomes.bam')
-	command  = 'python %s %s %s %s %s | ' % (args['stream_bam'], bam_path, '/dev/stdout', args['mapid'], args['readq'])
-	#   mpileup
-	command += '%s mpileup -uv -A -d 10000 --skip-indels ' % args['samtools']
-	#   quality filtering
-	if not args['baq']: command += '-B '
-	#   quality filtering
-	if args['redo_baq']: command += '-E '
-	#   adjust MQ
-	if args['adjust_mq']: command += '-C 50 '
-	#   quality filtering
-	command += '-q %s -Q %s ' % (args['mapq'], args['baseq'])
-	#   reference fna file
-	command += '-f %s ' % ('%s/snps/temp/genomes.fa' % args['outdir'])
-	#   input bam file
-	command += '- '
-	#   output vcf file
-	command += '> %s ' % ('%s/snps/temp/genomes.vcf' % args['outdir'])
+	""" Filter alignments by % id, use samtools to create pileup, filter low quality bases """
+	# Stream bam, filter alignments
+	command = 'python %s ' % args['stream_bam']
+	command += '%s ' % os.path.join(args['outdir'], 'snps/temp/genomes.bam')
+	command += '/dev/stdout '
+	command += '%s ' % args['mapid']
+	command += '%s ' % args['readq']
+	command += '%s ' % args['mapq']
+	# Pipe to mpileup
+	command += '| %s mpileup '  % args['samtools']
+	command += '-d 10000 ' # set max depth
+	if not args['baq']: command += '-B ' # BAQ
+	if args['adjust_mq']: command += '-C 50 ' # adjust MQ
+	if not args['discard']: command += '-A ' # keep discordant read pairs
+	command += '-Q %s ' % (args['baseq']) # base quality filtering
+	command += '-f %s ' % ('%s/snps/temp/genomes.fa' % args['outdir']) # reference fna file
+	command += '- ' #   input bam file
+	command += '| gzip > %s ' % ('%s/snps/temp/genomes.mpileup.gz' % args['outdir']) # output file
 	# Run command
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
 
-def split_vcf(args):
-	""" Format vcf output for easy parsing """
+def split_pileup(args):
+	""" Split pileup into files per-species for easy parsing """
 	inpath = os.path.join(args['outdir'], 'snps/temp/genomes.map')
 	ref_to_species = utility.read_ref_to_cluster(inpath)
 	# open outfiles for each species_id
-	outdir = '/'.join([args['outdir'], 'snps/temp/vcf'])
+	outdir = '/'.join([args['outdir'], 'snps/temp/mpileup'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	outfiles = {}
 	for species_id in set(ref_to_species.values()):
-		outfiles[species_id] = open('/'.join([outdir, '%s.vcf' % species_id]), 'w')
-	# parse vcf into temorary vcf files for each species_id
-	for line in open('/'.join([args['outdir'], 'snps/temp/genomes.vcf'])):
-		if line[0] == '#': continue
+		outpath = '%s/%s.mpileup.gz' % (outdir, species_id)
+		outfiles[species_id] = utility.iopen(outpath, 'w')
+	# parse pileup into temorary files for each species_id
+	pileup_path = '%s/snps/temp/genomes.mpileup.gz' % args['outdir']
+	for line in utility.iopen(pileup_path):
 		species_id = ref_to_species[line.split()[0]]
 		outfiles[species_id].write(line)
 	# close outfiles
@@ -134,21 +120,21 @@ def read_ref_bases(args, species_id):
 
 def write_snp_record(outfile, snp=None, ref=None, header=False):
 	""" Write record for formatted SNP file """
-	fields = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'cons_allele',
-	          'count_ref', 'count_alt', 'depth', 'ref_freq']
+	fields = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'ref_freq', 'depth', 'count_atcg']
 	if header: # just write header
 		outfile.write('\t'.join(fields)+'\n')
 	elif ref: # missing snp
 		snp = {'ref_id': ref[0], 'ref_pos': str(ref[1]), 'ref_allele': ref[2], 'alt_allele': 'NA',
-			   'cons_allele': 'NA', 'depth': 0, 'count_ref': 0, 'count_alt': 0, 'ref_freq': 'NA'}
+			   'depth': 0, 'ref_freq': 0.0, 'count_atcg':'0,0,0,0'}
 		record = [str(snp[field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 	else: # present snp
 		record = [str(snp[field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 
-def format_vcf(args):
-	""" Format vcf files to snp files and fill in missing positions """
+def format_pileup(args):
+	""" Parse mpileups and fill in missing positions """
+	import parse_pileup
 	inpath = os.path.join(args['outdir'], 'snps/temp/genomes.map')
 	ref_to_species = utility.read_ref_to_cluster(inpath)
 	for species_id in set(ref_to_species.values()):
@@ -161,9 +147,10 @@ def format_vcf(args):
 		ref_index = 0
 		ref_length = len(ref)
 		# write formatted records
-		vcf_path = '/'.join([args['outdir'], 'snps/temp/vcf/%s.vcf' % species_id])
-		for snp in parse_vcf(vcf_path): # loop over formatted records from vcf
-			while [snp['ref_id'], snp['ref_pos']] != ref[ref_index][0:2]: # fill in missing snp positions
+		pileup_path = '/'.join([args['outdir'], 'snps/temp/mpileup/%s.mpileup.gz' % species_id])
+		pileup_file = utility.iopen(pileup_path)
+		for snp in parse_pileup.main(pileup_file):
+			while [snp['ref_id'], int(snp['ref_pos'])] != ref[ref_index][0:2]: # fill in missing snp positions
 				write_snp_record(outfile, None, ref[ref_index]) # write missing record
 				ref_index += 1
 			write_snp_record(outfile, snp, None) # write present record
@@ -171,40 +158,8 @@ def format_vcf(args):
 		while ref_index < ref_length: # fill in trailing snps
 			write_snp_record(outfile, None, ref[ref_index]) # write trailing record
 			ref_index += 1
-
-def parse_vcf(inpath):
-	""" Yields formatted records from VCF output """
-	infile = open(inpath)
-	for line in infile:
-		r = line.rstrip().split()
-		# get alt alleles
-		alt_alleles = r[4].split(',')
-		if '<X>' in alt_alleles: alt_alleles.remove('<X>')
-		# get allele counts
-		info = dict([(_.split('=')) for _ in r[7].split(';')])
-		counts = [int(_) for _ in info['I16'].split(',')[0:4]]
-		# get consensus allele
-		# *note: occassionally there are counts for alternate alleles, but no listed alternate alleles
-		if sum(counts) == 0:
-			cons_allele = 'NA'
-		elif sum(counts[0:2]) >= sum(counts[2:4]):
-			cons_allele = r[3]
-		elif len(alt_alleles) == 0:
-			cons_allele = 'NA'
-		else:
-			cons_allele = alt_alleles[0]
-		# yield formatted record
-		yield {'ref_id':r[0],
-			   'ref_pos':int(r[1]),
-			   'site_id':r[0]+'|'+r[1],
-			   'ref_allele':r[3],
-			   'alt_allele':alt_alleles[0] if len(alt_alleles) > 0 else 'NA',
-			   'depth':sum(counts),
-			   'count_ref':sum(counts[0:2]),
-			   'count_alt':sum(counts[2:4]),
-			   'cons_allele':cons_allele,
-			   'ref_freq':'NA' if sum(counts) == 0 else sum(counts[0:2])/float(sum(counts))
-			   }
+		pileup_file.close()
+	shutil.rmtree('%s/snps/temp/mpileup' % args['outdir'])
 
 def snps_summary(args):
 	""" Get summary of mapping statistics """
@@ -213,22 +168,19 @@ def snps_summary(args):
 	inpath = os.path.join(args['outdir'], 'snps/temp/genomes.map')
 	ref_to_species = utility.read_ref_to_cluster(inpath)
 	for species_id in set(ref_to_species.values()):
-		genome_length, covered_bases, total_depth, identity, maf = [0,0,0,0,0]
+		genome_length, covered_bases, total_depth, maf = [0,0,0,0]
 		for r in utility.parse_file('/'.join([args['outdir'], 'snps/output/%s.snps.gz' % species_id])):
 			genome_length += 1
 			depth = int(r['depth'])
 			if depth > 0:
 				covered_bases += 1
 				total_depth += depth
-				if r['ref_allele'] == r['cons_allele']:
-					identity += 1
 				ref_freq = float(r['ref_freq'])
 				maf += ref_freq if ref_freq <= 0.5 else 1 - ref_freq
-		stats[species_id] = {'genome_length':genome_length,
-							 'covered_bases': covered_bases,
-							 'fraction_covered':covered_bases/float(genome_length),
-							 'mean_coverage':total_depth/float(covered_bases) if covered_bases > 0 else 0
-							 }
+		fraction_covered = covered_bases/float(genome_length)
+		mean_coverage = total_depth/float(covered_bases) if covered_bases > 0 else 0
+		stats[species_id] = {'genome_length':genome_length, 'covered_bases':covered_bases,
+							 'fraction_covered':fraction_covered,'mean_coverage':mean_coverage}
 	# write stats
 	fields = ['genome_length', 'covered_bases', 'fraction_covered', 'mean_coverage']
 	outfile = open('/'.join([args['outdir'], 'snps/summary.txt']), 'w')
@@ -247,13 +199,12 @@ def fetch_centroid(args, species_id):
 
 def remove_tmp(args):
 	""" Remove specified temporary files """
-	import shutil
 	shutil.rmtree('/'.join([args['outdir'], 'snps/temp']))
 
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
-	# Build genome database for selected GCs
+	# Build genome database for selected species
 	if args['build_db']:
 		from midas.run import species
 		print("\nBuilding database of representative genomes")
@@ -264,7 +215,7 @@ def run_pipeline(args):
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
-	# Use bowtie2 to map reads to a representative genome for each genome-cluster
+	# Use bowtie2 to map reads to a representative genome for each species
 	if args['align']:
 		args['file_type'] = utility.auto_detect_file_type(args['m1'])
 		print("\nMapping reads to representative genomes")
@@ -283,11 +234,11 @@ def run_pipeline(args):
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
-	# Split vcf into files for each GC, format, and report summary statistics
+	# Split pileup into files for each species, format, and report summary statistics
 		print("\nFormatting output")
 		args['log'].write("\nFormatting output\n")
-		split_vcf(args)
-		format_vcf(args)
+		split_pileup(args)
+		format_pileup(args)
 		snps_summary(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
