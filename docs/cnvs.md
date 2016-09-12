@@ -93,5 +93,5 @@ The output of this script generates the following files:
 * Use `-n` and `-t` to increase throughput
 
 ## Next step
-[Merge results across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_cnvs.md)
+[Merge results across samples] (merge_cnvs.md)
 

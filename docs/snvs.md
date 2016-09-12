@@ -102,4 +102,4 @@ summary.txt file format:
 * Use `-n` and `-t` to increase throughput
 
 ## Next step
-[Merge results across samples] (https://github.com/snayfach/PhyloCNV/blob/master/docs/merge_snvs.md)
+[Merge results across samples] (merge_snvs.md)

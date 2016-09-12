@@ -32,7 +32,7 @@ If you have pip installed, you can install these dependencies by running the fol
 `sudo pip install -U numpy biopython pysam pandas` to install as a superuser, or  
 `pip install --user numpy biopython pysam pandas` to install locally  
 
-[Detailed instructions for installation on a brand new CentOS/Ubuntu system] (https://github.com/snayfach/MIDAS/blob/master/docs/install_other.md)
+[Detailed instructions for installation on a brand new CentOS/Ubuntu system] (install_other.md)
 
 ### Update your environmental variables
 
@@ -59,4 +59,4 @@ Move to installation directory, pull the latest version, and install:
 `python setup.py install`
 
 ## Next step
-[Download the reference database] (https://github.com/snayfach/MIDAS/blob/master/docs/ref_db.md)
+[Download the reference database] (ref_db.md)

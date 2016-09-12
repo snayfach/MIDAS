@@ -7,11 +7,11 @@ MIDAS is written in Python and runs on Linux and OSX
 
 Download the software:  
 `git clone https://github.com/snayfach/MIDAS`  
-[read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/install.md)
+[read more...] (install.md)
 
 Install python dependencies as needed:  
 `python MIDAS/setup.py install`  
-[read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/install.md)
+[read more...] (install.md)
 
 Update your environment:  
 `export PYTHONPATH=$PYTHONPATH:MIDAS`  
@@ -19,7 +19,7 @@ Update your environment:
 
 Download the reference database:  
 `python MIDAS/scripts/download_ref_db.py`   
-[read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/ref_db.md)  
+[read more...] (ref_db.md)
 
 ## Run MIDAS
 
@@ -55,7 +55,7 @@ Basic command usage (see below for details):
 `run_midas.py species samples/sample_2 -1 sample_2.fq.gz`
 
 * This enables automatically profiling strain-level variation of all species in downstream modules. 
-* [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/species.md)
+* [read more...] (species.md)
 
 **2) Profile strain-level gene content of abundant species**  
 `run_midas.py genes samples/sample_1 -1 sample_1.fq.gz`  
@@ -63,7 +63,7 @@ Basic command usage (see below for details):
 
 * Requires that you've already run (1)
 * Output files contain estimated pan-genome gene copy numbers for all abundant species 
-* [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/cnvs.md)
+* [read more...] (cnvs.md)
 
 **3) Profile strain-level nucleotide variants of abundant species**  
 `run_midas.py snps samples/sample_1 -1 sample_1.fq.gz`  
@@ -71,7 +71,7 @@ Basic command usage (see below for details):
 
 * Requires that you've already run (1)  
 * Output files contain genome-wide nucleotide variation statistics for all abundant species 
-* [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/snvs.md)
+* [read more...] (snvs.md)
 
 
 ###Merge MIDAS results across samples
@@ -99,7 +99,7 @@ species_prevalence.txt
 ```
 Those files can be looked at with your favorite spreadsheet or text editor for more careful analysis.
 
-* [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_species.md)
+* [read more...] (merge_species.md)
 
 **2) Merge strain-level pan-genome results across samples**  
 `merge_midas.py genes ./merged_genes -i samples/sample_1,samples/sample_2 -t list`  
@@ -147,7 +147,7 @@ genes_summary.txt
 ```
 Those files can be looked at with your favorite spreadsheet or text editor for more careful analysis.
 
-* [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_cnvs.md)
+* [read more...] (merge_cnvs.md)
 
 **3) Merge strain-level nucleotide variant results across samples**  
 `merge_midas.py snps ./merged_snps -i samples/sample_1,samples/sample_2 -t list`  
@@ -195,4 +195,4 @@ snps_summary.txt
 ```
 Those files can be looked at with your favorite spreadsheet or text editor for more careful analysis.
 
-* [read more...] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md)
+* [read more...] (merge_snvs.md)

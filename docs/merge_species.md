@@ -54,6 +54,6 @@ species_prevalence output format:
 * This step takes an insignificant amount of memory  
 
 ## Next steps
-[Profile strain-level gene content of species] (https://github.com/snayfach/MIDAS/blob/master/docs/cnvs.md)  
-[Profile strain-level SNVs of species] (https://github.com/snayfach/MIDAS/blob/master/docs/snvs.md)
+[Profile strain-level gene content of species] (cnvs.md)
+[Profile strain-level SNVs of species] (snvs.md)
 
