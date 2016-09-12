@@ -15,7 +15,6 @@ class GenomicSite:
 			self.id, self.depth = next(files['depth'])
 			self.id, self.alt_allele = next(files['alt_allele'])
 			self.info = next(info) if info else None
-
 			self.ref_id, self.ref_pos, self.ref_allele = self.parse_id()
 			self.samples = samples
 			
@@ -36,7 +35,7 @@ class GenomicSite:
 			d[sample]['depth'] = self.depth[index]
 			d[sample]['alt_allele'] = self.alt_allele[index]
 		return d
-
+	
 	def prev(self, site_depth):
 		count = len([_ for _ in self.depth if int(_) >= site_depth])
 		return float(count)/len(self.depth)
@@ -55,7 +54,7 @@ class GenomicSite:
 		x = self.mean_freq()
 		if x == 'NA': return x
 		else: return min(x, 1-x)
-
+		
 	def allele_props(self):
 		sums = {'A':0.0, 'T':0.0, 'C':0.0, 'G':0.0}
 		props = {}
@@ -103,6 +102,14 @@ def parse_tsv(inpath):
 		yield id, values
 	infile.close()
 
+def open_snp_info(indir):
+	""" return generator for snps info file """
+	inpath = '%s/snps_info.txt' % indir
+	if not os.path.isfile(inpath):
+		return None
+	else:
+		return utility.parse_file(inpath)
+
 def parse_sites(indir):
 	""" yield genomic sites from input files """
 	index = 0
@@ -110,8 +117,9 @@ def parse_sites(indir):
 	for ext, path in init_paths(indir).items():
 		files[ext] = parse_tsv(path)
 	samples = list_samples(indir)
+	info = open_snp_info(indir)
 	while True: # yield GenomicSite
-		site = GenomicSite(files, samples)
+		site = GenomicSite(files, samples, info)
 		if not site.id:
 			break
 		else:
@@ -119,15 +127,6 @@ def parse_sites(indir):
 			yield site
 	for file in files.values(): # close input files
 		file.close()
-
-def check_sample_ids(args, paths):
-	""" make sure that specified sample ids are present in input """
-	samples = [_.split()[0] for _ in open(paths['summary'])][1:]
-	for sample_id in args['samples'].copy():
-		if sample_id not in samples:
-			del args['samples'][sample_id]
-	if len(args['samples']) == 0:
-		sys.exit("No samples remain")
 
 def list_samples(indir, max_samples=None):
 	""" list sample ids from specified input """

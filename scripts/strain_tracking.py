@@ -6,7 +6,7 @@
 
 import argparse, sys, os, platform, itertools
 from operator import itemgetter
-from midas import parse, utility
+from midas import utility
 
 def get_program():
 	""" Get program specified by user (species, genes, or snps) """
@@ -147,7 +147,7 @@ useful for quick tests""")
 
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
-	from midas import track_strains
+	from midas.analyze import track_strains
 	if program == 'id_markers':
 		track_strains.id_markers(args)
 	elif program == 'track_markers':
@@ -158,4 +158,5 @@ def run_program(program, args):
 if __name__ == '__main__':
 	program = get_program()
 	args = get_arguments(program)
+	utility.print_copyright()
 	run_program(program, args)

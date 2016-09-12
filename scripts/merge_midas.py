@@ -392,7 +392,7 @@ def print_snps_arguments(args):
 	print ("  keep samples where >= %s percent of sites have non-zero coverage" % (100*args['fract_cov']))
 	if args['max_samples']: print ("  keep <= %s samples" % args['max_samples'])
 	print ("Site selection criteria:")
-	print ("  keep sites covered by >= %s reads across %s percent of samples" % (args['site_depth'], 100*args['site_prev']))
+	print ("  keep sites covered by >= %s reads across >= %s percent of samples" % (args['site_depth'], 100*args['site_prev']))
 	if args['max_sites'] != float('Inf'): print ("  keep <= %s sites" % (args['max_sites']))
 	print ("Number of CPUs to use: %s" % args['threads'])
 	print ("")

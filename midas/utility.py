@@ -130,9 +130,9 @@ def iopen(inpath, mode='r'):
 def parse_file(inpath):
 	""" Yields records from tab-delimited file with header """
 	infile = iopen(inpath)
-	fields = next(infile).rstrip().split('\t')
+	fields = next(infile).rstrip('\n').split('\t')
 	for line in infile:
-		values = line.rstrip().split('\t')
+		values = line.rstrip('\n').split('\t')
 		if len(fields) == len(values):
 			yield dict([(i,j) for i,j in zip(fields, values)])
 	infile.close()

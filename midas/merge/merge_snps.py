@@ -6,8 +6,7 @@
 
 import sys, os, shutil, numpy as np
 from midas import utility
-from midas.merge import merge, annotate_sites as annotate
-from midas import parse
+from midas.merge import merge, annotate, snp_matrix
 
 def store_data(snpfiles):
 	""" List of records from specified sample_ids """
@@ -150,7 +149,7 @@ def filter_snp_matrix(species_id, samples, args):
 	
 	# parse genomic sites
 	tempdir = '%s/%s/temp' % (args['outdir'], species_id)
-	for index, site in enumerate(parse.parse_sites(tempdir)):
+	for index, site in enumerate(snp_matrix.parse_sites(tempdir)):
 		if args['max_sites'] is not None and index >= args['max_sites']:
 			break
 		elif site.filter(args['site_depth'], args['site_prev'], args['site_maf']):

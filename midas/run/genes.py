@@ -61,7 +61,7 @@ def pangenome_align(args):
 	else: command += '-q '
 	#   input file
 	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
-	else: command += '-U %s' % args['m1']
+	else: command += '-U %s ' % args['m1']
 	#   output unsorted bam
 	bampath = '/'.join([args['outdir'], 'genes/temp/pangenome.bam'])
 	command += '| %s view -b - > %s' % (args['samtools'], bampath)
@@ -89,7 +89,7 @@ def count_mapped_bp(args):
 			continue
 		elif np.mean(aln.query_qualities) < args['readq']:
 			continue
-		elif aln.mapping_quality < args['mapq']: # TEST THIS
+		elif aln.mapping_quality < args['mapq']:
 			continue
 		else:
 			ref_id = aln_file.getrname(aln.reference_id)

@@ -37,7 +37,7 @@ def fix_qualities(aln, qual=2):
 			qualities[i] = qual
 		aln.query_qualities = qualities
 
-def filter_bam(inpath, outpath, pid, min_qual):
+def filter_bam(inpath, outpath, pid, min_baseq, min_mapq):
 	""" Filter records from bamfile and write to temporary output file """
 	infile = pysam.AlignmentFile(inpath, 'rb')
 	outfile = pysam.AlignmentFile(outpath, 'wb', template=infile)
@@ -45,14 +45,16 @@ def filter_bam(inpath, outpath, pid, min_qual):
 		fix_qualities(aln)
 		if compute_perc_id(aln) < pid:
 			continue
-		elif np.mean(aln.query_qualities) < min_qual:
+		elif np.mean(aln.query_qualities) < min_baseq:
+			continue
+		elif aln.mapping_quality < min_mapq:
 			continue
 		else:
 			outfile.write(aln)
 
 if __name__ == '__main__':
 
-	filter_bam(inpath=sys.argv[1], outpath=sys.argv[2], pid=float(sys.argv[3]), min_qual=float(sys.argv[4]))
+	filter_bam(inpath=sys.argv[1], outpath=sys.argv[2], pid=float(sys.argv[3]), min_baseq=float(sys.argv[4]), min_mapq=float(sys.argv[5]))
 
 
 

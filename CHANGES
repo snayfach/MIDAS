@@ -1,5 +1,15 @@
 CHANGES
 
+2016-09-12
+ * added midas/analzye/snp_diversity.py
+ * updated docs/ref_db.md
+ * updated midas/analzye/snp_matrix.py
+
+2016-09-03
+ * moved parse.py to midas/merge/snp_matrix.py
+ * created midas/analzye/
+ *
+
 2016-09-02
  * fixed bug in parse.py; now correctly parses site.ref_id
 

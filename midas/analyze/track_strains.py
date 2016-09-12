@@ -1,7 +1,8 @@
 
 import argparse, sys, os, platform, itertools
 from operator import itemgetter
-from midas import parse, utility
+from midas import utility
+from midas.analyze import snp_matrix
 
 def allele_counts(site, samples, min_freq, min_reads):
 	""" compute the prevelance of the 4 nucleotides for site across samples """
@@ -31,7 +32,7 @@ def id_markers(args):
 	header = ['site_id', 'allele', 'count_samples'] + ['count_'+b for b in bases]
 	outfile.write('\t'.join(header)+'\n')
 	count_alleles = 0
-	for index, site in enumerate(parse.parse_sites(args['indir'])):
+	for index, site in enumerate(snp_matrix.parse_sites(args['indir'])):
 		# record progress
 		if not index % 100000: print("%s sites processed" % index)
 		if args['max_sites'] and index >= args['max_sites']: break
@@ -50,12 +51,12 @@ def id_markers(args):
 		outfile.write('\t'.join([str(_) for _ in record])+'\n')
 	print("%s total disriminative alleles found" % count_alleles)
 
-def quantify_markers(args):
+def call_markers(args):
 	""" determine if marker present in each sample """
 	markers = utility.parse_file(args['markers']) # generator for marker alleles file
 	marker = fetch_marker(markers) # dictionary for 1st marker allele
-	samples = dict([(_, {}) for _ in parse.list_samples(args['indir'], args['max_samples'])]) # dic of marker alleles
-	for index, site in enumerate(parse.parse_sites(args['indir'])):
+	samples = dict([(_, {}) for _ in snp_matrix.list_samples(args['indir'], args['max_samples'])]) # dic of marker alleles
+	for index, site in enumerate(snp_matrix.parse_sites(args['indir'])):
 		if not index % 100000: print("%s sites processed" % index)
 		if args['max_sites'] is not None and index >= args['max_sites']: break
 		# skip non-discriminative sites
@@ -107,7 +108,7 @@ def track_markers(args):
 	outfile.write('\t'.join(header)+'\n')
 	# determine marker alleles present in each sample
 	print("Determining marker alleles present in each sample")
-	samples = quantify_markers(args)
+	samples = call_markers(args)
 	# quantify marker allele sharing
 	print("Quantifying sharing of marker alleles between samples")
 	for index, pair in enumerate(itertools.combinations(samples, r=2)):
