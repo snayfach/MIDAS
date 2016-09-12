@@ -1,4 +1,5 @@
 # MIDAS reference database
+Description of how the MIDAS database was constructed, how the species groups compare to annotated Latin names, how well the database works in different types of environments, and how to download it.
 
 ## Identification of bacterial species
 Contains 31,007 bacterial reference genomes clustered into 5,952 species groups. Species groups are based on 96.5% sequence identity across 30 universal marker genes. These groups correspond to the gold-standard definition of bacterial species based on 95% genome-wide average nucleotide identity (ANI):  
