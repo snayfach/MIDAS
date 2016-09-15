@@ -125,9 +125,12 @@ species_profile.txt
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str, help='Path to directory to store results. Name should correspond to sample identifier.')
 	parser.add_argument('-1', type=str, dest='m1', required=True,
-		help="FASTA/FASTQ file containing 1st mate if paired or unpaired reads")
+		help="""FASTA/FASTQ file containing 1st mate if using paired-end reads.
+Otherwise FASTA/FASTQ containing unpaired reads.
+Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 	parser.add_argument('-2', type=str, dest='m2',
-		help="FASTA/FASTQ file containing 2nd mate if paired")
+		help="""FASTA/FASTQ file containing 2nd mate if using paired-end reads.
+Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 	parser.add_argument('-n', type=int, dest='max_reads',
 		help="""Number of reads to use from input file(s) (use all)""")
 	parser.add_argument('-t', dest='threads', default=1,
@@ -170,14 +173,17 @@ def check_species(args):
 	if not os.path.isdir('%s/species' % args['outdir']):
 		os.makedirs('%s/species' % args['outdir'])
 	if args['word_size'] < 12:
-		sys.exit("\nInvalid word size: %s. Must be greater than or equal to 12" % args['word_size'])
+		sys.exit("\nError: Invalid word size: %s. Must be greater than or equal to 12" % args['word_size'])
 	if args['mapid'] and (args['mapid'] < 0 or args['mapid'] > 100):
-		sys.exit("\nInvalid mapping identity: %s. Must be between 0 and 100" % args['mapid'])
+		sys.exit("\nError: Invalid mapping identity: %s. Must be between 0 and 100" % args['mapid'])
 	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
-		sys.exit("\nInvalid alignment coverage: %s. Must be between 0 and 1" % args['aln_cov'])
+		sys.exit("\nError: Invalid alignment coverage: %s. Must be between 0 and 1" % args['aln_cov'])
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nInput file does not exist: '%s'" % args[arg])
+			sys.exit("\nError: Input file does not exist: '%s'" % args[arg])
+	# check input compression
+	if args['m1']: utility.check_compression(args['m1'])
+	if args['m2']: utility.check_compression(args['m2'])
 
 def create_directories(program, args):
 	dirs = [args['outdir']]
@@ -254,9 +260,9 @@ summary.txt
 	db.add_argument('--species_id', type=str, dest='gc_id', metavar='CHAR', help='One or more species identifiers to include in database. Separate ids with a comma')
 	align = parser.add_argument_group('Read alignment options (if using --align)')
 	align.add_argument('-1', type=str, dest='m1',
-		help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
+		help='FASTA/FASTQ file containing 1st mate if using paired-end reads.\nOtherwise FASTA/FASTQ containing unpaired reads.\nCan be gzip\'ed (extension: .gz) or bzip2\'ed (extension: .bz2)')
 	align.add_argument('-2', type=str, dest='m2',
-		help='FASTA/FASTQ file containing 2nd mate if paired')
+		help='FASTA/FASTQ file containing 2nd mate if using paired-end reads.\nCan be gzip\'ed (extension: .gz) or bzip2\'ed (extension: .bz2)')
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Alignment speed/sensitivity (very-sensitive)')
@@ -388,8 +394,10 @@ summary.txt:
 	db.add_argument('--species_topn', type=int, dest='gc_topn', metavar='INT', help='Include top N most abundant species')
 	db.add_argument('--species_id', type=str, dest='gc_id', metavar='CHAR', help='One or more species identifiers to include in database. Separate ids with a comma')
 	align = parser.add_argument_group('Read alignment options (if using --align)')
-	align.add_argument('-1', type=str, dest='m1', help='FASTA/FASTQ file containing 1st mate if paired or unpaired reads')
-	align.add_argument('-2', type=str, dest='m2', help='FASTA/FASTQ file containing 2nd mate if paired')
+	align.add_argument('-1', type=str, dest='m1',
+		help='FASTA/FASTQ file containing 1st mate if using paired-end reads.\nOtherwise FASTA/FASTQ containing unpaired reads.\nCan be gzip\'ed (extension: .gz) or bzip2\'ed (extension: .bz2)')
+	align.add_argument('-2', type=str, dest='m2',
+		help='FASTA/FASTQ file containing 2nd mate if using paired-end reads.\nCan be gzip\'ed (extension: .gz) or bzip2\'ed (extension: .bz2)')
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Bowtie2 alignment speed/sensitivity (very-sensitive)')
@@ -474,36 +482,39 @@ def check_genes(args):
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
 		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
-			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --species_topn or --species_cov you must have run: run_midas.py species" % profile)
+			sys.exit("\nError: Could not find species abundance profile: %s\nTo specify species with --species_topn or --species_cov you must have run: run_midas.py species" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
 		and not os.path.isfile('%s/genes/temp/pangenomes.fa' % args['outdir'])):
-		error = "\nYou've specified --align, but no database has been built"
+		error = "\nError: You've specified --align, but no database has been built"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no bamfile but --cov specified
 	if (args['cov']
 		and not args['align']
 		and not os.path.isfile('%s/genes/temp/pangenome.bam' % args['outdir'])):
-		error = "\nYou've specified --call_genes, but no alignments were found"
+		error = "\nError: You've specified --call_genes, but no alignments were found"
 		error += "\nTry running with --align"
 		sys.exit(error)
 	# no reads
 	if args['align'] and not args['m1']:
-		sys.exit("\nTo align reads, you must specify path to input FASTA/FASTQ")
+		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ")
 	# check input file paths
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nInput file does not exist: '%s'" % args[arg])
+			sys.exit("\nError: Input file does not exist: '%s'" % args[arg])
+	# check input compression
+	if args['m1']: utility.check_compression(args['m1'])
+	if args['m2']: utility.check_compression(args['m2'])
 	# input options
 	if args['m2'] and not args['m1']:
-		sys.exit("\nMust specify -1 and -2 if aligning paired end reads")
+		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads")
 	# sanity check input values
 	if args['mapid'] < 1 or args['mapid'] > 100:
-		sys.exit("\nMAPID must be between 1 and 100")
+		sys.exit("\nError: MAPID must be between 1 and 100")
 	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
-		sys.exit("\nALN_COV must be between 0 and 1")
+		sys.exit("\nError: ALN_COV must be between 0 and 1")
 
 def check_snps(args):
 	""" Check validity of command line arguments """
@@ -522,12 +533,12 @@ def check_snps(args):
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
 		if (args['gc_topn'] or args['gc_cov']) and args['build_db']:
-			sys.exit("\nCould not find species abundance profile: %s\nTo specify species with --species_topn or --species_cov you must have run: run_midas.py species" % profile)
+			sys.exit("\nError: Could not find species abundance profile: %s\nTo specify species with --species_topn or --species_cov you must have run: run_midas.py species" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
 		and not os.path.isfile('%s/snps/temp/genomes.fa' % args['outdir'])):
-		error = "\nYou've specified --align, but no database has been built"
+		error = "\nError: You've specified --align, but no database has been built"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no bamfile but --call specified
@@ -535,7 +546,7 @@ def check_snps(args):
 		and not args['align']
 		and not os.path.isfile('%s/snps/temp/genomes.bam' % args['outdir'])
 		):
-		error = "\nYou've specified --call_snps, but no alignments were found"
+		error = "\nError: You've specified --call_snps, but no alignments were found"
 		error += "\nTry running with --align"
 		sys.exit(error)
 	# no genomes but --call specified
@@ -543,26 +554,29 @@ def check_snps(args):
 		and not args['build_db']
 		and not os.path.isfile('%s/snps/temp/genomes.fa' % args['outdir'])
 		):
-		error = "\nYou've specified --call_snps, but the no genome database was found"
+		error = "\nError: You've specified --call_snps, but the no genome database was found"
 		error += "\nTry running with --build_db"
 		sys.exit(error)
 	# no reads
 	if args['align'] and not args['m1']:
-		sys.exit("\nTo align reads, you must specify path to input FASTA/FASTQ")
+		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ")
 	# check input file paths
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nInput file does not exist: '%s'" % args[arg])
+			sys.exit("\nError: Input file does not exist: '%s'" % args[arg])
+	# check input compression
+	if args['m1']: utility.check_compression(args['m1'])
+	if args['m2']: utility.check_compression(args['m2'])
 	# input options
 	if args['m2'] and not args['m1']:
-		sys.exit("\nMust specify -1 and -2 if aligning paired end reads")
+		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads")
 	# sanity check input values
 	if args['mapid'] < 1 or args['mapid'] > 100:
-		sys.exit("\nMAPQ must be between 1 and 100")
+		sys.exit("\nError: MAPQ must be between 1 and 100")
 	if args['mapq'] < 0 or args['mapq'] > 100:
-		sys.exit("\nMAPQ must be between 0 and 100")
+		sys.exit("\nError: MAPQ must be between 0 and 100")
 	if args['baseq'] < 0 or args['baseq'] > 100:
-		sys.exit("\nBASEQ must be between 0 and 100")
+		sys.exit("\nError: BASEQ must be between 0 and 100")
 
 if __name__ == '__main__':
 
