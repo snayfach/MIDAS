@@ -36,7 +36,8 @@ def get_arguments(program):
 		args = snps_arguments()
 	else:
 		sys.exit("Unrecognized program: '%s'" % program)
-	utility.add_ref_db(args)
+	if 'db' not in args or args['db'] is None:
+		utility.add_ref_db(args)
 	return args
 
 def species_arguments():
@@ -91,6 +92,8 @@ see '-t' for details""")
 'file': -i incdicates a file containing paths to sample directories
 	   example: /path/to/sample_paths.txt
 """)
+	parser.add_argument('--ref_db', dest='db', type=str, metavar='PATH',
+		help="""path to alternative reference database directory""")
 	parser.add_argument('--min_cov', metavar='FLOAT', type=float, default=1.0,
 		help="""minimum marker-gene-coverage for estimating species prevalence (1.0)""")
 	parser.add_argument('--max_samples', type=int, metavar='INT',
@@ -162,6 +165,8 @@ see '-t' for details""")
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
+	io.add_argument('--ref_db', dest='db', type=str, metavar='PATH',
+		help="""path to alternative reference database directory""")
 	species = parser.add_argument_group('Species filters (select subset of species from INPUT)')
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
@@ -252,6 +257,8 @@ see '-t' for details""")
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
+	io.add_argument('--ref_db', dest='db', type=str, metavar='PATH',
+		help="""path to alternative reference database directory""")
 	species = parser.add_argument_group("Species filters (select subset of species from INPUT)")
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")

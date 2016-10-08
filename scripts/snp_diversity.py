@@ -6,7 +6,7 @@
 
 import argparse, sys, os, gzip, numpy as np, random
 from midas.utility import print_copyright, parse_file
-from midas.analyze import snp_matrix
+from midas.analyze import diversity
 
 def parse_arguments():
 	""" Parse command line arguments """
@@ -14,13 +14,13 @@ def parse_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Description: 
-  estimate strain-level genomic diversity of an individual bacterial species
-  diversity estimated across pooled metagenomic samples, or for individual samples
-  diversity estimated genome-wide, for individual genes, or for certain types of genomic sites
-  
-Usage: snp_diversity.py indir [options]
+Description:
+Quantify the genomic diversity of a bacterial population
+Diversity computed genome-wide, for different site classes, or for individual genes
+Diversity computed for individual metagenomic samples for data pooled across samples
+Before running these scripts, you'll need to have run `merge_midas.py snps`
 
+Usage: snp_diversity.py --indir <PATH> --out <PATH> [options]
 """,
 		epilog="""Examples:
 
@@ -29,7 +29,7 @@ Usage: snp_diversity.py indir [options]
 		help="""path to output from `merge_midas.py snps` for one species
 directory should be named according to a species_id and contains files 'snps_*.txt')""")
 	parser.add_argument('--out', metavar='PATH', type=str, required=True,
-		help="""path to output file containing list of markers""")
+		help="""path to output file""")
 
 	diversity = parser.add_argument_group("Diversity options")
 	diversity.add_argument('--genomic_type', choices=['genome-wide', 'per-gene'], default='genome-wide',
@@ -40,7 +40,7 @@ directory should be named according to a species_id and contains files 'snps_*.t
 		help="""compute diversity using subset of genomic sites sites (ALL)
 ALL=all-sites, NC=non-coding, CDS=coding, XD=X-fold-degenerate-sites""")
 	diversity.add_argument('--weight_by_depth', action="store_true", default=False,
-		help="""weight samples by sequencing depth when --sample_type=pooled-samples""")
+		help="""weight data from samples by sequencing depth when --sample_type=pooled-samples""")
 	diversity.add_argument('--rand_reads', type=int, metavar='INT',
 		help="""randomly select N reads from each sample for each genomic site """)
 	diversity.add_argument('--replace_reads', action='store_true', default=False,
@@ -53,7 +53,7 @@ ALL=all-sites, NC=non-coding, CDS=coding, XD=X-fold-degenerate-sites""")
 	sample = parser.add_argument_group("Sample filters (select subset of samples from INDIR)")
 	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=0.0, metavar='FLOAT',
 		help="""minimum average read depth per sample (0.0)""")
-	sample.add_argument('--fract_cov', dest='fract_cov', type=float, default=0.0, metavar='FLOAT',
+	sample.add_argument('--sample_cov', dest='fract_cov', type=float, default=0.0, metavar='FLOAT',
 		help="""fraction of reference sites covered by at least 1 read (0.0)""")
 	sample.add_argument('--max_samples', type=int, metavar='INT', default=float('Inf'),
 		help="""maximum number of samples to process.
@@ -67,9 +67,7 @@ samples will still be subject to other filters""")
 
 	snps = parser.add_argument_group("Site filters (select subset of genomic sites from INDIR)")
 	snps.add_argument('--site_depth', type=int, default=2, metavar='INT',
-		help="""minimum number of mapped reads per site (2)
-a high value like 20 will result in accurate allele frequencies, but may discard many sites.
-a low value like 2 will retain many sites but may not result in accurate allele frequencies""")
+		help="""minimum number of mapped reads per site (2)""")
 	snps.add_argument('--site_prev', type=float, default=0.0, metavar='FLOAT',
 		help="""site has at least <site_depth> coverage in at least <site_prev> proportion of samples (0.0)
 a value of 1.0 will select sites that have sufficent coverage in all samples.
@@ -79,7 +77,7 @@ NAs recorded for included sites with less than <site_depth> in a sample """)
 		help="""minimum average-minor-allele-frequency of site across samples (0.0)
 setting this above zero (e.g. 0.01, 0.02, 0.05) will only retain variable sites
 by default invariant sites are also retained.""")
-	snps.add_argument('--site_ratio', type=float, default=float('Inf'), metavar='INT',
+	snps.add_argument('--site_ratio', type=float, default=float('Inf'), metavar='FLOAT',
 		help="""maximum ratio of site-depth to mean-genome-depth (None)
 a value of 10 will filter genomic sites with 10x high coverage than the genomic background""")
 	snps.add_argument('--site_freq', type=float, default=0.0, metavar='FLOAT',
@@ -166,6 +164,7 @@ def check_args(args):
 		sys.exit("\nError: --rand_sites must be between 0 and 1")
 	if 'NC' in args['site_type'] and args['genomic_type'] == 'per-gene':
 		sys.exit("\nError: --site_type cannot be NC if --genomic_type is per-gene")
+	# set min # of rand reads
 
 class Diversity:
 	def __init__(self):
@@ -211,12 +210,12 @@ def maf(x):
 def compute_pi(args, samples):
 	pi = init_pi(args, samples)
 	index = 0
-	for site in snp_matrix.parse_sites(args['indir'], samples): # loop over sites
+	for site in diversity.parse_sites(args['indir'], samples): # loop over sites
 		
 		# stop early
 		if index >= args['max_sites']: break
 			
-		# prune low quality samples
+		# prune low quality samples for site
 		site.prune_samples(args['site_depth'], args['site_ratio'])
 
 		# compute site summary stats
@@ -233,6 +232,8 @@ def compute_pi(args, samples):
 		# downsample reads
 		if args['rand_reads'] and site.maf > 0:
 			site.resample_reads(args['rand_reads'], args['replace_reads'])
+			site.mean_freq = site.compute_mean_freq(args['weight_by_depth'])
+			site.maf = min(site.mean_freq, 1-site.mean_freq)
 
 		# compute pi for pooled-samples
 		if args['sample_type'] == 'pooled-samples':
@@ -302,7 +303,7 @@ def resample_samples(samples):
 
 def fetch_samples(args):
 	""" List and select samples from input """
-	from midas.analyze.snp_matrix import Sample
+	from midas.analyze.diversity import Sample
 	samples = []
 	for info in parse_file('%s/snps_summary.txt' % args['indir']):
 		# init sample
