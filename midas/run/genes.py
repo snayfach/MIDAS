@@ -24,10 +24,11 @@ def build_pangenome_db(args, genome_clusters):
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
 			genome_id = '.'.join(r.id.split('.')[0:2])
 			if not args['tax_mask'] or genome_id not in args['tax_mask']:
-				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq)))
+				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
 				pangenome_map.write('%s\t%s\n' % (r.id, species_id))
 				db_stats['total_length'] += len(r.seq)
 				db_stats['total_seqs'] += 1
+		infile.close()
 	pangenome_fasta.close()
 	pangenome_map.close()
 	# print out database stats

@@ -10,23 +10,23 @@ from midas import utility
 
 def build_genome_db(args, genome_clusters):
 	""" Build FASTA and BT2 database from genome cluster centroids """
+	import Bio.SeqIO
 	# fasta database
 	genomes_fasta = open('/'.join([args['outdir'], 'snps/temp/genomes.fa']), 'w')
 	genomes_map = open('/'.join([args['outdir'], 'snps/temp/genomes.map']), 'w')
 	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
 	for species_id in genome_clusters:
-		if args['tax_mask'] and fetch_centroid(args, species_id) in args['tax_mask']:
-			continue
+		#if args['tax_mask'] and fetch_centroid(args, species_id) in args['tax_mask']:
+		#	continue
 		db_stats['genome_clusters'] += 1
 		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'genome.fna.gz'])
 		infile = utility.iopen(inpath)
-		for line in infile:
-			genomes_fasta.write(line)
-			db_stats['total_length'] += len(line.rstrip())
-			if line[0] == '>':
-				sid = line.rstrip().lstrip('>').split()[0]
-				genomes_map.write(sid+'\t'+species_id+'\n')
+		for r in Bio.SeqIO.parse(infile, 'fasta'):
+				genomes_fasta.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
+				genomes_map.write('%s\t%s\n' % (r.id, species_id))
+				db_stats['total_length'] += len(r.seq)
 				db_stats['total_seqs'] += 1
+		infile.close()
 	# print out database stats
 	print("  total genomes: %s" % db_stats['genome_clusters'])
 	print("  total contigs: %s" % db_stats['total_seqs'])
@@ -189,13 +189,13 @@ def snps_summary(args):
 		record = [species_id] + [str(stats[species_id][field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 
-def fetch_centroid(args, species_id):
-	""" Get the genome_id corresponding to cluster centroid """
-	inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'genomes.txt.gz'])
-	infile = utility.iopen(inpath)
-	for line in infile:
-		if line.split()[2] == 'Y':
-			return line.split()[1]
+#def fetch_centroid(args, species_id):
+#	""" Get the genome_id corresponding to cluster centroid """
+#	inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'genomes.txt.gz'])
+#	infile = utility.iopen(inpath)
+#	for line in infile:
+#		if line.split()[2] == 'Y':
+#			return line.split()[1]
 
 def remove_tmp(args):
 	""" Remove specified temporary files """

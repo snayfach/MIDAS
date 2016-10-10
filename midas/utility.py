@@ -4,7 +4,7 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import io, os, stat, sys, resource, gzip, platform, subprocess
+import io, os, stat, sys, resource, gzip, platform, subprocess, bz2
 
 __version__ = '1.0.0'
 
@@ -112,6 +112,17 @@ def auto_detect_file_type(inpath):
 		elif line[0] == '@': return 'fastq'
 		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
 	infile.close()
+
+def check_compression(inpath):
+	""" Check that file extension matches expected compression """
+	ext = inpath.split('.')[-1]
+	file = iopen(inpath)
+	try:
+		next(file)
+		file.close()
+	except:
+		sys.exit("\nError: File extension '%s' does not match expected compression" % ext)
+
 
 def iopen(inpath, mode='r'):
 	""" Open input file for reading regardless of compression [gzip, bzip] or python version """

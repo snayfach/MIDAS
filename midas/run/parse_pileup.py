@@ -45,12 +45,8 @@ def ref_freq(ref_allele, counts, depth):
 def main(infile):
 	for line in infile:
 		v = line.strip('\n').split('\t')
-		r = {}
-		r['ref_id'] = v[0]
-		r['ref_pos'] = v[1]
-		r['ref_allele'] = v[2].upper()
-		r['depth'] = int(v[3])
-		r['pileup'] = v[4]
+		r = {'ref_id':v[0], 'ref_pos':v[1], 'ref_allele':v[2].upper(), 'depth':int(v[3]), 'pileup':v[4]}
+		if r['ref_allele'] not in ['A','T','C','G']: continue
 		r['counts'] = parse_pileup(r['ref_allele'], r['pileup'])
 		r['count_atcg'] = count_alleles(r['counts'])
 		r['ref_freq'] = ref_freq(r['ref_allele'], r['counts'], r['depth'])

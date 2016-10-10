@@ -37,8 +37,8 @@ ALL=all-sites, NC=non-coding, CDS=coding, XD=X-fold-degenerate-sites
 <b>--sample_depth FLOAT</b>  
 Minimum average read depth per sample (0.0)  
 
-<b>--fract_cov FLOAT</b>  
-Minimum proportion of genomic sites covered by at least 1 read (0.0)  
+<b>--sample_cov FLOAT</b>
+Minimum proportion of genomic sites covered by at least 1 read per sample (0.0)
 
 <b>--rand_samples INT</b>  
 Randomly select INT samples that pass quality control (None)
@@ -51,7 +51,7 @@ Samples are still be subject to other filters
 Comma-separated list of sample identifiers to exclude from computing diversity metrics (None)   
 Samples are still be subject to other filters  
 
-<b>--max_sample INT</b>  
+<b>--max_samples INT</b>
 Maximum number of samples to process (use all)  
 Useful for quick tests  
 
