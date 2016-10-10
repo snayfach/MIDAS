@@ -12,7 +12,7 @@ Python modules (installed via setup.py):
 
 ### Download the software
 
-**Clone the latest version from GitHub (recommended)**   
+**Clone the latest version from GitHub (recommended)**:
 `git clone https://github.com/snayfach/MIDAS`  
 This makes it easy to update the software in the future using `git pull` as bugs are fixed and features are added
 
@@ -48,15 +48,15 @@ Add these commands to your .bash_profile to avoid entering the commands in the f
 Run the following command to test MIDAS:
 
 `cd /path/to/MIDAS/test`  
-`python test_midas.py -f`
+`python test_midas.py`
 
 Be sure to replace '/path/to' with the appropriate path on your system.  
+This will take a few minutes to complete
 
 ### Update MIDAS
 Move to installation directory, pull the latest version, and install:  
 `cd MIDAS`  
 `git pull`  
-`python setup.py install`
 
 ## Next step
 [Download the reference database] (ref_db.md)
