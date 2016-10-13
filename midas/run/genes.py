@@ -9,30 +9,28 @@ from time import time
 from midas import utility
 from midas.run import stream_bam
 
-def build_pangenome_db(args, genome_clusters):
+def build_pangenome_db(args, species):
 	""" Build FASTA and BT2 database from pangene cluster centroids """
 	import Bio.SeqIO
 	# fasta database
 	outdir = '/'.join([args['outdir'], 'genes/temp'])
 	pangenome_fasta = open('/'.join([outdir, 'pangenomes.fa']), 'w')
 	pangenome_map = open('/'.join([outdir, 'pangenome.map']), 'w')
-	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
-	for species_id in genome_clusters:
-		db_stats['genome_clusters'] += 1
-		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'pangenome.fa.gz'])
+	db_stats = {'total_length':0, 'total_seqs':0, 'species':0}
+	for species_id in species:
+		db_stats['species'] += 1
+		inpath = '/'.join([args['db'], 'pan_genomes', species_id, 'centroids.ffn']) ## pangenome.fa.gz in default db
 		infile = utility.iopen(inpath)
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
-			genome_id = '.'.join(r.id.split('.')[0:2])
-			if not args['tax_mask'] or genome_id not in args['tax_mask']:
-				pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
-				pangenome_map.write('%s\t%s\n' % (r.id, species_id))
-				db_stats['total_length'] += len(r.seq)
-				db_stats['total_seqs'] += 1
+			pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
+			pangenome_map.write('%s\t%s\n' % (r.id, species_id))
+			db_stats['total_length'] += len(r.seq)
+			db_stats['total_seqs'] += 1
 		infile.close()
 	pangenome_fasta.close()
 	pangenome_map.close()
 	# print out database stats
-	print("  total species: %s" % db_stats['genome_clusters'])
+	print("  total species: %s" % db_stats['species'])
 	print("  total genes: %s" % db_stats['total_seqs'])
 	print("  total base-pairs: %s" % db_stats['total_length'])
 	# bowtie2 database
@@ -98,7 +96,7 @@ def count_mapped_bp(args):
 			ref_to_cov[ref_id] += cov
 	return ref_to_cov
 
-def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
+def compute_phyeco_cov(args, species, ref_to_cov, ref_to_cluster):
 	""" Count number of bp mapped to each PhyEco marker gene """
 	from numpy import median
 	# read in set of phyeco markers for normalization
@@ -110,8 +108,8 @@ def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 		phyeco_ids.add(phyeco_id)
 	# read in map of gene to phyeco marker
 	ref_to_phyeco = {}
-	for species_id in genome_clusters:
-		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'pangenome.marker_genes.gz'])
+	for species_id in species:
+		inpath = '/'.join([args['db'], 'species', species_id, 'pangenome.marker_genes.gz'])
 		infile = utility.iopen(inpath)
 		next(infile)
 		for line in infile:
@@ -119,7 +117,7 @@ def compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster):
 			ref_to_phyeco[gene_id] = phyeco_id
 	# init phyeco coverage
 	cluster_to_phyeco_to_cov = {}
-	for species_id in genome_clusters:
+	for species_id in species:
 		cluster_to_phyeco_to_cov[species_id] = {}
 		for phyeco_id in phyeco_ids:
 			cluster_to_phyeco_to_cov[species_id][phyeco_id] = 0.0
@@ -144,15 +142,15 @@ def compute_pangenome_coverage(args):
 		ref_to_cluster[ref_id] = species_id
 	# open outfiles for each species_id
 	outfiles = {}
-	genome_clusters = set(ref_to_cluster.values())
-	for species_id in genome_clusters:
+	species = set(ref_to_cluster.values())
+	for species_id in species:
 		outpath = '/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])
 		outfiles[species_id] = utility.iopen(outpath, 'w')
 		outfiles[species_id].write('\t'.join(['gene_id', 'coverage', 'copy_number'])+'\n')
 	# parse bam into cov files for each species_id
 	ref_to_cov = count_mapped_bp(args)
 	# compute normalization factor
-	cluster_to_norm = compute_phyeco_cov(args, genome_clusters, ref_to_cov, ref_to_cluster)
+	cluster_to_norm = compute_phyeco_cov(args, species, ref_to_cov, ref_to_cluster)
 	# write to output files
 	for ref_id in sorted(ref_to_cov):
 		cov = ref_to_cov[ref_id]
@@ -198,14 +196,15 @@ def genes_summary(args):
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
-	# Build pangenome database for selected GCs
+	
+	# Build pangenome database for selected species
 	if args['build_db']:
 		from midas.run import species
 		print("\nBuilding pangenome database")
 		args['log'].write("\nBuilding pangenome database\n")
 		start = time()
-		genome_clusters = species.select_genome_clusters(args)
-		build_pangenome_db(args, genome_clusters)
+		species = species.select_species(args)
+		build_pangenome_db(args, species)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
@@ -214,7 +213,6 @@ def run_pipeline(args):
 		start = time()
 		print("\nAligning reads to pangenomes")
 		args['log'].write("\nAligning reads to pangenomes\n")
-		args['file_type'] = utility.auto_detect_file_type(args['m1'])
 		pangenome_align(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())

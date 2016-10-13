@@ -210,7 +210,7 @@ def run_pipeline(args):
 		print("\nBuilding database of representative genomes")
 		args['log'].write("\nBuilding database of representative genomes\n")
 		start = time()
-		genome_clusters = species.select_genome_clusters(args)
+		genome_clusters = species.select_species(args)
 		build_genome_db(args, genome_clusters)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())

@@ -4,21 +4,8 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import os, sys, gzip, argparse
-
-def iopen(inpath):
-	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
-	ext = inpath.split('.')[-1]
-	# Python2
-	if sys.version_info[0] == 2:
-		if ext == 'gz': return gzip.open(inpath)
-		elif ext == 'bz2': return bz2.BZ2File(inpath)
-		else: return open(inpath)
-	# Python3
-	elif sys.version_info[0] == 3:
-		if ext == 'gz': return io.TextIOWrapper(gzip.open(inpath))
-		elif ext == 'bz2': return bz2.BZ2File(inpath)
-		else: return open(inpath)
+import sys, argparse
+from midas import utility
 
 def readfq(fp):
 	""" https://github.com/lh3/readfq/blob/master/readfq.py 
@@ -59,7 +46,7 @@ def main():
 	reads = 0
 	bp = 0
 	for inpath in args['input']:
-		infile = iopen(inpath)
+		infile = utility.iopen(inpath)
 		for name, seq, qual in readfq(infile):
 			seq_len = len(seq)
 			if args['read_length']: # trim/filter reads
