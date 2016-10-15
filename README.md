@@ -12,20 +12,21 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
 
 
 ## Table of Contents
-1. [Dependencies, Download, Installation, Testing, and Updating] (docs/install.md)
-2. [Reference database] (docs/ref_db.md)
-3. [Tutorial] (docs/tutorial.md)
-4. Scripts to run MIDAS on a single sample:
+1. [Install/Update MIDAS] (docs/install.md)
+2. [Download default database] (docs/ref_db.md)
+3. [Build custom database] (docs/build_db.md)
+4. [Tutorial] (docs/tutorial.md)
+5. Scripts to run MIDAS on a single sample:
  * [Estimate species abundance] (docs/species.md)
  * [Predict pan-genome gene content] (docs/cnvs.md)
  * [Call single nucleotide polymorphisms] (docs/snvs.md)
-5. Scripts to merge results across samples:
+6. Scripts to merge results across samples:
  * [Merge species abundance] (docs/merge_species.md)  
  * [Merge gene content] (docs/merge_cnvs.md)
  * [Merge SNPs] (docs/merge_snvs.md)
-6. Applications:
+7. Applications:
  * [Strain tracking] (docs/strain_tracking.md)  
- * Population genetic inference (coming soon)
+ * [Population diversity] (docs/snp_diversity.md)  
  * Gene content dynamics (coming soon)
 
 
