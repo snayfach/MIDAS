@@ -1,8 +1,8 @@
-## Build custom MIDAS database
+# Build custom MIDAS database
 
 This script will allow you to build a MIDAS database using your own genomes or metagenomic assemblies for one or more species. 
 
-#### How it works
+## How it works
 
 This script uses user-defined species and user-supplied genomes to build database files for running MIDAS. This will allow you to estimate the abundance of these species in a shotgun metagenome and quantify gene content and SNPs for species with sufficient data.
 
@@ -12,7 +12,7 @@ Next, a representative-genome database is built. Representative genomes are used
 
 Finally, a marker genes database is built. Marker genes are defined as universal, single-copy gene families. These are genes that occur once per genome and in all genomes (of bacteria). MIDAS uses a set of 15 of such gene families. These are a subset of the PhyEco gene families described here: http://dx.doi.org/10.1371/journal.pone.0077033. To identify these genes, HMMER (http://hmmer.org) is used to scan each species' pan-genome. Once identified, a HS-BLASTN (http://dx.doi.org/10.1093/nar/gkv784) database is built for mapping short reads.
 
-#### Requirements
+## Requirements
 As with all scripts, MIDAS and its dependencies will need to be installed.  
 Additionally, you need to have the following command-line tools installed:
 
@@ -27,22 +27,22 @@ You should be able to call these programs from your command line:
 `usearch`  
 `hmmsearch`
 
-#### Usage
+## Usage
 
 `build_midas_db.py indir mapfile outdir [options]`
 
-#### Input/output files:
+### Input/output files:
 
-<b>indir PATH</b>  
+<b>indir PATH</b>
 Path to directory of genomes. Each subdirectory should be named with a genome identifier. Each subdirectory should contain the following files:
 	
-<genome_id>.fna  
+\<genome_id>.fna
 Genomic DNA sequence in FASTA format    
 
-<genome_id>.ffn  
+\<genome_id>.ffn
 Gene DNA sequences in FASTA format 
  
-<genome_id>.features  
+\<genome_id>.features
 File specificy genomic coordinates of genes.
 This file should be tab-delimited with a header and 5 fields:  
 
@@ -63,7 +63,7 @@ The file should be tab-delimited file with a header and 3 fields:
 <b>outdir PATH</b>  
 Directory to store MIDAS database
 
-#### Options:
+### Options:
 
 <b>--type {marker,gene,genome,all}</b>  
 Type of database to build (default=all)  
