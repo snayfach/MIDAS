@@ -15,7 +15,7 @@ def build_pangenome_db(args, species):
 	# fasta database
 	outdir = '/'.join([args['outdir'], 'genes/temp'])
 	pangenome_fasta = open('/'.join([outdir, 'pangenomes.fa']), 'w')
-	pangenome_map = open('/'.join([outdir, 'pangenome.map']), 'w')
+	pangenome_map = open('/'.join([outdir, 'pangenomes.map']), 'w')
 	db_stats = {'total_length':0, 'total_seqs':0, 'species':0}
 	for sp in species:
 		db_stats['species'] += 1
@@ -61,7 +61,7 @@ def pangenome_align(args):
 	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
 	else: command += '-U %s ' % args['m1']
 	#   output unsorted bam
-	bampath = '/'.join([args['outdir'], 'genes/temp/pangenome.bam'])
+	bampath = '/'.join([args['outdir'], 'genes/temp/pangenomes.bam'])
 	command += '| %s view -b - > %s' % (args['samtools'], bampath)
 	# Run command
 	args['log'].write('command: '+command+'\n')
@@ -75,7 +75,7 @@ def pangenome_align(args):
 def count_mapped_bp(args):
 	""" Count number of bp mapped to each centroid across pangenomes """
 	import pysam, numpy as np
-	bam_path = '/'.join([args['outdir'], 'genes/temp/pangenome.bam'])
+	bam_path = '/'.join([args['outdir'], 'genes/temp/pangenomes.bam'])
 	aln_file = pysam.AlignmentFile(bam_path, "rb")
 	ref_to_length = dict([(i,j) for i,j in zip(aln_file.references, aln_file.lengths)])
 	gene_to_cov = dict([(i,0.0) for i in aln_file.references])
@@ -109,9 +109,10 @@ def compute_marker_cov(args, species, gene_to_cov, ref_to_species):
 			species_to_marker_to_cov[species_id][marker_id] = 0.0
 	# compute marker coverages
 	for gene_id, marker_id in gene_to_marker.items():
-		species_id = ref_to_species[gene_id]
-		if marker_id in marker_ids and gene_id in gene_to_cov:
-			species_to_marker_to_cov[species_id][marker_id] += gene_to_cov[gene_id]
+		if gene_id in ref_to_species:
+			species_id = ref_to_species[gene_id]
+			if marker_id in marker_ids and gene_id in gene_to_cov:
+				species_to_marker_to_cov[species_id][marker_id] += gene_to_cov[gene_id]
 	# compute median marker cov
 	species_to_norm = {}
 	for species_id in species_to_marker_to_cov:
@@ -121,10 +122,9 @@ def compute_marker_cov(args, species, gene_to_cov, ref_to_species):
 
 def compute_pangenome_coverage(args):
 	""" Compute coverage of pangenome for species_id and write results to disk """
-	
 	# map gene_id to species_id
 	ref_to_species = {}
-	for line in open('/'.join([args['outdir'], 'genes/temp/pangenome.map'])):
+	for line in open('/'.join([args['outdir'], 'genes/temp/pangenomes.map'])):
 		gene_id, species_id = line.rstrip().split()
 		ref_to_species[gene_id] = species_id
 		
@@ -159,7 +159,7 @@ def genes_summary(args):
 	""" Get summary of mapping statistics """
 	# store stats
 	stats = {}
-	inpath = '%s/%s' % (args['outdir'], 'genes/temp/pangenome.map')
+	inpath = '%s/%s' % (args['outdir'], 'genes/temp/pangenomes.map')
 	for species_id in args['species_id']:
 		pangenome_size, covered_genes, total_coverage, marker_coverage = [0,0,0,0]
 		for r in utility.parse_file('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])):
