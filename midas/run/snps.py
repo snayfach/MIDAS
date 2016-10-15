@@ -8,27 +8,24 @@ import sys, os, subprocess, shutil
 from time import time
 from midas import utility
 
-def build_genome_db(args, genome_clusters):
-	""" Build FASTA and BT2 database from genome cluster centroids """
+def build_genome_db(args, species):
+	""" Build FASTA and BT2 database of representative genomes """
 	import Bio.SeqIO
 	# fasta database
 	genomes_fasta = open('/'.join([args['outdir'], 'snps/temp/genomes.fa']), 'w')
 	genomes_map = open('/'.join([args['outdir'], 'snps/temp/genomes.map']), 'w')
-	db_stats = {'total_length':0, 'total_seqs':0, 'genome_clusters':0}
-	for species_id in genome_clusters:
-		#if args['tax_mask'] and fetch_centroid(args, species_id) in args['tax_mask']:
-		#	continue
-		db_stats['genome_clusters'] += 1
-		inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'genome.fna.gz'])
-		infile = utility.iopen(inpath)
+	db_stats = {'total_length':0, 'total_seqs':0, 'species':0}
+	for sp in species:
+		db_stats['species'] += 1
+		infile = utility.iopen(sp.rep_genome)
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
 				genomes_fasta.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
-				genomes_map.write('%s\t%s\n' % (r.id, species_id))
+				genomes_map.write('%s\t%s\n' % (r.id, sp.id))
 				db_stats['total_length'] += len(r.seq)
 				db_stats['total_seqs'] += 1
 		infile.close()
 	# print out database stats
-	print("  total genomes: %s" % db_stats['genome_clusters'])
+	print("  total genomes: %s" % db_stats['species'])
 	print("  total contigs: %s" % db_stats['total_seqs'])
 	print("  total base-pairs: %s" % db_stats['total_length'])
 	# bowtie2 database
@@ -40,7 +37,7 @@ def build_genome_db(args, genome_clusters):
 	utility.check_exit_code(process, command)
 
 def genome_align(args):
-	""" Use Bowtie2 to map reads to representative genomes from each genome cluster """
+	""" Use Bowtie2 to map reads to representative genomes """
 	# Bowtie2
 	bam_path = os.path.join(args['outdir'], 'snps/temp/genomes.bam')
 	command = '%s --no-unal ' % args['bowtie2']
@@ -87,10 +84,17 @@ def pileup(args):
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
 
+def read_ref_to_species(args):
+	ref_to_species = {}
+	inpath = '%s/snps/temp/genomes.map' % args['outdir']
+	for line in open(inpath):
+		ref_id, species_id = line.rstrip().split()
+		ref_to_species[ref_id] = species_id
+	return ref_to_species
+
 def split_pileup(args):
 	""" Split pileup into files per-species for easy parsing """
-	inpath = os.path.join(args['outdir'], 'snps/temp/genomes.map')
-	ref_to_species = utility.read_ref_to_cluster(inpath)
+	ref_to_species = read_ref_to_species(args)
 	# open outfiles for each species_id
 	outdir = '/'.join([args['outdir'], 'snps/temp/mpileup'])
 	if not os.path.isdir(outdir): os.mkdir(outdir)
@@ -107,12 +111,11 @@ def split_pileup(args):
 	for file in outfiles.values():
 		file.close()
 
-def read_ref_bases(args, species_id):
+def read_ref_bases(sp):
 	""" Read in reference genome by position """
 	import Bio.SeqIO
 	ref = []
-	centroid_path = '/'.join([args['db'], 'genome_clusters', species_id, 'genome.fna.gz'])
-	infile = utility.iopen(centroid_path)
+	infile = utility.iopen(sp.rep_genome)
 	for rec in Bio.SeqIO.parse(infile, 'fasta'):
 		for pos in range(1, len(rec.seq)+1):
 			ref.append([rec.id, pos, rec.seq[pos-1].upper()])
@@ -132,22 +135,21 @@ def write_snp_record(outfile, snp=None, ref=None, header=False):
 		record = [str(snp[field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 
-def format_pileup(args):
+def format_pileup(args, species):
 	""" Parse mpileups and fill in missing positions """
 	import parse_pileup
-	inpath = os.path.join(args['outdir'], 'snps/temp/genomes.map')
-	ref_to_species = utility.read_ref_to_cluster(inpath)
-	for species_id in set(ref_to_species.values()):
+	ref_to_species = read_ref_to_species(args)
+	for sp in species:
 		# open outfile
-		outpath = '/'.join([args['outdir'], 'snps/output/%s.snps.gz' % species_id])
+		outpath = '/'.join([args['outdir'], 'snps/output/%s.snps.gz' % sp.id])
 		outfile = utility.iopen(outpath, 'w')
 		write_snp_record(outfile, header=True)
 		# read sorted reference
-		ref = read_ref_bases(args, species_id)
+		ref = read_ref_bases(sp)
 		ref_index = 0
 		ref_length = len(ref)
 		# write formatted records
-		pileup_path = '/'.join([args['outdir'], 'snps/temp/mpileup/%s.mpileup.gz' % species_id])
+		pileup_path = '/'.join([args['outdir'], 'snps/temp/mpileup/%s.mpileup.gz' % sp.id])
 		pileup_file = utility.iopen(pileup_path)
 		for snp in parse_pileup.main(pileup_file):
 			while [snp['ref_id'], int(snp['ref_pos'])] != ref[ref_index][0:2]: # fill in missing snp positions
@@ -165,8 +167,7 @@ def snps_summary(args):
 	""" Get summary of mapping statistics """
 	# store stats
 	stats = {}
-	inpath = os.path.join(args['outdir'], 'snps/temp/genomes.map')
-	ref_to_species = utility.read_ref_to_cluster(inpath)
+	ref_to_species = read_ref_to_species(args)
 	for species_id in set(ref_to_species.values()):
 		genome_length, covered_bases, total_depth, maf = [0,0,0,0]
 		for r in utility.parse_file('/'.join([args['outdir'], 'snps/output/%s.snps.gz' % species_id])):
@@ -189,29 +190,48 @@ def snps_summary(args):
 		record = [species_id] + [str(stats[species_id][field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 
-#def fetch_centroid(args, species_id):
-#	""" Get the genome_id corresponding to cluster centroid """
-#	inpath = '/'.join([args['db'], 'genome_clusters', species_id, 'genomes.txt.gz'])
-#	infile = utility.iopen(inpath)
-#	for line in infile:
-#		if line.split()[2] == 'Y':
-#			return line.split()[1]
-
 def remove_tmp(args):
 	""" Remove specified temporary files """
 	shutil.rmtree('/'.join([args['outdir'], 'snps/temp']))
 
+class Species:
+	""" Base class for species """
+	def __init__(self, id):
+		self.id = id
+		
+	def init_ref_db(self, ref_db):
+		for ext in ['', '.gz']:
+			inpath = '%s/rep_genomes/%s/genome.fna%s' % (ref_db, self.id, ext)
+			if os.path.isfile(inpath): self.rep_genome = inpath
+
+def initialize_species(args):
+	species = []
+	splist = '%s/snps/species.txt' % args['outdir']
+	if args['build_db']:
+		from midas.run.species import select_species
+		with open(splist, 'w') as outfile:
+			for id in select_species(args):
+				species.append(Species(id))
+				outfile.write(id+'\n')
+	elif os.path.isfile(splist):
+		for line in open(splist):
+			species.append(Species(line.rstrip()))
+	for sp in species:
+		sp.init_ref_db(args['db'])
+	return species
+
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
+	# Initialize species
+	species = initialize_species(args)
+
 	# Build genome database for selected species
 	if args['build_db']:
-		from midas.run import species
 		print("\nBuilding database of representative genomes")
 		args['log'].write("\nBuilding database of representative genomes\n")
 		start = time()
-		genome_clusters = species.select_species(args)
-		build_genome_db(args, genome_clusters)
+		build_genome_db(args, species)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
@@ -238,7 +258,7 @@ def run_pipeline(args):
 		print("\nFormatting output")
 		args['log'].write("\nFormatting output\n")
 		split_pileup(args)
-		format_pileup(args)
+		format_pileup(args, species)
 		snps_summary(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())

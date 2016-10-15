@@ -10,20 +10,19 @@ from midas import utility
 from midas.run import stream_bam
 
 def build_pangenome_db(args, species):
-	""" Build FASTA and BT2 database from pangene cluster centroids """
+	""" Build FASTA and BT2 database from pangene species centroids """
 	import Bio.SeqIO
 	# fasta database
 	outdir = '/'.join([args['outdir'], 'genes/temp'])
 	pangenome_fasta = open('/'.join([outdir, 'pangenomes.fa']), 'w')
 	pangenome_map = open('/'.join([outdir, 'pangenome.map']), 'w')
 	db_stats = {'total_length':0, 'total_seqs':0, 'species':0}
-	for species_id in species:
+	for sp in species:
 		db_stats['species'] += 1
-		inpath = '/'.join([args['db'], 'pan_genomes', species_id, 'centroids.ffn']) ## pangenome.fa.gz in default db
-		infile = utility.iopen(inpath)
+		infile = utility.iopen(sp.pan_genome)
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
 			pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
-			pangenome_map.write('%s\t%s\n' % (r.id, species_id))
+			pangenome_map.write('%s\t%s\n' % (r.id, sp.id))
 			db_stats['total_length'] += len(r.seq)
 			db_stats['total_seqs'] += 1
 		infile.close()
@@ -42,7 +41,7 @@ def build_pangenome_db(args, species):
 	utility.check_exit_code(process, command)
 
 def pangenome_align(args):
-	""" Use Bowtie2 to map reads to all specified genome clusters """
+	""" Use Bowtie2 to map reads to all specified genome species """
 	# Build command
 	command = '%s --no-unal ' % args['bowtie2']
 	#   index
@@ -79,7 +78,7 @@ def count_mapped_bp(args):
 	bam_path = '/'.join([args['outdir'], 'genes/temp/pangenome.bam'])
 	aln_file = pysam.AlignmentFile(bam_path, "rb")
 	ref_to_length = dict([(i,j) for i,j in zip(aln_file.references, aln_file.lengths)])
-	ref_to_cov = dict([(i,0.0) for i in aln_file.references])
+	gene_to_cov = dict([(i,0.0) for i in aln_file.references])
 	for index, aln in enumerate(aln_file.fetch(until_eof = True)):
 		query = aln.query_name
 		if stream_bam.compute_perc_id(aln) < args['mapid']:
@@ -91,73 +90,65 @@ def count_mapped_bp(args):
 		elif aln.mapping_quality < args['mapq']:
 			continue
 		else:
-			ref_id = aln_file.getrname(aln.reference_id)
-			cov = len(aln.query_alignment_sequence)/float(ref_to_length[ref_id])
-			ref_to_cov[ref_id] += cov
-	return ref_to_cov
+			gene_id = aln_file.getrname(aln.reference_id)
+			cov = len(aln.query_alignment_sequence)/float(ref_to_length[gene_id])
+			gene_to_cov[gene_id] += cov
+	return gene_to_cov
 
-def compute_phyeco_cov(args, species, ref_to_cov, ref_to_cluster):
-	""" Count number of bp mapped to each PhyEco marker gene """
+def compute_marker_cov(args, species, gene_to_cov, ref_to_species):
+	""" Count number of bp mapped to each marker marker gene """
 	from numpy import median
-	# read in set of phyeco markers for normalization
-	phyeco_ids = set([])
-	inpath = '/'.join([args['db'], 'marker_genes/pid_cutoffs.txt'])
-	if not os.path.isfile(inpath): sys.exit("File not found: %s" % inpath)
-	for line in open(inpath):
-		phyeco_id, pid = line.rstrip().split('\t')
-		phyeco_ids.add(phyeco_id)
-	# read in map of gene to phyeco marker
-	ref_to_phyeco = {}
+	# read in map of gene to marker
+	gene_to_marker = read_marker_map(args, species)
+	marker_ids = set([marker_id for gene_id, marker_id in gene_to_marker.items()])
+	# init marker coverage
+	species_to_marker_to_cov = {}
 	for species_id in species:
-		inpath = '/'.join([args['db'], 'species', species_id, 'pangenome.marker_genes.gz'])
-		infile = utility.iopen(inpath)
-		next(infile)
-		for line in infile:
-			gene_id, phyeco_id = line.rstrip().split()
-			ref_to_phyeco[gene_id] = phyeco_id
-	# init phyeco coverage
-	cluster_to_phyeco_to_cov = {}
-	for species_id in species:
-		cluster_to_phyeco_to_cov[species_id] = {}
-		for phyeco_id in phyeco_ids:
-			cluster_to_phyeco_to_cov[species_id][phyeco_id] = 0.0
-	# compute phyeco coverages
-	for ref_id, phyeco_id in ref_to_phyeco.items():
-		species_id = ref_to_cluster[ref_id]
-		if phyeco_id in phyeco_ids and ref_id in ref_to_cov:
-			cluster_to_phyeco_to_cov[species_id][phyeco_id] += ref_to_cov[ref_id]
-	# compute median phyeco cov
-	cluster_to_norm = {}
-	for species_id in cluster_to_phyeco_to_cov:
-		covs = list(cluster_to_phyeco_to_cov[species_id].values())
-		cluster_to_norm[species_id] = median(covs)
-	return cluster_to_norm
+		species_to_marker_to_cov[species_id] = {}
+		for marker_id in marker_ids:
+			species_to_marker_to_cov[species_id][marker_id] = 0.0
+	# compute marker coverages
+	for gene_id, marker_id in gene_to_marker.items():
+		species_id = ref_to_species[gene_id]
+		if marker_id in marker_ids and gene_id in gene_to_cov:
+			species_to_marker_to_cov[species_id][marker_id] += gene_to_cov[gene_id]
+	# compute median marker cov
+	species_to_norm = {}
+	for species_id in species_to_marker_to_cov:
+		covs = list(species_to_marker_to_cov[species_id].values())
+		species_to_norm[species_id] = median(covs)
+	return species_to_norm
 
 def compute_pangenome_coverage(args):
 	""" Compute coverage of pangenome for species_id and write results to disk """
-	# map ref_id to species_id
-	ref_to_cluster = {}
+	
+	# map gene_id to species_id
+	ref_to_species = {}
 	for line in open('/'.join([args['outdir'], 'genes/temp/pangenome.map'])):
-		ref_id, species_id = line.rstrip().split()
-		ref_to_cluster[ref_id] = species_id
+		gene_id, species_id = line.rstrip().split()
+		ref_to_species[gene_id] = species_id
+		
 	# open outfiles for each species_id
 	outfiles = {}
-	species = set(ref_to_cluster.values())
+	species = set(ref_to_species.values())
 	for species_id in species:
 		outpath = '/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])
 		outfiles[species_id] = utility.iopen(outpath, 'w')
 		outfiles[species_id].write('\t'.join(['gene_id', 'coverage', 'copy_number'])+'\n')
+	
 	# parse bam into cov files for each species_id
-	ref_to_cov = count_mapped_bp(args)
+	gene_to_cov = count_mapped_bp(args)
+
 	# compute normalization factor
-	cluster_to_norm = compute_phyeco_cov(args, species, ref_to_cov, ref_to_cluster)
+	species_to_norm = compute_marker_cov(args, species, gene_to_cov, ref_to_species)
+
 	# write to output files
-	for ref_id in sorted(ref_to_cov):
-		cov = ref_to_cov[ref_id]
-		species_id = ref_to_cluster[ref_id]
+	for gene_id in sorted(gene_to_cov):
+		cov = gene_to_cov[gene_id]
+		species_id = ref_to_species[gene_id]
 		outfile = outfiles[species_id]
-		normcov = cov/cluster_to_norm[species_id] if cluster_to_norm[species_id] > 0 else 0.0
-		outfile.write('\t'.join([str(x) for x in [ref_id, cov, normcov]])+'\n')
+		normcov = cov/species_to_norm[species_id] if species_to_norm[species_id] > 0 else 0.0
+		outfile.write('\t'.join([str(x) for x in [gene_id, cov, normcov]])+'\n')
 
 def remove_tmp(args):
 	""" Remove specified temporary files """
@@ -169,7 +160,7 @@ def genes_summary(args):
 	# store stats
 	stats = {}
 	inpath = '%s/%s' % (args['outdir'], 'genes/temp/pangenome.map')
-	for species_id in set(utility.read_ref_to_cluster(inpath).values()):
+	for species_id in args['species_id']:
 		pangenome_size, covered_genes, total_coverage, marker_coverage = [0,0,0,0]
 		for r in utility.parse_file('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])):
 			pangenome_size += 1
@@ -193,17 +184,56 @@ def genes_summary(args):
 		record = [species_id] + [str(stats[species_id][field]) for field in fields]
 		outfile.write('\t'.join(record)+'\n')
 
+def read_marker_map(args, species):
+	gene_to_marker = {}
+	path = '%s/marker_genes/phyeco.map' % args['db']
+	for r in utility.parse_file(path):
+		if r['species_id'] in species:
+			gene_to_marker[r['gene_id']] = r['marker_id']
+	return gene_to_marker
+
+class Species:
+	""" Base class for species """
+	def __init__(self, id):
+		self.id = id
+		
+	def init_ref_db(self, ref_db):
+		for ext in ['', '.gz']:
+			inpath = '%s/pan_genomes/%s/centroids.ffn%s' % (ref_db, self.id, ext)
+			if os.path.isfile(inpath): self.pan_genome = inpath
+
+class Pangenome:
+	""" Base class for pan genome """
+	def __init__(self):
+		pass
+
+def initialize_species(args):
+	species = []
+	splist = '%s/genes/species.txt' % args['outdir']
+	if args['build_db']:
+		from midas.run.species import select_species
+		with open(splist, 'w') as outfile:
+			for id in select_species(args):
+				species.append(Species(id))
+				outfile.write(id+'\n')
+	elif os.path.isfile(splist):
+		for line in open(splist):
+			species.append(Species(line.rstrip()))
+	for sp in species:
+		sp.init_ref_db(args['db'])
+	return species
+
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
+	# Initialize species
+	species = initialize_species(args)
 	
 	# Build pangenome database for selected species
 	if args['build_db']:
-		from midas.run import species
 		print("\nBuilding pangenome database")
 		args['log'].write("\nBuilding pangenome database\n")
 		start = time()
-		species = species.select_species(args)
 		build_pangenome_db(args, species)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())

@@ -7,6 +7,7 @@
 import sys, os, subprocess
 from time import time
 from midas import utility
+from operator import itemgetter
 
 def read_annotations(args):
 	info = {}
@@ -117,7 +118,7 @@ def assign_non_unique(args, alns, unique_alns, marker_info):
 def get_markers(args):
 	""" Read in optimal mapping parameters for marker genes; override if user has provided cutoff """
 	marker_cutoffs = {}
-	inpath = '/'.join([args['db'], 'marker_genes/pid_cutoffs.txt'])
+	inpath = '/'.join([args['db'], 'marker_genes/phyeco.mapping_cutoffs'])
 	if not os.path.isfile(inpath): sys.exit("File not found: %s" % inpath)
 	for line in open(inpath):
 		marker_id, min_pid = line.rstrip().split()
@@ -164,7 +165,9 @@ def write_abundance(outdir, species_abundance, annotations):
 	outfile = open(outpath, 'w')
 	fields = ['species_id', 'count_reads', 'coverage', 'relative_abundance']
 	outfile.write('\t'.join(fields)+'\n')
-	for species_id, values in species_abundance.items():
+	species_ids =  sorted([(x, y['count']) for x, y in species_abundance.items()], key=itemgetter(1), reverse=True)
+	for species_id, count_reads in species_ids:
+		values = species_abundance[species_id]
 		record = [species_id, values['count'], values['cov'], values['rel_abun']]
 		outfile.write('\t'.join([str(x) for x in record])+'\n')
 

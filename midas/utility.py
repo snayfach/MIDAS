@@ -98,16 +98,6 @@ def add_executables(args):
 		if not is_executable(args[arg]):
 			sys.exit("File not executable: %s" % args[arg])
 
-def read_ref_to_cluster(inpath):
-	""" Read in map of scaffold id to genome-cluster id """
-	ref_to_cluster = {}
-	infile = open(inpath)
-	for line in infile:
-		ref_id, cluster_id = line.rstrip().split()
-		ref_to_cluster[ref_id] = cluster_id
-	infile.close()
-	return ref_to_cluster
-
 def is_executable(f):
 	""" Check if file is executable by all """
 	st = os.stat(f)
