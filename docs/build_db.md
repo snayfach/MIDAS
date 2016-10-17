@@ -65,14 +65,6 @@ Directory to store MIDAS database
 
 ### Options:
 
-<b>--type {marker,gene,genome,all}</b>  
-Type of database to build (default=all)  
-
-* <i>marker</i>: build database of marker genes for metagenomic species profiling. enables you to use the command "run_midas.py species"  
-* <i>gene</i>: build database of genes for metagenomic pan-genome profiling   enables you to use the command "run_midas.py genes"  
-* <i>genome</i>: build database of representative genomes for metagenomic SNP profiling  enables you to use the command "run_midas.py snps"  
-* <i>all</i>: build all three types of databases sequentially  
-
 <b>--threads INT</b>  
 Number of threads to use
 

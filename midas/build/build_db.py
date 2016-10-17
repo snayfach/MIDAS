@@ -24,7 +24,7 @@ class Genome:
 		files = {}
 		if not os.path.isdir(self.dir):
 			sys.exit("\nError: genome directory '%s' does not exist" % (self.dir))
-		for type in ['fna', 'faa', 'ffn', 'features']:
+		for type in ['fna', 'ffn', 'features']:
 			for ext in ['', '.gz', '.bz2']:
 				inpath = '%s/%s.%s%s' % (self.dir, self.id, type, ext)
 				if os.path.isfile(inpath):
@@ -35,27 +35,26 @@ class Genome:
 				error += "\nYour genome should contain the following files:\n"
 				error += "  %s/%s.fna (FASTA of genome sequence)\n" % (self.dir, self.id)
 				error += "  %s/%s.ffn (FASTA of gene sequences)\n" % (self.dir, self.id)
-				error += "  %s/%s.faa (FASTA of protein sequences)\n" % (self.dir, self.id)
 				error += "  %s/%s.features (Genomic coordinates of genes)" % (self.dir, self.id)
 				sys.exit(error)
 		return files
 
 def parse_mapping_file(args):
-	infile = utility.iopen(args['mapping'])
+	infile = utility.iopen(args['mapfile'])
 	fields = next(infile).rstrip('\n').split('\t')
 	for field in ['genome_id', 'species_id']:
 		if field not in fields:
-			sys.exit("Error: mapping file '%s' has no field labeled '%s'" % (args['mapping'], field))
+			sys.exit("Error: mapping file '%s' has no field labeled '%s'" % (args['mapfile'], field))
 	for field in fields:
 		if field not in ['genome_id', 'species_id', 'rep_genome']:
-			sys.exit("Error: mapping file '%s' has unknown field labeled '%s'" % (args['mapping'], field))
+			sys.exit("Error: mapping file '%s' has unknown field labeled '%s'" % (args['mapfile'], field))
 	for line in infile:
 		values = line.rstrip('\n').split('\t')
 		record = dict([(f,v) for f,v in zip(fields, values)])
 		if len(values) < len(fields):
-			sys.exit("Error: mapping file '%s' has different number of fields per row" % args['mapping'])
+			sys.exit("Error: mapping file '%s' has different number of fields per row" % args['mapfile'])
 		if 'rep_genome' in fields and record['rep_genome'] not in ['0', '1']:
-			sys.exit("Error: mapping file '%s' has unknown value '%s' for field 'rep_genome'" % (args['mapping'], record['rep_genome']))
+			sys.exit("Error: mapping file '%s' has unknown value '%s' for field 'rep_genome'" % (args['mapfile'], record['rep_genome']))
 		yield record
 
 def read_species(args):
@@ -67,7 +66,7 @@ def read_species(args):
 		sp = species[species_id] if species_id in species else Species(species_id)
 		# update genomes
 		if len(sp.genomes) < args['max_genomes']:
-			sp.genomes[genome_id] = Genome(genome_id, args['genomes'])
+			sp.genomes[genome_id] = Genome(genome_id, args['indir'])
 			if record['rep_genome'] == '1':
 				sp.rep_genome = genome_id
 		# store species
@@ -317,7 +316,7 @@ class Pangenome:
 
 	def write_cluster_info(self):
 		outfile = utility.iopen('%s/cluster_info.txt' % self.dir, 'w')
-		outfile.write('\t'.join(['cluster_id', 'cluster_size', 'cluster_centroid'])+'\n')
+		outfile.write('\t'.join(['cluster_id', 'size', 'centroid'])+'\n')
 		for cluster_id in sorted(self.clusters.keys()):
 			cluster = self.clusters[cluster_id]
 			outfile.write('\t'.join([cluster.id, str(cluster.size), cluster.centroid_id])+'\n')
@@ -390,29 +389,22 @@ def run_pipeline(args):
 	
 	write_species_info(args, species)
 	
-	if args['type'] in ['all', 'gene']:
-		print("PANGENOMES WORKFLOW")
-		print("=====================")
-		build_pangenome_db(args, species)
+	print("Building pangenome database")
+	print("=====================")
+	build_pangenome_db(args, species)
 				
-	if args['type'] in ['all', 'genome']:
-		print("\nREPRESENTATIVE GENOMES WORKFLOW")
-		print("=================================")
-		build_repgenome_db(args, genomes, species)
+	print("\nBuilding representative genome database")
+	print("=====================")
+	build_repgenome_db(args, genomes, species)
 
-	if args['type'] in ['all', 'markers']:
-		print("\nMARKER GENES WORKFLOW")
-		print("=========================")
-		build_marker_db(args, genomes, species)
+	print("\nBuilding marker genes database")
+	print("=====================")
+	build_marker_db(args, genomes, species)
 
+	print("")
 	if args['compress']:
-		print("\nCOMPRESSING DATA")
-		print("=========================")
+		print("Compressing data\n")
 		compress(args['outdir'])
-
-	print("\nDONE!")
-
-
 
 
 
