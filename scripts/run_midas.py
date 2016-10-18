@@ -105,9 +105,6 @@ run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000
 3) run with exactly 80 base-pair reads:
 run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz --read_length 80
 
-4) quantify species abundance using a 16S database:
-run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA
-
 Output files:
 1) species_profile.txt: tab-delimited output file containing abundances of 5,952 species
 2) log.txt: log file containing parameters used
@@ -138,7 +135,6 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 		help="""Path to reference database""")
 	parser.add_argument('--db_type', choices=['phyeco', 'ssuRNA'], metavar='', default='phyeco',
 		help=argparse.SUPPRESS)
-		#help="""Reference database. Choices:\n'phyeco': universal-single-copy protein family database (default)\n'ssuRNA': 16S ribosomal rna database""")
 	parser.add_argument('--remove_temp', dest='remove_temp', default=False, action='store_true',
 		help="Remove temporary files, including BLAST output")
 	parser.add_argument('--word_size', type=int, metavar='INT', default=28,
@@ -174,7 +170,7 @@ def check_species(args):
 	# check file type
 	if args['m1']: args['file_type'] = utility.auto_detect_file_type(args['m1'])
 	# check database
-	check_database(args)
+	utility.check_database(args)
 	# create output directories
 	if not os.path.isdir('%s/species' % args['outdir']):
 		os.makedirs('%s/species' % args['outdir'])
@@ -306,33 +302,33 @@ def print_gene_arguments(args):
 	lines.append("Remove temporary files: %s" % args['remove_temp'])
 	lines.append("Pipeline options:")
 	if args['build_db']:
-		lines.append("  -build bowtie2 database of pangenomes")
+		lines.append("  build bowtie2 database of pangenomes")
 	if args['align']:
-		lines.append("  -align reads to bowtie2 pangenome database")
+		lines.append("  align reads to bowtie2 pangenome database")
 	if args['cov']:
-		lines.append("  -quantify coverage of pangenomes genes")
+		lines.append("  quantify coverage of pangenomes genes")
 	if args['build_db']:
 		lines.append("Database options:")
 		if args['species_topn']:
-			lines.append("  -include top %s most abundant species" % args['species_topn'])
+			lines.append("  include top %s most abundant species" % args['species_topn'])
 		if args['species_cov']:
-			lines.append("  -include all species with >=%sX genome coverage" % args['species_cov'])
+			lines.append("  include all species with >=%sX genome coverage" % args['species_cov'])
 		if args['species_id']:
-			lines.append("  -include specified species id(s): %s" % args['species_id'])
+			lines.append("  include specified species id(s): %s" % args['species_id'])
 	if args['align']:
 		lines.append("Read alignment options:")
-		lines.append("  -input reads (1st mate): %s" % args['m1'])
-		lines.append("  -input reads (2nd mate): %s" % args['m2'])
-		lines.append("  -alignment speed/sensitivity: %s" % args['speed'])
-		lines.append("  -number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
-		lines.append("  -number of threads for database search: %s" % args['threads'])
+		lines.append("  input reads (1st mate): %s" % args['m1'])
+		lines.append("  input reads (2nd mate): %s" % args['m2'])
+		lines.append("  alignment speed/sensitivity: %s" % args['speed'])
+		lines.append("  number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
+		lines.append("  number of threads for database search: %s" % args['threads'])
 	if args['cov']:
 		lines.append("Gene coverage options:")
-		lines.append("  -minimum alignment percent identity: %s" % args['mapid'])
-		lines.append("  -minimum alignment coverage of reads: %s" % args['aln_cov'])
-		lines.append("  -minimum read quality score: %s" % args['readq'])
-		lines.append("  -minimum mapping quality score: %s" % args['mapq'])
-		lines.append("  -trim %s base-pairs from read-tails" % args['trim'])
+		lines.append("  minimum alignment percent identity: %s" % args['mapid'])
+		lines.append("  minimum alignment coverage of reads: %s" % args['aln_cov'])
+		lines.append("  minimum read quality score: %s" % args['readq'])
+		lines.append("  minimum mapping quality score: %s" % args['mapq'])
+		lines.append("  trim %s base-pairs from read-tails" % args['trim'])
 	args['log'].write('\n'.join(lines)+'\n')
 	sys.stdout.write('\n'.join(lines)+'\n')
 
@@ -448,61 +444,38 @@ def print_snp_arguments(args):
 	lines.append("Remove temporary files: %s" % args['remove_temp'])
 	lines.append("Pipeline options:")
 	if args['build_db']:
-		lines.append("  -build bowtie2 database of genomes")
+		lines.append("  build bowtie2 database of genomes")
 	if args['align']:
-		lines.append("  -align reads to bowtie2 genome database")
+		lines.append("  align reads to bowtie2 genome database")
 	if args['call']:
-		lines.append("  -use samtools to generate pileups and call SNPs")
+		lines.append("  use samtools to generate pileups and call SNPs")
 	if args['build_db']:
 		lines.append("Database options:")
 		if args['species_topn']:
-			lines.append("  -include top %s most abundant species" % args['species_topn'])
+			lines.append("  include top %s most abundant species" % args['species_topn'])
 		if args['species_cov']:
-			lines.append("  -include all species with >=%sX genome coverage" % args['species_cov'])
+			lines.append("  include all species with >=%sX genome coverage" % args['species_cov'])
 		if args['species_id']:
-			lines.append("  -include specified species id(s): %s" % args['species_id'])
+			lines.append("  include specified species id(s): %s" % args['species_id'])
 	if args['align']:
 		lines.append("Read alignment options:")
-		lines.append("  -input reads (1st mate): %s" % args['m1'])
-		lines.append("  -input reads (2nd mate): %s" % args['m2'])
-		lines.append("  -alignment speed/sensitivity: %s" % args['speed'])
-		lines.append("  -number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
-		lines.append("  -number of threads for database search: %s" % args['threads'])
+		lines.append("  input reads (1st mate): %s" % args['m1'])
+		lines.append("  input reads (2nd mate): %s" % args['m2'])
+		lines.append("  alignment speed/sensitivity: %s" % args['speed'])
+		lines.append("  number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
+		lines.append("  number of threads for database search: %s" % args['threads'])
 	if args['call']:
 		lines.append("SNP calling options:")
-		lines.append("  -minimum alignment percent identity: %s" % args['mapid'])
-		lines.append("  -minimum mapping quality score: %s" % args['mapq'])
-		lines.append("  -minimum base quality score: %s" % args['baseq'])
-		lines.append("  -minimum read quality score: %s" % args['readq'])
-		lines.append("  -trim %s base-pairs from read-tails" % args['trim'])
-		if args['discard']: lines.append("  -discard discordant read-pairs")
-		if args['baq']: lines.append("  -enable BAQ (per-base alignment quality)")
-		if args['adjust_mq']: lines.append("  -adjust MAPQ")
+		lines.append("  minimum alignment percent identity: %s" % args['mapid'])
+		lines.append("  minimum mapping quality score: %s" % args['mapq'])
+		lines.append("  minimum base quality score: %s" % args['baseq'])
+		lines.append("  minimum read quality score: %s" % args['readq'])
+		lines.append("  trim %s base-pairs from read-tails" % args['trim'])
+		if args['discard']: lines.append("  discard discordant read-pairs")
+		if args['baq']: lines.append("  enable BAQ (per-base alignment quality)")
+		if args['adjust_mq']: lines.append("  adjust MAPQ")
 	args['log'].write('\n'.join(lines)+'\n')
 	sys.stdout.write('\n'.join(lines)+'\n')
-
-def check_database(args):
-	if 'db' is None:
-		error = "\nError: No reference database specified\n"
-		error = "Use the flag -d to specify a database,\n"
-		error = "or set the MIDAS_DB environmental variable: export MIDAS_DB=/path/to/midas/db\n"
-		sys.exit(error)
-	if not os.path.isdir(args['db']):
-		error = "\nError: Specified reference database does not exist: %s\n" % args['db']
-		error += "\nCheck that you've entered the path correctly and the database exists"
-		error += "\nTo download the default database, run: MIDAS/scripts/download_ref_db.py"
-		error += "\nTo build a custom database, run: MIDAS/scripts/build_midas_db.py\n"
-		sys.exit(error)
-	for dir in ['marker_genes', 'pan_genomes', 'rep_genomes']:
-		path = '%s/%s' % (args['db'], dir)
-		if not os.path.isdir(path):
-			error = "\nError: Could not locate required database directory: %s\n" % path
-			sys.exit(error)
-	for file in ['species_info.txt']:
-		path = '%s/%s' % (args['db'], file)
-		if not os.path.exists(path):
-			error = "\nError: Could not locate required database file: %s\n" % path
-			sys.exit(error)
 
 def check_selected_species(args):
 	if args['species_id']:
@@ -521,7 +494,7 @@ def check_genes(args):
 	# check file type
 	if args['m1']: args['file_type'] = utility.auto_detect_file_type(args['m1'])
 	# check database
-	check_database(args)
+	utility.check_database(args)
 	# make sure selected species are valid
 	check_selected_species(args)
 	# create output directory
@@ -580,7 +553,7 @@ def check_snps(args):
 	# check file type
 	if args['m1']: args['file_type'] = utility.auto_detect_file_type(args['m1'])
 	# check database
-	check_database(args)
+	utility.check_database(args)
 	# make sure selected species are valid
 	check_selected_species(args)
 	# create output directory

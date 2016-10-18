@@ -23,9 +23,9 @@ class GenomicSite:
 			self.id = None
 
 	def parse_id(self):
-		ref_id = self.id.rsplit('|', 2)[0]
-		ref_pos = int(self.id.split('|')[2])
-		ref_allele = self.id.split('|')[3] if len(self.id.split('|')) >= 4 else '' # testing
+		ref_id = self.id.rsplit('|')[0]
+		ref_pos = int(self.id.split('|')[1])
+		ref_allele = self.id.split('|')[2]
 		return ref_id, ref_pos, ref_allele
 
 	def sample_values(self): # return a dic mapping sample id to site values

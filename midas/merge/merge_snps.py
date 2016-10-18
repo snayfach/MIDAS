@@ -161,7 +161,7 @@ def filter_snp_matrix(species_id, samples, args):
 
 def merge_snps(args, species):
 	log = open('%s/%s/snps_log.txt' % (args['outdir'], species.id), 'w')
-	log.write("Merging: %s (id:%s) for %s samples\n" % (species.consensus_name, species.id, len(species.samples)))
+	log.write("Merging: %s for %s samples\n" % (species.id, len(species.samples)))
 	log.write("  merging per-sample statistics\n")
 	merge.write_summary_stats(species.id, species.samples, args, 'snps')
 	log.write("  merging per-site statistics\n")

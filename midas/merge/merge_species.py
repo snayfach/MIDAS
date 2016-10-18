@@ -41,21 +41,21 @@ def compute_stats(args, data):
 		stats[species_id]['prevalence'] = prevalence(x, y=args['min_cov'])
 	return stats
 
-def write_abundance(args, samples, species_info, data):
+def write_abundance(args, samples, data):
 	for field in ['relative_abundance', 'coverage', 'count_reads']:
 		outfile = open('%s/%s.txt' % (args['outdir'], field), 'w')
 		outfile.write('\t'.join(['species_id']+[s.id for s in samples])+'\n')
-		for species_id in species_info:
+		for species_id in data:
 			outfile.write(species_id)
 			for x in data[species_id][field]:
 				outfile.write('\t%s' % str(x))
 			outfile.write('\n')
 
-def write_stats(args, stats, species_info):
+def write_stats(args, stats):
 	# open output file
 	outfile = open('%s/species_prevalence.txt' % args['outdir'], 'w')
 	fields = ['mean_coverage', 'median_coverage', 'mean_abundance', 'median_abundance', 'prevalence']
-	header = ['species_id', 'species_name']+fields
+	header = ['species_id']+fields
 	outfile.write('\t'.join(header)+'\n')
 	# order species ids by decreasing abundance
 	sorted_species = [[x, y['prevalence']] for x, y in stats.items()]
@@ -63,7 +63,6 @@ def write_stats(args, stats, species_info):
 	# write stats
 	for species_id, prevalence in sorted_species:
 		outfile.write(species_id)
-		outfile.write('\t%s' % species_info[species_id])
 		for field in fields:
 			if field == 'prevalence':
 				outfile.write('\t%s' % str(stats[species_id][field]))
@@ -95,5 +94,5 @@ def run_pipeline(args):
 	data = store_data(args, samples, species_info)
 	stats = compute_stats(args, data)
 	# write results
-	write_abundance(args, samples, species_info, data)
-	write_stats(args, stats, species_info)
+	write_abundance(args, samples, data)
+	write_stats(args, stats)

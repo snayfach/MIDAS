@@ -12,10 +12,10 @@ from midas import utility
 
 def read_genes(db, species_id, contigs):
 	""" Read in gene coordinates from features file """
-	genes_path = '%s/genome_clusters/%s/genome.features.gz' % (db, species_id)
+	genes_path = '%s/rep_genomes/%s/genome.features.gz' % (db, species_id)
 	genes = []
 	for gene in utility.parse_file(genes_path):
-		if gene['gene_type'] == 'rna':
+		if gene['gene_type'] == 'RNA':
 			continue
 		else:
 			gene['start'] = int(gene['start'])
@@ -26,7 +26,7 @@ def read_genes(db, species_id, contigs):
 
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """
-	inpath = '%s/genome_clusters/%s/genome.fna.gz' % (db, species_id)
+	inpath = '%s/rep_genomes/%s/genome.fna.gz' % (db, species_id)
 	infile = utility.iopen(inpath)
 	genome = {}
 	for r in Bio.SeqIO.parse(infile, 'fasta'):

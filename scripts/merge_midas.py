@@ -36,8 +36,6 @@ def get_arguments(program):
 		args = snps_arguments()
 	else:
 		sys.exit("Unrecognized program: '%s'" % program)
-	if 'db' not in args or args['db'] is None:
-		utility.add_ref_db(args)
 	return args
 
 def species_arguments():
@@ -92,8 +90,8 @@ see '-t' for details""")
 'file': -i incdicates a file containing paths to sample directories
 	   example: /path/to/sample_paths.txt
 """)
-	parser.add_argument('--ref_db', dest='db', type=str, metavar='PATH',
-		help="""path to alternative reference database directory""")
+	parser.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
+		help="""Path to reference database""")
 	parser.add_argument('--min_cov', metavar='FLOAT', type=float, default=1.0,
 		help="""minimum marker-gene-coverage for estimating species prevalence (1.0)""")
 	parser.add_argument('--max_samples', type=int, metavar='INT',
@@ -118,16 +116,13 @@ merge_midas.py genes /path/to/outdir -i sample_1,sample_2 -t list
 2) Merge results for one species (id=57955):
 merge_midas.py genes /path/to/outdir --species_id 57955 -i sample_1,sample_2 -t list
 
-3) Build matrix for pan-genome genes at lower percent id threshold:
-merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --cluster_pid 85
-
-4) Exclude low-coverage samples in output matrix:
+3) Exclude low-coverage samples in output matrix:
 merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --sample_depth 5.0
 
-5) Use lenient threshold for determining gene presence-absence:
+4) Use lenient threshold for determining gene presence-absence:
 merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --min_copy 0.1
 
-6) Run a quick test:
+5) Run a quick test:
 merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10
 
 Output files:
@@ -138,12 +133,6 @@ Output files:
 5) genes_summary.txt: alignment summary statistics of genes across samples
 
 Output formats:
-genes_info.txt
-1) gene_id: identifier of 99% identity gene family
-2) family_id: mapping to gene family clustered at CLUSTER_PID
-3) function_id: identifier of function
-4) function_db: database (kegg, figfam, go, ec) corresponding to function_id
-
 genes_summary.txt
 1) sample_id: sample identifier
 2) pangenome_size: total number of gene families (99% identity clustering cutoff) in reference pangenome
@@ -165,8 +154,8 @@ see '-t' for details""")
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
-	io.add_argument('--ref_db', dest='db', type=str, metavar='PATH',
-		help="""path to alternative reference database directory""")
+	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
+		help="""Path to reference database""")
 	species = parser.add_argument_group('Species filters (select subset of species from INPUT)')
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
@@ -185,10 +174,6 @@ a map of species ids to species names can be found in 'ref_db/annotations.txt'""
 	gene.add_argument('--min_copy', type=float, default=0.35, metavar='FLOAT',
 		help="""genes >= MIN_COPY are classified as present
 genes < MIN_COPY are classified as absent (0.35)""")
-	gene.add_argument('--cluster_pid', type=str, dest='cluster_pid', default='95', choices=['75', '80', '85', '90', '95', '99'],
-		help="""gene family percent identity
-small values: fewer, larger gene families
-large values: more, smaller gene families (95)""")
 	args = vars(parser.parse_args())
 	return args
 
@@ -257,8 +242,8 @@ see '-t' for details""")
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
-	io.add_argument('--ref_db', dest='db', type=str, metavar='PATH',
-		help="""path to alternative reference database directory""")
+	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
+		help="""Path to reference database""")
 	species = parser.add_argument_group("Species filters (select subset of species from INPUT)")
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""all species with >= MIN_SAMPLES (1)""")
@@ -298,29 +283,14 @@ useful for quick tests (use all)""")
 
 def check_arguments(program, args):
 	""" Run program specified by user (species, genes, or snps) """
-	if program == 'species':
-		check_species(args)
-	elif program == 'genes':
-		check_genes(args)
-	elif program == 'snps':
-		check_snps(args)
+	if program in ['species', 'snps', 'genes']:
+		if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
+		check_input(args)
+		utility.check_database(args)
 	else:
 		sys.exit("Unrecognized program: '%s'" % program)
 	if platform.system() not in ['Linux', 'Darwin']:
 		sys.exit("Operating system '%s' not supported" % system())
-
-def check_species(args):
-	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
-	check_input(args)
-
-def check_genes(args):
-	if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
-	check_input(args)
-
-def check_snps(args):
-	if not os.path.isdir(args['outdir']):
-		os.mkdir(args['outdir'])
-	check_input(args)
 
 def check_input(args):
 	args['indirs'] = []
@@ -381,7 +351,6 @@ def print_genes_arguments(args):
 	print ("Gene quantification criterea:")
 	print ("  present (1): genes with copy number >= %s" % args['min_copy'])
 	print ("  absent (0): genes with copy number < %s" % args['min_copy'])
-	print ("  cluster genes at %s percent identity" % args['cluster_pid'])
 	print ("")
 
 def print_snps_arguments(args):

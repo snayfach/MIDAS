@@ -6,7 +6,7 @@
 
 import io, os, stat, sys, resource, gzip, platform, subprocess, bz2
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 def which(program):
 	""" Mimics unix 'which' function """
@@ -119,6 +119,28 @@ def check_compression(inpath):
 	except:
 		sys.exit("\nError: File extension '%s' does not match expected compression" % ext)
 
+def check_database(args):
+	if 'db' is None:
+		error = "\nError: No reference database specified\n"
+		error = "Use the flag -d to specify a database,\n"
+		error = "or set the MIDAS_DB environmental variable: export MIDAS_DB=/path/to/midas/db\n"
+		sys.exit(error)
+	if not os.path.isdir(args['db']):
+		error = "\nError: Specified reference database does not exist: %s\n" % args['db']
+		error += "\nCheck that you've entered the path correctly and the database exists"
+		error += "\nTo download the default database, run: MIDAS/scripts/download_ref_db.py"
+		error += "\nTo build a custom database, run: MIDAS/scripts/build_midas_db.py\n"
+		sys.exit(error)
+	for dir in ['marker_genes', 'pan_genomes', 'rep_genomes']:
+		path = '%s/%s' % (args['db'], dir)
+		if not os.path.isdir(path):
+			error = "\nError: Could not locate required database directory: %s\n" % path
+			sys.exit(error)
+	for file in ['species_info.txt']:
+		path = '%s/%s' % (args['db'], file)
+		if not os.path.exists(path):
+			error = "\nError: Could not locate required database file: %s\n" % path
+			sys.exit(error)
 
 def iopen(inpath, mode='r'):
 	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
