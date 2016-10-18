@@ -78,25 +78,6 @@ def parallel(function, list, threads):
 			if process.is_alive(): indexes.append(index)
 		processes = [processes[i] for i in indexes]
 
-def default_ref_db():
-	""" Add path to default reference database """
-	script_path = os.path.abspath(__file__)
-	script_dir = os.path.dirname(script_path)
-	main_dir = os.path.dirname(script_dir)
-	ref_db = '%s/ref_db' % main_dir
-	return ref_db
-
-def add_ref_db(args):
-	""" Add path to reference database """
-	if 'db' not in args or not args['db']:
-		script_path = os.path.abspath(__file__)
-		script_dir = os.path.dirname(script_path)
-		main_dir = os.path.dirname(script_dir)
-		args['db'] = '%s/ref_db' % main_dir
-		
-	if not os.path.isdir(args['db']):
-		sys.exit("Could not locate reference database: %s" % args['db'])
-
 def add_executables(args):
 	""" Identify relative file and directory paths """
 	src_dir = os.path.dirname(os.path.abspath(__file__))

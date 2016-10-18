@@ -134,8 +134,8 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 		help="""Number of reads to use from input file(s) (use all)""")
 	parser.add_argument('-t', dest='threads', default=1,
 		help="""Number of threads to use for database search (1)""")
-	parser.add_argument('-d', type=str, dest='db', default=utility.default_ref_db(),
-		help="""Path to custom reference database ('/path/to/MIDAS/ref_db')""")
+	parser.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
+		help="""Path to reference database""")
 	parser.add_argument('--db_type', choices=['phyeco', 'ssuRNA'], metavar='', default='phyeco',
 		help=argparse.SUPPRESS)
 		#help="""Reference database. Choices:\n'phyeco': universal-single-copy protein family database (default)\n'ssuRNA': 16S ribosomal rna database""")
@@ -263,8 +263,8 @@ summary.txt
 	pipe.add_argument('--call_genes', action='store_true', dest='cov',
 		default=False, help='Compute coverage of genes in pangenome database')
 	db = parser.add_argument_group('Database options (if using --build_db)')
-	db.add_argument('-d', type=str, dest='db', default=utility.default_ref_db(),
-		help="""Path to custom reference database ('/path/to/MIDAS/ref_db')""")
+	db.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
+		help="""Path to reference database""")
 	db.add_argument('--species_cov', type=float, dest='species_cov', metavar='FLOAT', help='Include species with >X coverage (3.0)')
 	db.add_argument('--species_topn', type=int, dest='species_topn', metavar='INT', help='Include top N most abundant species')
 	db.add_argument('--species_id', type=str, dest='species_id', metavar='CHAR', help='One or more species identifiers to include in database. Separate ids with a comma')
@@ -401,8 +401,8 @@ summary.txt:
 	pipe.add_argument('--call_snps', action='store_true', dest='call',
 		default=False, help='Run samtools mpileup and call SNPs')
 	db = parser.add_argument_group('Database options (if using --build_db)')
-	db.add_argument('-d', type=str, dest='db', default=utility.default_ref_db(),
-		help="""Path to custom reference database ('/path/to/MIDAS/ref_db')""")
+	db.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
+		help="""Path to reference database""")
 	db.add_argument('--species_cov', type=float, dest='species_cov', metavar='FLOAT', help='Include species with >X coverage (3.0)')
 	db.add_argument('--species_topn', type=int, dest='species_topn', metavar='INT', help='Include top N most abundant species')
 	db.add_argument('--species_id', type=str, dest='species_id', metavar='CHAR', help='One or more species identifiers to include in database. Separate ids with a comma')
@@ -482,23 +482,26 @@ def print_snp_arguments(args):
 	sys.stdout.write('\n'.join(lines)+'\n')
 
 def check_database(args):
-	if not os.path.isdir(args['db']):
-		error = "\nError: Could not locate reference database: %s" % args['db']
-		error += "\nCheck that you've entered the path correctly and the database exists"
-		error += "\nTo use the default database, use: MIDAS/scripts/download_ref_db.py"
-		error += "\nTo use a custom database, use: MIDAS/scripts/build_midas_db.py"
+	if 'db' is None:
+		error = "\nError: No reference database specified\n"
+		error = "Use the flag -d to specify a database,\n"
+		error = "or set the MIDAS_DB environmental variable: export MIDAS_DB=/path/to/midas/db\n"
 		sys.exit(error)
-	dirs = ['marker_genes', 'pan_genomes', 'rep_genomes']
-	for dir in dirs:
+	if not os.path.isdir(args['db']):
+		error = "\nError: Specified reference database does not exist: %s\n" % args['db']
+		error += "\nCheck that you've entered the path correctly and the database exists"
+		error += "\nTo download the default database, run: MIDAS/scripts/download_ref_db.py"
+		error += "\nTo build a custom database, run: MIDAS/scripts/build_midas_db.py\n"
+		sys.exit(error)
+	for dir in ['marker_genes', 'pan_genomes', 'rep_genomes']:
 		path = '%s/%s' % (args['db'], dir)
 		if not os.path.isdir(path):
-			error = "\nError: Could not locate required database directory: %s" % path
+			error = "\nError: Could not locate required database directory: %s\n" % path
 			sys.exit(error)
-	files = ['species_info.txt']
-	for file in files:
+	for file in ['species_info.txt']:
 		path = '%s/%s' % (args['db'], file)
 		if not os.path.exists(path):
-			error = "\nError: Could not locate required database file: %s" % path
+			error = "\nError: Could not locate required database file: %s\n" % path
 			sys.exit(error)
 
 def check_selected_species(args):
@@ -506,10 +509,10 @@ def check_selected_species(args):
 		for species_id in args['species_id']:
 			if args['program'] == 'genes':
 				path = '%s/pan_genomes/%s' % (args['db'], species_id)
-				error = "\nError: Could not locate species pan genome: %s" % path
+				error = "\nError: Could not locate species pan genome: %s\n" % path
 			if args['program'] == 'snps':
 				path = '%s/rep_genomes/%s' % (args['db'], species_id)
-				error = "\nError: Could not locate species representative genome: %s" % path
+				error = "\nError: Could not locate species representative genome: %s\n" % path
 			if not os.path.isdir(path):
 				 sys.exit(error)
 
