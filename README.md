@@ -6,25 +6,25 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
 ## Applications
 1. **Profile bacterial species abundance**: rapidly estimate the abundance of 5,952 bacterial species
 2. **Strain-level pan-genome profiling**: estimate the gene content of populations based on mapping to genes from reference genomes
-3. **Single-nucleotide-polymorphism prediction**: identify single-nucleotide polymorphisms (SNPs) of populations based on mapping to reference genomes
+3. **Single nucleotide polymorphism prediction**: identify single-nucleotide polymorphisms (SNPs) of populations based on mapping to reference genomes
 4. **Phylogenetic inference**: reconstruct the phylogeny of strains from metagenomes and reference genomes
 5. **Population genetic inference**: quantify strain-level diversity, differentiation, and selection within and between metagenomes
 
 
 ## Table of Contents
-1. [Install/Update MIDAS] (docs/install.md)
-2. [Download default database] (docs/ref_db.md)
-3. [Build custom database] (docs/build_db.md)
-4. [Tutorial] (docs/tutorial.md)
+1. [Step-by-step tutorial] (docs/tutorial.md)  
+2. [Install or update MIDAS] (docs/install.md)  
+3. [Download default MIDAS database] (docs/ref_db.md)  
+4. [Build your own custom database] (docs/build_db.md)
 5. Scripts to run MIDAS on a single sample:
  * [Estimate species abundance] (docs/species.md)
  * [Predict pan-genome gene content] (docs/cnvs.md)
  * [Call single nucleotide polymorphisms] (docs/snvs.md)
-6. Scripts to merge results across samples:
+6. Scripts to merge MIDAS results across samples:
  * [Merge species abundance] (docs/merge_species.md)  
  * [Merge gene content] (docs/merge_cnvs.md)
  * [Merge SNPs] (docs/merge_snvs.md)
-7. Applications:
+7. Scripts for analyzing gene content and SNPs:
  * [Strain tracking] (docs/strain_tracking.md)  
  * [Population diversity] (docs/snp_diversity.md)  
  * Gene content dynamics (coming soon)

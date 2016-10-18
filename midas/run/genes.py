@@ -17,7 +17,7 @@ def build_pangenome_db(args, species):
 	pangenome_fasta = open('/'.join([outdir, 'pangenomes.fa']), 'w')
 	pangenome_map = open('/'.join([outdir, 'pangenomes.map']), 'w')
 	db_stats = {'total_length':0, 'total_seqs':0, 'species':0}
-	for sp in species:
+	for sp in species.values():
 		db_stats['species'] += 1
 		infile = utility.iopen(sp.pan_genome)
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
@@ -120,7 +120,7 @@ def compute_marker_cov(args, species, gene_to_cov, ref_to_species):
 		species_to_norm[species_id] = median(covs)
 	return species_to_norm
 
-def compute_pangenome_coverage(args):
+def compute_pangenome_coverage(args, species):
 	""" Compute coverage of pangenome for species_id and write results to disk """
 	# map gene_id to species_id
 	ref_to_species = {}
@@ -130,7 +130,6 @@ def compute_pangenome_coverage(args):
 		
 	# open outfiles for each species_id
 	outfiles = {}
-	species = set(ref_to_species.values())
 	for species_id in species:
 		outpath = '/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])
 		outfiles[species_id] = utility.iopen(outpath, 'w')
@@ -198,28 +197,31 @@ class Species:
 		self.id = id
 		
 	def init_ref_db(self, ref_db):
+		self.dir = '%s/pan_genomes/%s' % (ref_db, self.id)
 		for ext in ['', '.gz']:
-			inpath = '%s/pan_genomes/%s/centroids.ffn%s' % (ref_db, self.id, ext)
+			inpath = '%s/centroids.ffn%s' % (self.dir, ext)
 			if os.path.isfile(inpath): self.pan_genome = inpath
-
-class Pangenome:
-	""" Base class for pan genome """
-	def __init__(self):
-		pass
+			inpath = '%s/cluster_info.txt%s' % (self.dir, ext)
+			if os.path.isfile(inpath): self.cluster_info = inpath
+		self.gene_to_cluster = {}
+		self.cluster_to_gene = {}
+		for r in utility.parse_file(self.cluster_info):
+			self.gene_to_cluster[r['centroid']] = r['cluster_id']
+			self.gene_to_cluster[r['cluster_id']] = r['centroid']
 
 def initialize_species(args):
-	species = []
+	species = {}
 	splist = '%s/genes/species.txt' % args['outdir']
 	if args['build_db']:
 		from midas.run.species import select_species
 		with open(splist, 'w') as outfile:
 			for id in select_species(args):
-				species.append(Species(id))
+				species[id] = Species(id)
 				outfile.write(id+'\n')
 	elif os.path.isfile(splist):
 		for line in open(splist):
-			species.append(Species(line.rstrip()))
-	for sp in species:
+			species[id] = Species(line.rstrip())
+	for sp in species.values():
 		sp.init_ref_db(args['db'])
 	return species
 
@@ -228,7 +230,7 @@ def run_pipeline(args):
 	
 	# Initialize species
 	species = initialize_species(args)
-	
+
 	# Build pangenome database for selected species
 	if args['build_db']:
 		print("\nBuilding pangenome database")
@@ -252,7 +254,7 @@ def run_pipeline(args):
 		start = time()
 		print("\nComputing coverage of pangenomes")
 		args['log'].write("\nComputing coverage of pangenomes\n")
-		compute_pangenome_coverage(args)
+		compute_pangenome_coverage(args, species)
 		genes_summary(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
