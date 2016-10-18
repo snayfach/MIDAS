@@ -59,43 +59,29 @@ merge_midas.py species /path/to/outdir -i /path/to/samples/sample_paths.txt -t f
 
 4) run a quick test:
 merge_midas.py species /path/to/outdir -i /path/to/samples -t dir --max_samples 2
-
-Output files:
-1) relative_abundance.txt: relative abundance matrix (columns are samples, rows are species)
-2) count_reads.txt: read count matrix (columns are samples, rows are species)
-3) coverage.txt: genome coverage matrix (columns are samples, rows are species)
-4) species_prevalence.txt: summary statistics for each species across samples
-
-Output formats:
-species_prevalence.txt
-1) species_id: species identifier
-2) species_name: unique species name
-3) mean_coverage: average read-depth across samples
-4) median_coverage: median read-depth across samples
-5) mean_abundance: average relative abundance across samples
-6) median_abundance: median relative abundance across samples
-7) prevalence: number of samples with >= `MIN_COV`
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
-	parser.add_argument('outdir', type=str, help='directory for output files')
+	parser.add_argument('outdir', type=str, help='Directory for output files')
 	parser.add_argument('-i', type=str, dest='input', required=True,
-		help="""input to sample directories output by run_midas.py
-can be a list of directories, a directory containing all samples, or a file with paths
-see '-t' for details""")
+		help="""Input to sample directories output by run_midas.py
+Can be a list of directories, a directory containing all samples, or a file with paths
+See '-t' for details""")
 	parser.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
 		help="""'list': -i incdicates a comma-separated list of paths to sample directories
-        example: /path/to/samples/sample_1,/path/to/samples/sample_2
+example: /path/to/samples/sample_1,/path/to/samples/sample_2
 'dir': -i incdicates a  directory containing all samples
-       example: /path/to/samples
+example: /path/to/samples
 'file': -i incdicates a file containing paths to sample directories
-	   example: /path/to/sample_paths.txt
+example: /path/to/sample_paths.txt
 """)
 	parser.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
-		help="""Path to reference database""")
+		help="""Path to reference database
+By default the MIDAS_DB environmental variable is used""")
 	parser.add_argument('--min_cov', metavar='FLOAT', type=float, default=1.0,
-		help="""minimum marker-gene-coverage for estimating species prevalence (1.0)""")
+		help="""Minimum marker-gene-coverage for estimating species prevalence (1.0)""")
 	parser.add_argument('--max_samples', type=int, metavar='INT',
-		help="""maximum number of samples to process. useful for testing (use all)""")
+		help="""Maximum number of samples to process.
+Useful for testing (use all)""")
 	args = vars(parser.parse_args())
 	return args
 
@@ -113,8 +99,8 @@ Usage: merge_midas.py genes outdir [options]
 1) Merge results for all species. Provide list of paths to sample directories:
 merge_midas.py genes /path/to/outdir -i sample_1,sample_2 -t list
 
-2) Merge results for one species (id=57955):
-merge_midas.py genes /path/to/outdir --species_id 57955 -i sample_1,sample_2 -t list
+2) Merge results for one species (id=Bacteroides_vulgatus_57955):
+merge_midas.py genes /path/to/outdir --species_id Bacteroides_vulgatus_57955 -i sample_1,sample_2 -t list
 
 3) Exclude low-coverage samples in output matrix:
 merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --sample_depth 5.0
@@ -125,55 +111,39 @@ merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --min_copy 0.1
 5) Run a quick test:
 merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10
 
-Output files:
-1) genes_copynum.txt: gene copy-number matrix (columns are samples, rows are gene families)
-2) genes_presabs.txt: gene presence-absence (0/1) matrix (columns are samples, rows are gene families). genes with copy-number >= MIN_COPY are called as present and genes below MIN_COPY are called as absent
-3) genes_depth.txt: gene coverage (i.e. read depth) matrix (columns are samples, rows are gene families)
-4) genes_info.txt: detailed information of genes
-5) genes_summary.txt: alignment summary statistics of genes across samples
-
-Output formats:
-genes_summary.txt
-1) sample_id: sample identifier
-2) pangenome_size: total number of gene families (99% identity clustering cutoff) in reference pangenome
-3) covered_genes: number of pangenome gene families with non-zero coverage
-4) fraction_covered: fraction of pangenome gene families with non-zero coverage
-5) mean_coverage: mean read-depth across gene families with non-zero coverage
-6) marker_coverage: median read-depth across 15 universal single copy genes
-
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str,
 		help="directory for output files. a subdirectory will be created for each species_id")
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
-		help="""input to sample directories output by run_midas.py
-see '-t' for details""")
+		help="""Input to sample directories output by run_midas.py
+Can be a list of directories, a directory containing all samples, or a file with paths
+See '-t' for details""")
 	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
 		help="""'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
 	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
-		help="""Path to reference database""")
+		help="""Path to reference database
+By default, the MIDAS_DB environmental variable is used""")
 	species = parser.add_argument_group('Species filters (select subset of species from INPUT)')
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
-		help="""all species with >= MIN_SAMPLES (1)""")
+		help="""All species with >= MIN_SAMPLES (1)""")
 	species.add_argument('--species_id', dest='species_id', type=str, metavar='CHAR',
-		help="""comma-separated list of species ids
-a list of prevalent species can be obtained by running 'merge_midas.py species'
-a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
+		help="""Comma-separated list of species ids""")
 	species.add_argument('--max_species', type=int, metavar='INT',
-		help="""maximum number of species to merge. useful for testing (use all)""")
+		help="""Maximum number of species to merge. useful for testing (use all)""")
 	sample = parser.add_argument_group('Sample filters (select subset of samples from INPUT)')
 	sample.add_argument('--sample_depth', type=float, default=1.0, metavar='FLOAT',
-		help="""minimum coverage per sample across all genes with non-zero coverage (1.0)""")
+		help="""Minimum read-depth across all genes with non-zero coverage (1.0)""")
 	sample.add_argument('--max_samples', type=int, metavar='INT',
-		help="""maximum number of samples to process. useful for testing (use all)""")
+		help="""Maximum number of samples to process. useful for testing (use all)""")
 	gene = parser.add_argument_group('Presence/Absence')
 	gene.add_argument('--min_copy', type=float, default=0.35, metavar='FLOAT',
-		help="""genes >= MIN_COPY are classified as present
-genes < MIN_COPY are classified as absent (0.35)""")
+		help="""Genes >= MIN_COPY are classified as present
+Genes < MIN_COPY are classified as absent (0.35)""")
 	args = vars(parser.parse_args())
 	return args
 
@@ -191,8 +161,8 @@ Usage: merge_midas.py snps outdir [options]
 1) Merge results for all species. Provide list of paths to sample directories:
 merge_midas.py snps /path/to/outdir -i sample_1,sample_2 -t list
 
-2) Merge results for one species (id=57955):
-merge_midas.py snps /path/to/outdir --species_id 57955 -i sample_1,sample_2 -t list
+2) Merge results for one species (id=Bacteroides_vulgatus_57955):
+merge_midas.py snps /path/to/outdir --species_id Bacteroides_vulgatus_57955 -i sample_1,sample_2 -t list
 
 3) Only use samples with >15x average depth and only use sites covered by >=10 reads in at least >=95% of samples:
 merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 0.95
@@ -200,84 +170,55 @@ merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --sample_depth 15
 4) Run a quick test:
 merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10 --max_sites 1000
 
-Output files:
-1) snps_ref_freq.txt: reference allele frequency matrix (sites x samples). each value is the proportion of reads that matched the reference allele for a sample at a genomic site
-2) snps_alt_allele.txt: alternate allele matrix (sites x samples). each value is the alternate allele observed for a sample at a genomic site
-3) snps_depth.txt: site depth matrix (sites x samples). each value is the total number of reads observed for a sample at a genomic site
-4) snps_info.txt: detailed information for each genomic site included in output
-5) snps_summary.txt: alignment summary statistics for all samples
-
-File formats:
-snps_info.txt
-1) site_id: identifier of genomic site
-2) mean_freq: average frequency of reference allele across samples
-3) mean_depth: average number of mapped reads across samples
-4) site_prev: proportion of samples with sufficient depth
-5) ref_allele: reference allele
-6) allele_props: distribution of allele frequencies across samples
-7) site_type: NC=non-coding site, 1D-4D=coding site
-8) gene_id: gene identifier
-9) amino_acids: amino acid for each possible allele
-10) snps: indicates whether an allele is synonymous (SYN) or non-synonymous (NS)
-
-snps_summary.txt
-1) sample_id: sample identifier
-2) genome_length: length of reference genome used for read-mapping
-3) covered_bases: number of genomic positions covered
-4) fraction_covered: fraction of genomic positions with non-zero coverage
-5) mean_coverage: mean read-depth at covered genomic positions
-
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str,
-		help="directory for output files. a subdirectory will be created for each species_id")
+		help="Directory for output files. a subdirectory will be created for each species_id")
 	parser.add_argument('--threads', type=int, default=1, metavar='INT',
-		help="number of CPUs to use for merging files (1)\nincreases speed when merging across many samples")
+		help="Number of CPUs to use for merging files (1)\nIncreases speed when merging many species")
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
-		help="""input to sample directories output by run_midas.py
-see '-t' for details""")
+		help="""Input to sample directories output by run_midas.py
+Can be a list of directories, a directory containing all samples, or a file with paths
+See '-t' for details""")
 	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
 		help="""'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
 'dir': -i is a  directory containing all samples (ex: /samples_dir)
 'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
 """)
 	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
-		help="""Path to reference database""")
+		help="""Path to reference database
+By default, the MIDAS_DB environmental variable is used""")
 	species = parser.add_argument_group("Species filters (select subset of species from INPUT)")
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
-		help="""all species with >= MIN_SAMPLES (1)""")
+		help="""All species with >= MIN_SAMPLES (1)""")
 	species.add_argument('--species_id', dest='species_id', type=str, metavar='CHAR',
-		help="""comma-separated list of species ids
-a list of prevalent species can be obtained by running 'merge_midas.py species'
-a map of species ids to species names can be found in 'ref_db/annotations.txt'""")
+		help="""Comma-separated list of species ids""")
 	species.add_argument('--max_species', type=int, metavar='INT',
-		help="""maximum number of species to merge (use all)""")
+		help="""Maximum number of species to merge (use all)""")
 	sample = parser.add_argument_group("Sample filters (select subset of samples from INPUT)")
 	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=5.0, metavar='FLOAT',
-		help="""minimum average read depth per sample (5.0)""")
+		help="""Minimum average read depth per sample (5.0)""")
 	sample.add_argument('--fract_cov', dest='fract_cov', type=float, default=0.4, metavar='FLOAT',
-		help="""fraction of reference sites covered by at least 1 read (0.4)""")
+		help="""Fraction of reference sites covered by at least 1 read (0.4)""")
 	sample.add_argument('--max_samples', type=int, metavar='INT',
-		help="""maximum number of samples to process.
-useful for quick tests (use all)""")
+		help="""Maximum number of samples to process. useful for quick tests (use all)""")
 	snps = parser.add_argument_group("Site filters (select subset of genomic sites from INPUT)")
 	snps.add_argument('--site_depth', type=int, default=3, metavar='INT',
-		help="""minimum number of mapped reads per site.
-a high value like 20 will result in accurate allele frequencies, but may discard many sites.
-a low value like 1 will retain many sites but may not result in accurate allele frequencies (3)""")
+		help="""Minimum number of mapped reads per site.
+A high value like 20 will result in accurate allele frequencies, but may discard many sites.
+A low value like 1 will retain many sites but may not result in accurate allele frequencies (3)""")
 	snps.add_argument('--site_prev', type=float, default=0.95, metavar='FLOAT',
-		help="""site has at least <site_depth> coverage in at least <site_prev> proportion of samples.
-a value of 1.0 will select sites that have sufficent coverage in all samples.
-a value of 0.0 will select all sites, including those with low coverage in many samples 
+		help="""Site has at least <site_depth> coverage in at least <site_prev> proportion of samples.
+A value of 1.0 will select sites that have sufficent coverage in all samples.
+A value of 0.0 will select all sites, including those with low coverage in many samples
 NAs recorded for included sites with less than <site_depth> in a sample (0.95)""")
 	snps.add_argument('--site_maf', type=float, default=0.0, metavar='FLOAT',
-		help="""minimum minor allele frequency of site across samples.
-setting this to zero (default) will keep invariant sites across samples.
-setting this above zero (e.g. 0.01, 0.02, 0.05) will only keep common variants""")
+		help="""Minimum minor allele frequency of site across samples.
+Setting this to zero (default) will keep invariant sites across samples.
+Setting this above zero (e.g. 0.01, 0.02, 0.05) will only keep common variants""")
 	snps.add_argument('--max_sites', type=int, default=float('Inf'), metavar='INT',
-		help="""maximum number of sites to include in output.
-useful for quick tests (use all)""")
+		help="""Maximum number of sites to include in output. useful for quick tests (use all)""")
 	args = vars(parser.parse_args())
 	return args
 
