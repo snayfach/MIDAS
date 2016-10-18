@@ -36,7 +36,7 @@ def map_reads_hsblast(args):
 	command += ' | %s align' % args['hs-blastn']
 	command += ' -word_size %s' % args['word_size']
 	command += ' -query /dev/stdin'
-	command += ' -db %s/%s/%s.fa' % (args['db'], 'marker_genes', args['db_type'])
+	command += ' -db %s/marker_genes/phyeco.fa' % args['db']
 	command += ' -outfmt 6'
 	command += ' -num_threads %s' % args['threads']
 	command += ' -out %s/species/temp/alignments.m8' % args['outdir']
