@@ -1,6 +1,6 @@
 ## Strain tracking
 
-These scripts will allow you to identify rare SNPs that discriminate individual strains and to track these SNPs between hosts to elucidate transmission patterns. Before running these scripts, you'll need to have run `merge_midas.py snps` [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snps.md).
+These scripts will allow you to identify rare SNPs that discriminate individual strains and to track these SNPs between hosts to elucidate transmission patterns. Before running these scripts, you'll need to have run `merge_midas.py snps` [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
 
 
 

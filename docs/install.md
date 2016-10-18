@@ -12,7 +12,7 @@ Python modules (installed via setup.py):
 
 ### Download the software
 
-**Clone the latest version from GitHub (recommended)**   
+**Clone the latest version from GitHub (recommended)**:
 `git clone https://github.com/snayfach/MIDAS`  
 This makes it easy to update the software in the future using `git pull` as bugs are fixed and features are added
 
@@ -27,12 +27,12 @@ The dependencies can be installed by running the setup.py script:
 `sudo python MIDAS/setup.py install` to install as a superuser, or  
 `python MIDAS/setup.py install --user` to install locally  
 
-If you have pip installed, you can install these dependencies by running the following command:
+If you have pip installed, you can install these dependencies by running the following command:  
 `pip install -U numpy biopython pysam pandas` or  
 `sudo pip install -U numpy biopython pysam pandas` to install as a superuser, or  
 `pip install --user numpy biopython pysam pandas` to install locally  
 
-[Detailed instructions for installation on a brand new CentOS/Ubuntu system] (https://github.com/snayfach/MIDAS/blob/master/docs/install_other.md)
+[Detailed instructions for installation on a brand new CentOS/Ubuntu system] (install_other.md)
 
 ### Update your environmental variables
 
@@ -48,15 +48,15 @@ Add these commands to your .bash_profile to avoid entering the commands in the f
 Run the following command to test MIDAS:
 
 `cd /path/to/MIDAS/test`  
-`python test_midas.py -f`
+`python test_midas.py`
 
 Be sure to replace '/path/to' with the appropriate path on your system.  
+This will take a few minutes to complete
 
 ### Update MIDAS
 Move to installation directory, pull the latest version, and install:  
 `cd MIDAS`  
 `git pull`  
-`python setup.py install`
 
 ## Next step
-[Download the reference database] (https://github.com/snayfach/MIDAS/blob/master/docs/ref_db.md)
+[Download the reference database] (ref_db.md)

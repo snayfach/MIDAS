@@ -11,7 +11,6 @@ class Species:
 	""" Base class for species """
 	def __init__(self, id, info):
 		self.id = id
-		self.consensus_name = info[id]['consensus_name']
 		self.samples = []
 
 class Sample:

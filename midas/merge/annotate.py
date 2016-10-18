@@ -12,22 +12,21 @@ from midas import utility
 
 def read_genes(db, species_id, contigs):
 	""" Read in gene coordinates from features file """
-	genes_path = '%s/genome_clusters/%s/genome.features.gz' % (db, species_id)
+	genes_path = '%s/rep_genomes/%s/genome.features.gz' % (db, species_id)
 	genes = []
 	for gene in utility.parse_file(genes_path):
-		if gene['gene_type'] == 'rna':
+		if gene['gene_type'] == 'RNA':
 			continue
 		else:
-			gene['accession'] = 'accn|%s' % gene['accession']
 			gene['start'] = int(gene['start'])
 			gene['end'] = int(gene['end'])
-			gene['seq'] = get_gene_seq(gene, contigs[gene['accession']])
+			gene['seq'] = get_gene_seq(gene, contigs[gene['scaffold_id']])
 			genes.append(gene)
 	return genes
 
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """
-	inpath = '%s/genome_clusters/%s/genome.fna.gz' % (db, species_id)
+	inpath = '%s/rep_genomes/%s/genome.fna.gz' % (db, species_id)
 	infile = utility.iopen(inpath)
 	genome = {}
 	for r in Bio.SeqIO.parse(infile, 'fasta'):
@@ -42,30 +41,6 @@ def get_gene_seq(gene, contig):
 		return(rev_comp(seq))
 	else:
 		return(seq)
-
-def check_snps():
-	""" Check that accessions are sorted """
-	last_ref = None
-	for snp in utility.parse_file(args['in']):
-		last_ref = snp['site_id'].rsplit('|')[0]
-	for snp in utility.parse_file(args['in']):
-		ref_id = snp['site_id'].rsplit('|')[0]
-		if ref_id < last_snp['ref_id']:
-			sys.exit("Accessions not sorted")
-		else:
-			last_ref = ref_id
-
-def check_genes(genes, contigs):
-	""" Check that accessions are sorted and gene lengths are correct """
-	last_gene = {'accession':'accn|NZ_DS499510'}
-	for gene in genes:
-		if not gene['accession'] in contigs:
-			sys.exit("Incorrect scaffold id")
-		if (gene['end'] - gene['start'] + 1) % 3 != 0:
-			sys.exit("Incorrect gene length")
-		if gene['accession'] < last_gene['accession']:
-			sys.exit("Accessions not sorted")
-		last_gene = gene
 
 def complement(base):
 	""" Complement nucleotide """
@@ -133,13 +108,13 @@ def annotate_site(site, genes, gene_index, contigs):
 			site.site_type = 'NC'; site.gene_id = ''
 			return
 		# 2. if snp is upstream of next gene, snp must be non-coding so break
-		if (site.ref_id < gene['accession'] or
-		   (site.ref_id == gene['accession'] and site.ref_pos < gene['start'])):
+		if (site.ref_id < gene['scaffold_id'] or
+		   (site.ref_id == gene['scaffold_id'] and site.ref_pos < gene['start'])):
 			site.site_type = 'NC'; site.gene_id = ''
 			return
 		# 3. if snp is downstream of next gene, pop gene, check (1) and (2) again
-		if (site.ref_id > gene['accession'] or
-			 (site.ref_id == gene['accession'] and site.ref_pos > gene['end'])):
+		if (site.ref_id > gene['scaffold_id'] or
+			 (site.ref_id == gene['scaffold_id'] and site.ref_pos > gene['end'])):
 			gene_index[0] += 1
 			continue
 		# 4. otherwise, snp must be in gene

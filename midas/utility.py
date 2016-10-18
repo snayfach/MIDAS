@@ -4,9 +4,25 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import io, os, stat, sys, resource, gzip, platform, subprocess
+import io, os, stat, sys, resource, gzip, platform, subprocess, bz2
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
+
+def which(program):
+	""" Mimics unix 'which' function """
+	def is_exe(fpath):
+		return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+	fpath, fname = os.path.split(program)
+	if fpath:
+		if is_exe(program):
+			return program
+	else:
+		for path in os.environ["PATH"].split(os.pathsep):
+			path = path.strip('"')
+			exe_file = os.path.join(path, program)
+			if is_exe(exe_file):
+				return exe_file
+	return None
 
 def print_copyright(log=None):
 	lines = []
@@ -62,16 +78,6 @@ def parallel(function, list, threads):
 			if process.is_alive(): indexes.append(index)
 		processes = [processes[i] for i in indexes]
 
-def add_ref_db(args):
-	""" Add path to reference database """
-	if 'db' not in args or not args['db']:
-		script_path = os.path.abspath(__file__)
-		script_dir = os.path.dirname(script_path)
-		main_dir = os.path.dirname(script_dir)
-		args['db'] = '%s/ref_db' % main_dir
-	if not os.path.isdir(args['db']):
-		sys.exit("Could not locate reference database: %s" % args['db'])
-
 def add_executables(args):
 	""" Identify relative file and directory paths """
 	src_dir = os.path.dirname(os.path.abspath(__file__))
@@ -89,16 +95,6 @@ def add_executables(args):
 		if not is_executable(args[arg]):
 			sys.exit("File not executable: %s" % args[arg])
 
-def read_ref_to_cluster(inpath):
-	""" Read in map of scaffold id to genome-cluster id """
-	ref_to_cluster = {}
-	infile = open(inpath)
-	for line in infile:
-		ref_id, cluster_id = line.rstrip().split()
-		ref_to_cluster[ref_id] = cluster_id
-	infile.close()
-	return ref_to_cluster
-
 def is_executable(f):
 	""" Check if file is executable by all """
 	st = os.stat(f)
@@ -112,6 +108,39 @@ def auto_detect_file_type(inpath):
 		elif line[0] == '@': return 'fastq'
 		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
 	infile.close()
+
+def check_compression(inpath):
+	""" Check that file extension matches expected compression """
+	ext = inpath.split('.')[-1]
+	file = iopen(inpath)
+	try:
+		next(file)
+		file.close()
+	except:
+		sys.exit("\nError: File extension '%s' does not match expected compression" % ext)
+
+def check_database(args):
+	if 'db' is None:
+		error = "\nError: No reference database specified\n"
+		error = "Use the flag -d to specify a database,\n"
+		error = "or set the MIDAS_DB environmental variable: export MIDAS_DB=/path/to/midas/db\n"
+		sys.exit(error)
+	if not os.path.isdir(args['db']):
+		error = "\nError: Specified reference database does not exist: %s\n" % args['db']
+		error += "\nCheck that you've entered the path correctly and the database exists"
+		error += "\nTo download the default database, run: MIDAS/scripts/download_ref_db.py"
+		error += "\nTo build a custom database, run: MIDAS/scripts/build_midas_db.py\n"
+		sys.exit(error)
+	for dir in ['marker_genes', 'pan_genomes', 'rep_genomes']:
+		path = '%s/%s' % (args['db'], dir)
+		if not os.path.isdir(path):
+			error = "\nError: Could not locate required database directory: %s\n" % path
+			sys.exit(error)
+	for file in ['species_info.txt']:
+		path = '%s/%s' % (args['db'], file)
+		if not os.path.exists(path):
+			error = "\nError: Could not locate required database file: %s\n" % path
+			sys.exit(error)
 
 def iopen(inpath, mode='r'):
 	""" Open input file for reading regardless of compression [gzip, bzip] or python version """
@@ -130,9 +159,9 @@ def iopen(inpath, mode='r'):
 def parse_file(inpath):
 	""" Yields records from tab-delimited file with header """
 	infile = iopen(inpath)
-	fields = next(infile).rstrip().split('\t')
+	fields = next(infile).rstrip('\n').split('\t')
 	for line in infile:
-		values = line.rstrip().split('\t')
+		values = line.rstrip('\n').split('\t')
 		if len(fields) == len(values):
 			yield dict([(i,j) for i,j in zip(fields, values)])
 	infile.close()
