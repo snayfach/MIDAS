@@ -25,11 +25,15 @@ class CheckEnv(unittest.TestCase):
 	def test_dependencies(self):
 		self.assertTrue(
 			'run_midas.py' in self.path_contents,
-			msg="""\n\n'run_midas.py' not found in PATH environmental variable.\nMake sure '/path/to/MIDAS/scripts' has been added to your PATH"""
+			msg="""\n\n'run_midas.py' not found in PATH environmental variable.\nMake sure '/path/to/MIDAS/scripts' has been added to your PATH:\nexport PATH=$PATH:/path/to/MIDAS/scripts"""
 			)
 		self.assertTrue(
 			'midas' in self.python_contents,
-			msg="""\n\n'midas' not found in PYTHONPATH environmental variable.\nMake sure '/path/to/MIDAS' has been added to your PYTHONPATH"""
+			msg="""\n\n'midas' not found in PYTHONPATH environmental variable.\nMake sure '/path/to/MIDAS' has been added to your PYTHONPATH:\nexport PYTHONPATH=$PYTHONPATH:/path/to/MIDAS"""
+			)
+		self.assertTrue(
+			'MIDAS_DB' in os.environ,
+			msg="""\n\n'MIDAS_DB' environmental variable not set.\nSet this variable and rerun the test:\nexport MIDAS_DB=/path/to/midas_db_v1.1"""
 			)
 
 class ImportDependencies(unittest.TestCase):
@@ -94,7 +98,7 @@ class RunSpecies(unittest.TestCase):
 class RunGenes(unittest.TestCase):
 	""" test run_midas.py genes """
 	def setUp(self):
-		self.command = 'run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
+		self.command = 'run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'
 	def test_help_text(self):
 		error = "\n\nFailed to execute the command: %s " % self.command
 		self.assertTrue(run(self.command)==0, msg=error)
@@ -102,7 +106,7 @@ class RunGenes(unittest.TestCase):
 class RunSNPs(unittest.TestCase):
 	""" test run_midas.py snps """
 	def setUp(self):
-		self.command = 'run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id 57955'
+		self.command = 'run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'
 	def test_help_text(self):
 		error = "\n\nFailed to execute the command: %s " % self.command
 		self.assertTrue(run(self.command)==0, msg=error)
@@ -121,8 +125,8 @@ class MergeGenes(unittest.TestCase):
 	""" test merge_midas.py species """
 	def setUp(self):
 		self.retcodes = []
-		self.retcodes.append(run('run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id 57955'))
-		self.retcodes.append(run('merge_midas.py genes ./genes -i ./sample -t list --species_id 57955 --sample_depth 0.0'))
+		self.retcodes.append(run('run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'))
+		self.retcodes.append(run('merge_midas.py genes ./genes -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --sample_depth 0.0'))
 	def test_help_text(self):
 		error = "\n\nFailed to execute the command: merge_midas.py genes "
 		self.assertTrue(sum(self.retcodes)==0, msg=error)
@@ -131,8 +135,8 @@ class MergeSNPs(unittest.TestCase):
 	""" test merge_midas.py species """
 	def setUp(self):
 		self.retcodes = []
-		self.retcodes.append(run('run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id 57955'))
-		self.retcodes.append(run('merge_midas.py snps ./snps -i ./sample -t list --species_id 57955 --sample_depth 0.0 --max_sites 100 --fract_cov 0.0'))
+		self.retcodes.append(run('run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'))
+		self.retcodes.append(run('merge_midas.py snps ./snps -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --sample_depth 0.0 --max_sites 100 --fract_cov 0.0'))
 	def test_help_text(self):
 		error = "\n\nFailed to execute the command: merge_midas.py snps "
 		self.assertTrue(sum(self.retcodes)==0, msg=error)
