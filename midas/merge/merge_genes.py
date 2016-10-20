@@ -46,6 +46,44 @@ def write_gene_matrices(species_id, samples, args):
 	for outfile in outfiles.values():
 		outfile.close()
 
+def write_readme(args, sp):
+	outfile = open('%s/%s/README' % (args['outdir'], sp.id), 'w')
+	outfile.write("""
+Description of output files and file formats from 'merge_midas.py genes'
+
+Output files
+############
+genes_depth.txt  
+  average-read depth of each gene per sample
+genes_copynum.txt
+  copy-number of each gene per sample
+  estimated by dividing the read-depth of a gene by the median read-depth of 15 universal single copy genes
+genes_presabs.txt  
+  the presence (1) or absence (0) of each gene per sample
+  estimated by applying a threshold to gene copy-number values
+genes_summary.txt
+  alignment summary statistics per sample
+
+Output formats
+############
+genes_depth.txt, genes_copynum.txt, genes_presabs.txt
+  tab-delimited matrix files
+  field names are sample ids
+  row names are gene ids
+genes_summary.txt
+  sample_id: sample identifier
+  pangenome_size: number of non-redundant genes in reference pan-genome
+  covered_genes: number of genes with at least 1 mapped read
+  fraction_covered: proportion of genes with at least 1 mapped read
+  mean_coverage: average read-depth across genes with at least 1 mapped read
+  marker_coverage: median read-depth across 15 universal single copy genes
+
+
+Additional information for species can be found in the reference database:
+ %s/pan_genomes/%s
+""" % (args['db'], sp.id) )
+	outfile.close()
+
 def run_pipeline(args):
 
 	print("Identifying species")
@@ -64,6 +102,8 @@ def run_pipeline(args):
 		print("  writing summary statistics")
 		merge.write_summary_stats(sp.id, sp.samples, args, 'genes')
 
+		write_readme(args, sp)
+		
 		print("")
 
 

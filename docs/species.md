@@ -13,18 +13,22 @@ If you already have a list of species ids that you're interested, this step can 
 Usage: run_midas.py species outdir [options]
 
 positional arguments:
-  outdir             Path to directory to store results. Name should correspond to sample identifier.
+  outdir             Path to directory to store results. 
+                     Name should correspond to unique sample identifier.
 
 optional arguments:
   -h, --help         show this help message and exit
-  -1 M1              FASTA/FASTQ file containing 1st mate if paired or unpaired reads
-  -2 M2              FASTA/FASTQ file containing 2nd mate if paired
+  -1 M1              FASTA/FASTQ file containing 1st mate if using paired-end reads.
+                     Otherwise FASTA/FASTQ containing unpaired reads.
+                     Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)
+  -2 M2              FASTA/FASTQ file containing 2nd mate if using paired-end reads.
+                     Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)
   -n MAX_READS       Number of reads to use from input file(s) (use all)
   -t THREADS         Number of threads to use for database search (1)
-  --db_type          Reference database. Choices:
-                     'phyeco': universal-single-copy protein family database (default)
-                     'ssuRNA': 16S ribosomal rna database
-  --remove_temp      Remove temporary files, including BLAST output
+  -d DB              Path to reference database
+                     By default, the MIDAS_DB environmental variable is used
+  --remove_temp      Remove temporary files, including BLAST output.
+                     Useful for reducing disk space of MIDAS output
   --word_size INT    Word size for BLAST search (28)
                      Use word sizes > 16 for greatest efficiency.
   --mapid FLOAT      Discard reads with alignment identity < MAPID
@@ -36,7 +40,7 @@ optional arguments:
                      By default, reads are not trimmed or filtered
 ```
 
-## Example
+## Examples
 1) run with defaults using a paired-end metagenome:  
 `run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz`
 
@@ -45,10 +49,6 @@ optional arguments:
 
 3) run with exactly 80 base-pair reads:  
 `run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz --read_length 80`
-
-4) quantify species abundance using a 16S database (not recommended!):  
-`run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz --db_type ssuRNA`
-
 
 ## Output
 The output of this script contains the following: 
@@ -59,8 +59,7 @@ The output of this script contains the following:
 
 output file format:
   
-* species_id: species (i.e. genome-cluster) identifier  
-* species_name: unique species name  
+* species_id: species identifier  
 * count_reads: number of reads mapped to marker genes  
 * coverage: estimated genome-coverage of species in metagenome  
 * relative_abundance: estimated relative abundance of species in metagenome  

@@ -7,18 +7,26 @@ Output: relative abundance matrix, genome-coverage matrix, read-count matrix, sp
 ```
 Usage: merge_midas.py species outdir [options]
 
+positional arguments:
+  outdir              Directory for output files
+
 optional arguments:
   -h, --help          show this help message and exit
-  -i INPUT            input to sample directories output by run_midas.py species
+  -i INPUT            Input to sample directories output by run_midas.py
                       can be a list of directories, a directory containing all samples, or a file with paths
                       see '-t' for details
   -t {list,file,dir}  'list': -i incdicates a comma-separated list of paths to sample directories
-                              example: /path/to/samples/sample_1,/path/to/samples/sample_2
+                      example: /path/to/samples/sample_1,/path/to/samples/sample_2
                       'dir': -i incdicates a  directory containing all samples
-                             example: /path/to/samples
+                      example: /path/to/samples
                       'file': -i incdicates a file containing paths to sample directories
-                      	   example: /path/to/sample_paths.txt
-  -m MIN_COV          minimum genome-coverage for estimating species prevalence (1.0)
+                      example: /path/to/sample_paths.txt
+  -d DB               Path to reference database
+                      By default the MIDAS_DB environmental variable is used
+  --min_cov FLOAT     Minimum marker-gene-coverage for estimating species prevalence (1.0)
+  --max_samples INT   Maximum number of samples to process.
+                      Useful for testing (use all)
+
 ```
 
 ## Examples
