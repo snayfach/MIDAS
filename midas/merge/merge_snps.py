@@ -159,6 +159,54 @@ def filter_snp_matrix(species_id, samples, args):
 			write_site_info(siteinfo, args['site_depth'], site)
 			write_matrices(site, matrices)
 
+def write_readme(args, sp):
+	outfile = open('%s/%s/README' % (args['outdir'], sp.id), 'w')
+	outfile.write("""
+Description of output files and file formats from 'merge_midas.py snps'
+
+Output files
+############
+snps_ref_freq.txt  
+  frequency of reference allele per genomic site and per sample (0.0)
+snps_alt_allele.txt  
+  alternate allele per genomic site and per sample
+snps_depth.txt  
+  number of reads mapped to genomic site per sample
+snps_info.txt  
+  metadata for genomic site
+snps_summary.txt
+  alignment summary statistics per sample
+snps_log.txt
+  log file containing parameters used
+
+Output formats
+############
+snps_ref_freq.txt, snps_alt_allele.txt, snps_depth.txt,
+  tab-delimited matrix files
+  field names are sample ids
+  row names are genome site ids
+snps_summary.txt
+  sample_id: sample identifier
+  genome_length: number of base pairs in representative genome
+  covered_bases: number of reference sites with at least 1 mapped read
+  fraction_covered: proportion of reference sites with at least 1 mapped read
+  mean_coverage: average read-depth across reference sites with at least 1 mapped read
+snps_info.txt
+  site_id: genomic site_id; format: ref_id|ref_pos|ref_allele
+  mean_freq: average frequency of reference allele across samples
+  mean_depth: average read-depth across samples
+  site_prev: proportion of samples where site_id was covered with sufficient depth
+  allele_props: pooled frequency of 4 nucleotides
+  site_type: NC (non-coding), 1D, 2D, 3D, 4D (degeneracy)
+  gene_id: gene that intersects site
+  amino_acids: protein affect of all 4 possible nucleotides
+  snps: SYN/NS for all 4 possible nucleotides
+
+Additional information for species can be found in the reference database:
+ %s/rep_genomes/%s
+""" % (args['db'], sp.id) )
+	outfile.close()
+
 def merge_snps(args, species):
 	log = open('%s/%s/snps_log.txt' % (args['outdir'], species.id), 'w')
 	log.write("Merging: %s for %s samples\n" % (species.id, len(species.samples)))
@@ -171,7 +219,7 @@ def merge_snps(args, species):
 	log.write("  removing temporary files\n")
 	shutil.rmtree('%s/%s/temp' % (args['outdir'], species.id))
 	log.close()
-
+	write_readme(args, species)
 
 def run_pipeline(args):
 

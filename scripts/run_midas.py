@@ -564,6 +564,118 @@ Alternatively, you can manually specify one or more species using --species_id" 
 	if args['baseq'] < 0 or args['baseq'] > 100:
 		sys.exit("\nError: BASEQ must be between 0 and 100")
 
+def write_readme(program, args):
+	outfile = open('%s/%s/README' % (args['outdir'], program), 'w')
+	if program == 'species':
+		outfile.write("""
+Description of output files and file formats from 'run_midas.py species'
+
+Output files
+############
+species_profile.txt
+  tab-delimited with header
+  each line contains the abundance values for 1 species (5,952 total species)
+  sorted by decreasing relative abundance
+log.txt
+  log file containing parameters used
+temp
+  directory of intermediate files
+  run with `--remove_temp` to remove these files
+
+Output formats
+############
+species_profile.txt
+  species_id: species identifier
+  count_reads: number of reads mapped to marker genes
+  coverage: estimated genome-coverage (i.e. read-depth) of species in metagenome
+  relative_abundance: estimated relative abundance of species in metagenome
+
+**Additional information for each species can be found in the reference database:
+ %s/marker_genes
+""" % args['db'])
+	elif program == 'genes':
+		outfile.write("""
+Description of output files and file formats from 'run_midas.py genes'
+
+Output files
+############
+output
+  directory of per-species output files
+  files are tab-delimited, gzip-compressed, with header
+  naming convention of each file is: {SPECIES_ID}.genes.gz
+species.txt
+  list of species_ids included in local database
+summary.txt
+  tab-delimited with header
+  summarizes alignment results per-species
+log.txt
+  log file containing parameters used
+temp
+  directory of intermediate files
+  run with `--remove_temp` to remove these files
+
+Output formats
+############
+output/{SPECIES_ID}.genes.gz
+  gene_id: id of non-redundant gene used for read mapping; 'peg' and 'rna' indicate coding & RNA genes respectively
+  coverage: average read-depth of gene_id (# aligned bp / gene length in bp)
+  copy_number: estimated copy-number of gene_id (coverage of gene_id / median coverage of 15 universal single copy genes)
+
+summary.txt
+  species_id: species id
+  pangenome_size: number of non-redundant genes in reference pan-genome
+  covered_genes: number of genes with at least 1 mapped read
+  fraction_covered: proportion of genes with at least 1 mapped read
+  mean_coverage: average read-depth across genes with at least 1 mapped read
+  marker_coverage: median read-depth across 15 universal single copy genes
+
+**Additional information for each species can be found in the reference database:
+ %s/pan_genomes
+""" % args['db'])
+	elif program == 'snps':
+		outfile.write("""
+Description of output files and file formats from 'run_midas.py snps'
+
+Output files
+############
+output
+  directory of per-species output files
+  files are tab-delimited, gzip-compressed, with header
+  naming convention of each file is: {SPECIES_ID}.snps.gz
+species.txt
+  list of species_ids included in local database
+summary.txt
+  tab-delimited with header
+  summarizes alignment results per-species
+log.txt
+  log file containing parameters used
+temp
+  directory of intermediate files
+  run with `--remove_temp` to remove these files
+
+Output formats
+############
+output/{SPECIES_ID}.snps.gz
+  ref_id: id of reference scaffold/contig/genome
+  ref_pos: position in ref_id (1-indexed)
+  ref_allele: reference nucleotide
+  alt_allele: alternate nucleotide (NA if no alternates observed)
+  ref_freq: frequency of reference allele (count ref_allele/depth)
+  depth: number of mapped reads
+  count_atcg: counts of all 4 nucleotides (A, T, C, G)
+
+summary.txt
+  species_id: species id
+  genome_length: number of base pairs in representative genome
+  covered_bases: number of reference sites with at least 1 mapped read
+  fraction_covered: proportion of reference sites with at least 1 mapped read
+  mean_coverage: average read-depth across reference sites with at least 1 mapped read
+  
+Additional information for each species can be found in the reference database:
+ %s/rep_genomes
+""" % args['db'])
+	outfile.close()
+
 if __name__ == '__main__':
 
 	program = get_program()
@@ -574,3 +686,4 @@ if __name__ == '__main__':
 	utility.print_copyright(args['log'])
 	print_arguments(program, args)
 	run_program(program, args)
+	write_readme(program, args)
