@@ -24,11 +24,11 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
  * [Merge species abundance] (docs/merge_species.md)  
  * [Merge gene content] (docs/merge_cnvs.md)
  * [Merge SNPs] (docs/merge_snvs.md)
-7. Scripts for analyzing gene content and SNPs:
+7. Example scripts for analyzing gene content and SNPs:
  * [Strain tracking] (docs/strain_tracking.md)  
  * [Population diversity] (docs/snp_diversity.md)  
- * [Core-genome phylogenetic trees] (docs/snp_trees.md) 
- * Gene content dynamics (coming soon)
+ * [Core-genome phylogenetic trees] (docs/snp_trees.md)   
+ * [Gene content dynamics] (docs/compare_genes.md)
 
 
 ## Citation
