@@ -175,9 +175,6 @@ if __name__ == '__main__':
 					args['max_samples'],
 					args['keep_samples'],
 					args['exclude_samples'])
-	if len(samples) == 0:
-		sys.exit("\nError: no samples satisfied your selection criteria.\nTry running again with more lenient parameters\n")
-	
 	init_sequences(samples)
 	
 	# loop over genomic sites

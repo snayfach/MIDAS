@@ -129,7 +129,7 @@ class GenomicSite:
 		else:
 			return np.mean([s.ref_freq for s in self.samples.values() if s.keep])
 
-def fetch_samples(species, mean_depth, fract_cov, max_samples, keep_samples=None, exclude_samples=None):
+def fetch_samples(species, mean_depth=0, fract_cov=0, max_samples=float('inf'), keep_samples=None, exclude_samples=None):
 	""" List and select samples from input """
 	samples = {}
 	for info in species.files['summary']:
@@ -146,6 +146,8 @@ def fetch_samples(species, mean_depth, fract_cov, max_samples, keep_samples=None
 			continue
 		# store sample
 		samples[sample.id] = sample
+	if len(samples) == 0:
+		sys.exit("\nError: no samples satisfied your selection criteria.\nTry running again with more lenient parameters\n")
 	return samples
 
 

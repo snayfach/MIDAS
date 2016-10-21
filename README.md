@@ -27,12 +27,14 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
 7. Scripts for analyzing gene content and SNPs:
  * [Strain tracking] (docs/strain_tracking.md)  
  * [Population diversity] (docs/snp_diversity.md)  
+ * [Core-genome phylogenetic trees] (docs/snp_trees.md) 
  * Gene content dynamics (coming soon)
 
 
 ## Citation
 If you use this tool, please cite:
-S Nayfach, B Rodriguez-Mueller, N Garud, and KS Pollard. "An integrated metagenomics pipeline for strain profiling reveals novel patterns of transmission and global biogeography of bacteria". bioRxiv 2016.
+S Nayfach, B Rodriguez-Mueller, N Garud, and KS Pollard. "An integrated metagenomics pipeline for strain profiling reveals novel patterns of transmission and global biogeography of bacteria". Genome Research 2016. doi:
+10.1101/gr.201863.115
 
 ## Pipeline
 <img src="images/pipeline.jpg" width="600" align="middle"/>   
