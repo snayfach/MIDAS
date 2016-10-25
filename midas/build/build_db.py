@@ -4,7 +4,7 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import os, subprocess, sys, shutil
+import os, subprocess, sys, shutil, gzip
 from midas import utility
 import Bio.SeqIO
 
