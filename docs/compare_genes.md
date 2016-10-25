@@ -48,9 +48,9 @@ gene_sharing.py --indir <PATH> --out <PATH> [options]
 ####Output format:  
   sample1: first sample identifier  
   sample2: second sample identifier  
-  count1: number of present genes in sample1 (see --cutoff)  
-  count2: number of present genes in sample2 (see --cutoff)  
-  count_either: number of present genes in sample2 (see --cutoff)  
-  count_both: number of present genes in sample2 (see --cutoff)  
-  distance: dissimilarity between gene sets (see --cutoff)  
+  count1: number of present genes in sample1
+  count2: number of present genes in sample2  
+  count_either: number of genes in sample1 or sample2  
+  count_both: number of genes in sample1 and sample2  
+  distance: dissimilarity between gene sets 
 

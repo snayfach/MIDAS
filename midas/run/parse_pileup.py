@@ -2,57 +2,73 @@
 
 # Parses pileup base string and returns the counts for all possible alleles
 
-def parse_pileup(ref_allele, pileup):
-	counts = {'A':0,'G':0,'C':0,'T':0,'-':[],'+':[]}
-	pileup = pileup.upper()
-	pileup = pileup.replace('$', '')
-	pileup = pileup.replace('*', '')
-	while pileup != '':
-		if pileup[0] == '^':
-			# skip two characters when encountering '^' as it indicates
-			# a read start mark and the read mapping quality
-			pileup = pileup[2:]
-		elif pileup[0] in ['+', '-']:
-			# skip indels
-			pileup = pileup[2+int(pileup[1]):]
-		elif pileup[0] in ['.', ',']:
-			# reference base
-			counts[ref_allele] += 1
-			pileup = pileup[1:]
-		else:
-			# non-reference base
-			counts[pileup[0]] += 1
-			pileup = pileup[1:]
-	return counts
+import csv, gzip
 
-def define_alt(ref_allele, counts):
-	alt_allele = 'NA'
-	alt_count = 0
-	for allele in list('ATCG'):
-		if allele == ref_allele:
+class Pileup:
+	def __init__(self, row):
+		self.ref_id = row[0]
+		self.ref_pos = int(row[1])
+		self.ref_allele = row[2].upper()
+		self.pileup = row[4]
+		self.compute_counts()
+		self.ref_count = self.counts[self.ref_allele]
+		self.ref_freq = self.ref_count/float(self.depth) if self.depth > 0 else 0.0
+		self.define_alt_allele()
+
+	def compute_counts(self):
+		""" get counts of 4 alleles """
+		# For format specs, see: http://www.htslib.org/doc/samtools.html
+		self.depth = 0 # count A,T,C,G,N
+		self.index = 0 # pointer to current position in pileup string
+		self.length = len(self.pileup)
+		self.counts = {'A':0,'G':0,'C':0,'T':0,'N':0}
+		while self.index < self.length:
+			if self.pileup[self.index] in ['$', '*']:
+				# $ denotes end of read segment, * denotes deletion
+				self.index += 1
+			elif self.pileup[self.index] == '^':
+				# skip two characters when encountering '^' as it indicates
+				#   a read start mark and the read mapping quality
+				self.index += 2
+			elif self.pileup[self.index] in ['+', '-']:
+				# skip indels
+				self.index += ( 2 + int(self.pileup[self.index+1]) )
+			elif self.pileup[self.index] in ['.', ',']:
+				# reference base
+				self.counts[self.ref_allele] += 1
+				self.depth += 1
+				self.index += 1
+			else:
+				# non-reference base
+				self.counts[self.pileup[self.index].upper()] += 1
+				self.depth += 1
+				self.index += 1
+
+	def define_alt_allele(self):
+		""" determine alternate allele """
+		self.alt_allele = 'NA'
+		self.alt_count = 0
+		for allele in list('ATCG'):
+			if allele == self.ref_allele:
+				continue
+			if self.counts[allele] > self.alt_count:
+				self.alt_allele = allele
+				self.alt_count = self.counts[allele]
+
+	def allele_string(self):
+		""" format allele counts """
+		return ','.join([str(self.counts[_]) for _ in list('ATCG')])
+
+def main(pileup_path):
+	pileup_file = gzip.open(pileup_path)
+	fnames =['ref_id', 'ref_pos', 'ref_allele', 'depth', 'pileup', 'qualities']
+	pileup_reader = csv.reader(pileup_file, delimiter='\t')
+	for row in pileup_reader:
+		if row[2].upper() not in ['A','T','C','G']:
 			continue
-		if counts[allele] > alt_count:
-			alt_allele = allele
-			alt_count = counts[allele]
-	return alt_allele
-
-def count_alleles(counts):
-	return ','.join([str(counts[_]) for _ in list('ATCG')])
-
-def ref_freq(ref_allele, counts, depth):
-	return counts[ref_allele]/float(depth) if depth > 0 else 0.0
-
-def main(infile):
-	for line in infile:
-		v = line.strip('\n').split('\t')
-		r = {'ref_id':v[0], 'ref_pos':v[1], 'ref_allele':v[2].upper(), 'depth':int(v[3]), 'pileup':v[4]}
-		if r['ref_allele'] not in ['A','T','C','G']: continue
-		r['counts'] = parse_pileup(r['ref_allele'], r['pileup'])
-		r['count_atcg'] = count_alleles(r['counts'])
-		r['ref_freq'] = ref_freq(r['ref_allele'], r['counts'], r['depth'])
-		r['alt_allele'] = define_alt(r['ref_allele'], r['counts'])
-		yield r
-	infile.close()
+		else:
+			yield Pileup(row)
+	pileup_file.close()
 
 if __name__ == '__main__':
     main(inpath)

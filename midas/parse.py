@@ -69,9 +69,7 @@ class GenomicSite:
 	def site_id(self):
 		""" parse info from site_id """
 		self.id = self.info['site_id']
-		self.ref_id = self.id.rsplit('|')[0]
-		self.ref_pos = int(self.id.split('|')[1])
-		self.ref_allele = self.id.split('|')[2]
+		self.ref_id, self.ref_pos, self.ref_allele = self.id.rsplit('|',2)
 		
 	def fetch_row(self, species):
 		""" fetch next row from matrices """

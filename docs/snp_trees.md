@@ -8,7 +8,7 @@ Before running these scripts, you'll need to have run `merge_midas.py snps` [rea
 
 ### Step 1. Call consensus alleles
 
-Command usage:  
+####Command usage:  
 
 ``` 
 call_consensus.py --indir <PATH> --out <PATH> [options]
@@ -18,7 +18,7 @@ call_consensus.py --indir <PATH> --out <PATH> [options]
   --out PATH            path to output file
 ```
 
-Options for selecting samples:
+####Options for selecting samples:
 
 ```
   --sample_depth FLOAT  minimum average read depth per sample (0.0)  
@@ -32,7 +32,7 @@ Options for selecting samples:
                         samples will still be subject to other filters  
 ```
 
-Options for selecting genomic sites:
+####Options for selecting genomic sites:
 
 ```
   --site_depth INT      minimum number of mapped reads per site (2)
@@ -49,8 +49,10 @@ Options for selecting genomic sites:
                         useful for quick tests
 ```
 
-Example command:  
-`call_consensus.py --indir /path/to/snps --out consensus.fa --site_maf 0.01 --site_depth 5 --site_prev 0.90 --sample_depth 10 --sample_cov 0.40 --site_ratio 5.0`
+####Example command:  
+```
+call_consensus.py --indir /path/to/snps --out consensus.fa --site_maf 0.01 --site_depth 5 --site_prev 0.90 --sample_depth 10 --sample_cov 0.40 --site_ratio 
+```
 
 This command will build a multi-FASTA of core-genome sequences   
 -core-genome sites defined as >=5 reads in >=90% of samples  
@@ -63,7 +65,7 @@ This command will build a multi-FASTA of core-genome sequences
 ### Step 2. Build phylogenetic tree
 Now simply use your favorite tool to build the phylogenetic tree.
 
-Example:
+Example:  
 Download FastTree [here] (http://www.microbesonline.org/fasttree)  
 And, run: `FastTree -gtr -nt < consensus.fa > consensus.tree `
 
