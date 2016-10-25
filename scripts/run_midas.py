@@ -140,17 +140,20 @@ By default, the MIDAS_DB environmental variable is used""")
 def print_species_arguments(args):
 	lines = []
 	lines.append("===========Parameters===========")
+	lines.append("Command: %s" % ' '.join(sys.argv))
 	lines.append("Script: run_midas.py species")
+	lines.append("Database: %s" % args['db'])
 	lines.append("Output directory: %s" % args['outdir'])
 	lines.append("Input reads (1st mate): %s" % args['m1'])
 	lines.append("Input reads (2nd mate): %s" % args['m2'])
 	lines.append("Remove temporary files: %s" % args['remove_temp'])
 	lines.append("Word size for database search: %s" % args['word_size'])
 	if args['mapid']: lines.append("Minimum mapping identity: %s" % args['mapid'])
-	lines.append("Minimum alignment coverage: %s" % args['aln_cov'])
+	lines.append("Minimum mapping alignment coverage: %s" % args['aln_cov'])
 	lines.append("Number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
 	if args['read_length']: lines.append("Trim reads to %s-bp and discard reads with length < %s-bp" % (args['read_length'], args['read_length']))
 	lines.append("Number of threads for database search: %s" % args['threads'])
+	lines.append("================================")
 	args['log'].write('\n'.join(lines)+'\n')
 	sys.stdout.write('\n'.join(lines)+'\n')
 
@@ -267,7 +270,9 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 def print_gene_arguments(args):
 	lines = []
 	lines.append("===========Parameters===========")
+	lines.append("Command: %s" % ' '.join(sys.argv))
 	lines.append("Script: run_midas.py genes")
+	lines.append("Database: %s" % args['db'])
 	lines.append("Output directory: %s" % args['outdir'])
 	lines.append("Remove temporary files: %s" % args['remove_temp'])
 	lines.append("Pipeline options:")
@@ -299,6 +304,7 @@ def print_gene_arguments(args):
 		lines.append("  minimum read quality score: %s" % args['readq'])
 		lines.append("  minimum mapping quality score: %s" % args['mapq'])
 		lines.append("  trim %s base-pairs from read-tails" % args['trim'])
+	lines.append("================================")
 	args['log'].write('\n'.join(lines)+'\n')
 	sys.stdout.write('\n'.join(lines)+'\n')
 
@@ -385,7 +391,9 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 def print_snp_arguments(args):
 	lines = []
 	lines.append("===========Parameters===========")
+	lines.append("Command: %s" % ' '.join(sys.argv))
 	lines.append("Script: run_midas.py snps")
+	lines.append("Database: %s" % args['db'])
 	lines.append("Output directory: %s" % args['outdir'])
 	lines.append("Remove temporary files: %s" % args['remove_temp'])
 	lines.append("Pipeline options:")
@@ -420,6 +428,7 @@ def print_snp_arguments(args):
 		if args['discard']: lines.append("  discard discordant read-pairs")
 		if args['baq']: lines.append("  enable BAQ (per-base alignment quality)")
 		if args['adjust_mq']: lines.append("  adjust MAPQ")
+	lines.append("================================")
 	args['log'].write('\n'.join(lines)+'\n')
 	sys.stdout.write('\n'.join(lines)+'\n')
 

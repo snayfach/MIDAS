@@ -268,17 +268,22 @@ def print_arguments(program, args):
 
 def print_species_arguments(args):
 	print ("===========Parameters===========")
+	print ("Command: %s" % ' '.join(sys.argv))
 	print ("Script: merge_midas.py species")
+	print ("Database: %s" % args['db'])
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
 	print ("Minimum coverage for estimating prevalence: %s" % args['min_cov'])
 	if args['max_samples']: print ("Keep <= %s samples" % args['max_samples'])
+	print ("===============================")
 	print ("")
 
 def print_genes_arguments(args):
 	print ("===========Parameters===========")
+	print ("Command: %s" % ' '.join(sys.argv))
 	print ("Script: merge_midas.py genes")
+	print ("Database: %s" % args['db'])
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
@@ -292,11 +297,14 @@ def print_genes_arguments(args):
 	print ("Gene quantification criterea:")
 	print ("  present (1): genes with copy number >= %s" % args['min_copy'])
 	print ("  absent (0): genes with copy number < %s" % args['min_copy'])
+	print ("===============================")
 	print ("")
 
 def print_snps_arguments(args):
 	print ("===========Parameters===========")
+	print ("Command: %s" % ' '.join(sys.argv))
 	print ("Script: merge_midas.py snps")
+	print ("Database: %s" % args['db'])
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
@@ -312,6 +320,7 @@ def print_snps_arguments(args):
 	print ("  keep sites covered by >= %s reads across >= %s percent of samples" % (args['site_depth'], 100*args['site_prev']))
 	if args['max_sites'] != float('Inf'): print ("  keep <= %s sites" % (args['max_sites']))
 	print ("Number of CPUs to use: %s" % args['threads'])
+	print ("===============================")
 	print ("")
 
 def run_program(program, args):

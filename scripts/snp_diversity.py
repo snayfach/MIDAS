@@ -110,6 +110,7 @@ def format_site_type(args):
 def print_args(args):
 	lines = []
 	lines.append("===========Parameters===========")
+	lines.append("Command: %s" % ' '.join(sys.argv))
 	lines.append("Script: snp_diversity.py")
 	lines.append("Input directory: %s" % args['indir'])
 	lines.append("Output file: %s" % args['out'])
@@ -135,6 +136,7 @@ def print_args(args):
 	lines.append("  site_ratio: %s" % args['site_ratio'])
 	lines.append("  site_freq: %s" % args['site_freq'])
 	lines.append("  max_sites: %s" % args['max_sites'])
+	print ("===============================")
 	sys.stdout.write('\n'.join(lines)+'\n')
 
 def check_args(args):

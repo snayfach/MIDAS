@@ -77,7 +77,6 @@ def check_args(args):
 
 
 if __name__ == "__main__":
-
 	args = fetch_arguments()
 	utility.add_executables(args)
 	check_args(args)
