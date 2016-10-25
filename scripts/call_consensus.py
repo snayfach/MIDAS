@@ -100,6 +100,7 @@ def print_args(args):
 	lines.append("  site_maf: %s" % args['site_maf'])
 	lines.append("  site_ratio: %s" % args['site_ratio'])
 	lines.append("  max_sites: %s" % args['max_sites'])
+	lines.append("================================")
 	sys.stdout.write('\n'.join(lines)+'\n')
 
 def check_args(args):
