@@ -161,7 +161,7 @@ def build_marker_db(args, genomes, species):
 	command = "%s index %s/marker_genes/phyeco.fa " % (args['hs-blastn'], args['outdir'])
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
-	print("4. Copying mapping cutoffs file")
+	print("4. Writing mapping cutoffs file")
 	build_mapping_cutoffs(args)
 
 def build_mapping_cutoffs(args):

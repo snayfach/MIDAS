@@ -16,7 +16,7 @@ def fetch_arguments():
 		description="""
 Description:
 This script will allow you to build your own custom MIDAS database
-Usage: build_midas_db.py [options]
+Usage: build_midas_db.py indir mapfile outdir [options]
 """)
 	parser.add_argument('indir', type=str,
 		help="""Path to directory of input genomes
@@ -64,15 +64,14 @@ def check_args(args):
 	if not os.path.isdir(args['outdir']):
 		os.mkdir(args['outdir'])
 	if not os.path.isdir(args['indir']):
-		sys.exit("\nError: could not locate directory specified by --genomes: %s" % args['indir'])
+		sys.exit("\nError: could not locate directory specified by --genomes: %s\n" % args['indir'])
 	if not os.path.isfile(args['mapfile']):
-		sys.exit("\nError: could not locate file specified by --mapping: %s" % args['mapfile'])
+		sys.exit("\nError: could not locate file specified by --mapping: %s\n" % args['mapfile'])
 
 	for program in ['hmmsearch', 'usearch']:
 		if not utility.which(program):
-			error = ""
-			error += "\nError: program '%s' not found in your PATH" % program
-			error += "\nMake sure that you've installed the program and added it's location to your PATH"
+			error = "\nError: program '%s' not found in your PATH" % program
+			error += "\nMake sure that you've installed the program and added it's location to your PATH\n"
 			sys.exit(error)
 
 

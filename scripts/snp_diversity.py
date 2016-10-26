@@ -141,31 +141,31 @@ def print_args(args):
 
 def check_args(args):
 	if not os.path.isdir(args['indir']):
-		sys.exit("Specified input directory '%s' does not exist" % args['indir'])
+		sys.exit("\nError: Specified input directory '%s' does not exist\n" % args['indir'])
 	if args['site_depth'] < 2:
-		sys.exit("\nError: --site_depth must be >=2 to calculate nucleotide variation")
+		sys.exit("\nError: --site_depth must be >=2 to calculate nucleotide variation\n")
 	if args['max_sites'] < 1:
-		sys.exit("\nError: --max_sites must be >= 1 to calculate nucleotide variation")
+		sys.exit("\nError: --max_sites must be >= 1 to calculate nucleotide variation\n")
 	if args['max_samples'] < 1:
-		sys.exit("\nError: --max_samples must be >= 1 to calculate nucleotide variation")
+		sys.exit("\nError: --max_samples must be >= 1 to calculate nucleotide variation\n")
 	if args['site_ratio'] < 0:
-		sys.exit("\nError: --site_ratio cannot be a negative number")
+		sys.exit("\nError: --site_ratio cannot be a negative number\n")
 	if args['site_depth'] < 0:
-		sys.exit("\nError: --site_depth cannot be a negative number")
+		sys.exit("\nError: --site_depth cannot be a negative number\n")
 	if args['sample_depth'] < 0:
-		sys.exit("\nError: --sample_depth cannot be a negative number")
+		sys.exit("\nError: --sample_depth cannot be a negative number\n")
 	if not 0 <= args['site_maf'] <= 1:
-		sys.exit("\nError: --site_maf must be between 0 and 1")
+		sys.exit("\nError: --site_maf must be between 0 and 1\n")
 	if not 0 <= args['site_prev'] <= 1:
-		sys.exit("\nError: --site_prev must be between 0 and 1")
+		sys.exit("\nError: --site_prev must be between 0 and 1\n")
 	if not 0 <= args['fract_cov'] <= 1:
-		sys.exit("\nError: --fract_cov must be between 0 and 1")
+		sys.exit("\nError: --fract_cov must be between 0 and 1\n")
 	if args['rand_reads'] > args['site_depth'] and not args['replace_reads']:
-		sys.exit("\nError: --rand_reads cannot exceed --site_depth when --replace_reads=False")
+		sys.exit("\nError: --rand_reads cannot exceed --site_depth when --replace_reads=False\n")
 	if args['rand_sites'] and (args['rand_sites'] < 0 or args['rand_sites'] > 1):
-		sys.exit("\nError: --rand_sites must be between 0 and 1")
+		sys.exit("\nError: --rand_sites must be between 0 and 1\n")
 	if 'NC' in args['site_type'] and args['genomic_type'] == 'per-gene':
-		sys.exit("\nError: --site_type cannot be NC if --genomic_type is per-gene")
+		sys.exit("\nError: --site_type cannot be NC if --genomic_type is per-gene\n")
 	# set min # of rand reads
 
 class Diversity:
@@ -297,7 +297,7 @@ def resample_samples(samples):
 	""" Random select high quality samples, set pass_qc=False for others """
 	hq_indexes = [index for index, sample in enumerate(samples) if sample.pass_qc]
 	if args['rand_samples'] > len(hq_indexes):
-		sys.exit("\nError: --rand_samples cannot exceed the number of high-quality samples")
+		sys.exit("\nError: --rand_samples cannot exceed the number of high-quality samples\n")
 	else:
 		hq_indexes = np.random.choice(hq_indexes, args['rand_samples'], replace=False)
 		for index, sample in enumerate(samples):

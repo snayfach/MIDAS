@@ -21,7 +21,7 @@ def get_program():
 		print('\tsnps\t identify single nucleotide variants in abundant species')
 		quit()
 	elif sys.argv[1] not in ['species', 'genes', 'snps']:
-		sys.exit("Error: Unrecognized command: '%s'" % sys.argv[1])
+		sys.exit("\nError: Unrecognized command: '%s'\n" % sys.argv[1])
 		quit()
 	else:
 		return sys.argv[1]
@@ -40,7 +40,7 @@ def get_arguments(program):
 	elif program == 'snps':
 		args = snp_arguments()
 	else:
-		sys.exit("Error: Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 	utility.add_executables(args)
 	return args
 
@@ -53,9 +53,9 @@ def check_arguments(program, args):
 	elif program == 'snps':
 		check_snps(args)
 	else:
-		sys.exit("Error: Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 	if platform.system() not in ['Linux', 'Darwin']:
-		sys.exit("Error: Operating system '%s' not supported" % system())
+		sys.exit("\nError: Operating system '%s' not supported\n" % system())
 
 def print_arguments(program, args):
 	""" Run program specified by user (species, genes, or snps) """
@@ -66,7 +66,7 @@ def print_arguments(program, args):
 	elif program == 'snps':
 		print_snp_arguments(args)
 	else:
-		sys.exit("Error: Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 	
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
@@ -80,7 +80,7 @@ def run_program(program, args):
 		from midas.run import snps
 		snps.run_pipeline(args)
 	else:
-		sys.exit("Error: Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 
 def species_arguments():
 	parser = argparse.ArgumentParser(
@@ -167,17 +167,17 @@ def check_species(args):
 		os.makedirs('%s/species' % args['outdir'])
 	# check word size
 	if args['word_size'] < 12:
-		sys.exit("\nError: Invalid word size: %s. Must be greater than or equal to 12" % args['word_size'])
+		sys.exit("\nError: Invalid word size: %s. Must be greater than or equal to 12\n" % args['word_size'])
 	# check mapping identity
 	if args['mapid'] and (args['mapid'] < 0 or args['mapid'] > 100):
-		sys.exit("\nError: Invalid mapping identity: %s. Must be between 0 and 100" % args['mapid'])
+		sys.exit("\nError: Invalid mapping identity: %s. Must be between 0 and 100\n" % args['mapid'])
 	# check alignment coverage
 	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
-		sys.exit("\nError: Invalid alignment coverage: %s. Must be between 0 and 1" % args['aln_cov'])
+		sys.exit("\nError: Invalid alignment coverage: %s. Must be between 0 and 1\n" % args['aln_cov'])
 	# check that m1 (and m2) exist
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nError: Input file does not exist: '%s'" % args[arg])
+			sys.exit("\nError: Input file does not exist: '%s'\n" % args[arg])
 	# check that extention matches compression
 	if args['m1']: utility.check_compression(args['m1'])
 	if args['m2']: utility.check_compression(args['m2'])
@@ -442,7 +442,7 @@ def check_selected_species(args):
 				path = '%s/rep_genomes/%s' % (args['db'], species_id)
 				error = "\nError: Could not locate species representative genome: %s\n" % path
 			if not os.path.isdir(path):
-				 sys.exit(error)
+				sys.exit(error)
 
 def check_genes(args):
 	""" Check validity of command line arguments """
@@ -469,39 +469,39 @@ def check_genes(args):
 		if (args['species_topn'] or args['species_cov']) and args['build_db']:
 			sys.exit("\nError: Could not find species abundance profile: %s\n\
 To specify species with --species_topn or --species_cov you must have run: run_midas.py species\n\
-Alternatively, you can manually specify one or more species using --species_id" % profile)
+Alternatively, you can manually specify one or more species using --species_id\n" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
 		and not os.path.isfile('%s/genes/temp/pangenomes.fa' % args['outdir'])):
 		error = "\nError: You've specified --align, but no database has been built"
-		error += "\nTry running with --build_db"
+		error += "\nTry running with --build_db\n"
 		sys.exit(error)
 	# no bamfile but --cov specified
 	if (args['cov']
 		and not args['align']
 		and not os.path.isfile('%s/genes/temp/pangenome.bam' % args['outdir'])):
 		error = "\nError: You've specified --call_genes, but no alignments were found"
-		error += "\nTry running with --align"
+		error += "\nTry running with --align\n"
 		sys.exit(error)
 	# no reads
 	if args['align'] and not args['m1']:
-		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ")
+		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ\n")
 	# check input file paths
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nError: Input file does not exist: '%s'" % args[arg])
+			sys.exit("\nError: Input file does not exist: '%s'\n" % args[arg])
 	# check compression
 	if args['m1']: utility.check_compression(args['m1'])
 	if args['m2']: utility.check_compression(args['m2'])
 	# input options
 	if args['m2'] and not args['m1']:
-		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads")
+		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads\n")
 	# sanity check input values
 	if args['mapid'] < 1 or args['mapid'] > 100:
-		sys.exit("\nError: MAPID must be between 1 and 100")
+		sys.exit("\nError: MAPID must be between 1 and 100\n")
 	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
-		sys.exit("\nError: ALN_COV must be between 0 and 1")
+		sys.exit("\nError: ALN_COV must be between 0 and 1\n")
 
 def check_snps(args):
 	""" Check validity of command line arguments """
@@ -528,13 +528,13 @@ def check_snps(args):
 		if (args['species_topn'] or args['species_cov']) and args['build_db']:
 			sys.exit("\nError: Could not find species abundance profile: %s\n\
 To specify species with --species_topn or --species_cov you must have run: run_midas.py species\n\
-Alternatively, you can manually specify one or more species using --species_id" % profile)
+Alternatively, you can manually specify one or more species using --species_id\n" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
 		and not os.path.isfile('%s/snps/temp/genomes.fa' % args['outdir'])):
 		error = "\nError: You've specified --align, but no database has been built"
-		error += "\nTry running with --build_db"
+		error += "\nTry running with --build_db\n"
 		sys.exit(error)
 	# no bamfile but --call specified
 	if (args['call']
@@ -542,7 +542,7 @@ Alternatively, you can manually specify one or more species using --species_id" 
 		and not os.path.isfile('%s/snps/temp/genomes.bam' % args['outdir'])
 		):
 		error = "\nError: You've specified --call_snps, but no alignments were found"
-		error += "\nTry running with --align"
+		error += "\nTry running with --align\n"
 		sys.exit(error)
 	# no genomes but --call specified
 	if (args['call']
@@ -550,28 +550,28 @@ Alternatively, you can manually specify one or more species using --species_id" 
 		and not os.path.isfile('%s/snps/temp/genomes.fa' % args['outdir'])
 		):
 		error = "\nError: You've specified --call_snps, but the no genome database was found"
-		error += "\nTry running with --build_db"
+		error += "\nTry running with --build_db\n"
 		sys.exit(error)
 	# no reads
 	if args['align'] and not args['m1']:
-		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ")
+		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ\n")
 	# check input file paths
 	for arg in ['m1', 'm2']:
 		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nError: Input file does not exist: '%s'" % args[arg])
+			sys.exit("\nError: Input file does not exist: '%s'\n" % args[arg])
 	# check compression
 	if args['m1']: utility.check_compression(args['m1'])
 	if args['m2']: utility.check_compression(args['m2'])
 	# input options
 	if args['m2'] and not args['m1']:
-		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads")
+		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads\n")
 	# sanity check input values
 	if args['mapid'] < 1 or args['mapid'] > 100:
-		sys.exit("\nError: MAPQ must be between 1 and 100")
+		sys.exit("\nError: MAPQ must be between 1 and 100\n")
 	if args['mapq'] < 0 or args['mapq'] > 100:
-		sys.exit("\nError: MAPQ must be between 0 and 100")
+		sys.exit("\nError: MAPQ must be between 0 and 100\n")
 	if args['baseq'] < 0 or args['baseq'] > 100:
-		sys.exit("\nError: BASEQ must be between 0 and 100")
+		sys.exit("\nError: BASEQ must be between 0 and 100\n")
 
 def write_readme(program, args):
 	outfile = open('%s/%s/README' % (args['outdir'], program), 'w')

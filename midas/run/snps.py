@@ -55,9 +55,9 @@ def genome_align(args):
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	# Check for errors
+	utility.check_exit_code(process, command)
 	print("  finished aligning")
 	print("  checking bamfile integrity")
-	utility.check_exit_code(process, command)
 	utility.check_bamfile(args, bam_path)
 
 def pileup(args):

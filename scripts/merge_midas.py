@@ -21,7 +21,7 @@ def get_program():
 		print('\tsnps\t merge single nucleotide variants of species across samples')
 		quit()
 	elif sys.argv[1] not in ['species', 'genes', 'snps']:
-		sys.exit("Unrecognized command: '%s'" % sys.argv[1])
+		sys.exit("\nError: Unrecognized command: '%s'\n" % sys.argv[1])
 		quit()
 	else:
 		return sys.argv[1]
@@ -35,7 +35,7 @@ def get_arguments(program):
 	elif program == 'snps':
 		args = snps_arguments()
 	else:
-		sys.exit("Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 	return args
 
 def species_arguments():
@@ -229,13 +229,13 @@ def check_arguments(program, args):
 		check_input(args)
 		utility.check_database(args)
 	else:
-		sys.exit("Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 	if platform.system() not in ['Linux', 'Darwin']:
-		sys.exit("Operating system '%s' not supported" % system())
+		sys.exit("\nError: Operating system '%s' not supported\n" % system())
 
 def check_input(args):
 	args['indirs'] = []
-	error = "\nError: specified input %s does not exist: %s"
+	error = "\nError: specified input %s does not exist: %s\n"
 	if args['intype'] == 'dir':
 		if not os.path.isdir(args['input']):
 			sys.exit(error % (args['intype'], os.path.abspath(args['input'])))
@@ -264,7 +264,7 @@ def print_arguments(program, args):
 	elif program == 'snps':
 		print_snps_arguments(args)
 	else:
-		sys.exit("Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 
 def print_species_arguments(args):
 	print ("===========Parameters===========")
@@ -335,7 +335,7 @@ def run_program(program, args):
 		from midas.merge import merge_snps
 		merge_snps.run_pipeline(args)
 	else:
-		sys.exit("Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 
 if __name__ == '__main__':
 	program = get_program()

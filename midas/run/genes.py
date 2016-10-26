@@ -67,8 +67,8 @@ def pangenome_align(args):
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	# Check for errors
-	print("  finished aligning")
 	utility.check_exit_code(process, command)
+	print("  finished aligning")
 	print("  checking bamfile integrity")
 	utility.check_bamfile(args, bampath)
 
