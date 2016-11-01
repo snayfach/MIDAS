@@ -6,7 +6,7 @@
 
 import io, os, stat, sys, resource, gzip, platform, subprocess, bz2
 
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 def which(program):
 	""" Mimics unix 'which' function """
