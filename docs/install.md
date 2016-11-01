@@ -20,7 +20,7 @@ Or, download the latest source code:
 https://github.com/snayfach/MIDAS/archive/master.zip  
 And unpack the project: `unzip MIDAS-master.zip`  
 
-Or, download a stable releases of the source code:  
+Or, download a stable release of the source code:
 [https://github.com/snayfach/MIDAS/releases] (https://github.com/snayfach/MIDAS/releases)  
 
 ### Install dependencies
