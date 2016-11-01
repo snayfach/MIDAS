@@ -4,7 +4,7 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import sys, os, subprocess
+import sys, os, subprocess, Bio.SeqIO
 from time import time
 from midas import utility
 from operator import itemgetter
@@ -17,10 +17,13 @@ def read_annotations(args):
 	return info
 
 def read_marker_info(args):
+	""" Read info for marker genes from phyeco.fa """
 	info = {}
-	inpath = '%s/marker_genes/phyeco.map' % args['db']
-	for r in utility.parse_file(inpath):
-		info[r['gene_id']] = r
+	for seq in Bio.SeqIO.parse('%s/marker_genes/phyeco.fa' % args['db'], 'fasta'):
+		info[seq.id] = None
+	for r in utility.parse_file('%s/marker_genes/phyeco.map' % args['db']):
+		if r['gene_id'] in info:
+			info[r['gene_id']] = r
 	return info
 
 def map_reads_hsblast(args):
