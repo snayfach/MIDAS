@@ -15,17 +15,12 @@ class GenomicSite:
 			self.id, self.depth = next(files['depth'])
 			self.id, self.alt_allele = next(files['alt_allele'])
 			self.info = next(info) if info else None
-			self.ref_id, self.ref_pos, self.ref_allele = self.parse_id()
+			self.ref_id, self.ref_pos, self.ref_allele = self.id.rsplit('|', 2)
+			self.ref_pos = int(self.ref_pos)
 			self.samples = samples
 			
 		except StopIteration:
 			self.id = None
-
-	def parse_id(self):
-		ref_id = self.id.rsplit('|')[0]
-		ref_pos = int(self.id.split('|')[1])
-		ref_allele = self.id.split('|')[2]
-		return ref_id, ref_pos, ref_allele
 
 	def sample_values(self): # return a dic mapping sample id to site values
 		d = {}

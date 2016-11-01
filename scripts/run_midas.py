@@ -148,10 +148,12 @@ def print_species_arguments(args):
 	lines.append("Input reads (2nd mate): %s" % args['m2'])
 	lines.append("Remove temporary files: %s" % args['remove_temp'])
 	lines.append("Word size for database search: %s" % args['word_size'])
-	if args['mapid']: lines.append("Minimum mapping identity: %s" % args['mapid'])
+	if args['mapid']:
+		lines.append("Minimum mapping identity: %s" % args['mapid'])
 	lines.append("Minimum mapping alignment coverage: %s" % args['aln_cov'])
 	lines.append("Number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
-	if args['read_length']: lines.append("Trim reads to %s-bp and discard reads with length < %s-bp" % (args['read_length'], args['read_length']))
+	if args['read_length']:
+		lines.append("Trim reads from 3'/right end to %s-bp and discard reads with length < %s-bp" % (args['read_length'], args['read_length']))
 	lines.append("Number of threads for database search: %s" % args['threads'])
 	lines.append("================================")
 	args['log'].write('\n'.join(lines)+'\n')
@@ -258,11 +260,11 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 	map.add_argument('--mapid', type=float, metavar='FLOAT',
 		default=94.0, help='Discard reads with alignment identity < MAPID (94.0)')
 	map.add_argument('--mapq', type=int, metavar='INT',
-		default=20, help='Discard reads with mapping quality < MAPQ (10)')
+		default=0, help=argparse.SUPPRESS) # help='Discard reads with mapping quality < MAPQ (0)'
 	map.add_argument('--aln_cov', type=float, metavar='FLOAT',
 		default=0.75, help='Discard reads with alignment coverage < ALN_COV (0.75)')
 	map.add_argument('--trim', type=int, default=0, metavar='INT',
-		help='Trim N base-pairs from read-tails (0)')
+		help='Trim N base-pairs from 3\'/right end of read (0)')
 	args = vars(parser.parse_args())
 	if args['species_id']: args['species_id'] = args['species_id'].split(',')
 	return args
@@ -303,7 +305,7 @@ def print_gene_arguments(args):
 		lines.append("  minimum alignment coverage of reads: %s" % args['aln_cov'])
 		lines.append("  minimum read quality score: %s" % args['readq'])
 		lines.append("  minimum mapping quality score: %s" % args['mapq'])
-		lines.append("  trim %s base-pairs from read-tails" % args['trim'])
+		lines.append("  trim %s base-pairs from 3'/right end of read" % args['trim'])
 	lines.append("================================")
 	args['log'].write('\n'.join(lines)+'\n')
 	sys.stdout.write('\n'.join(lines)+'\n')
@@ -377,7 +379,7 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 	snps.add_argument('--readq', type=int, metavar='INT',
 		default=20, help='Discard reads with mean quality < READQ (20)')
 	snps.add_argument('--trim', metavar='INT', type=int, default=0,
-		help='Trim N base-pairs from read-tails (0)')
+		help='Trim N base-pairs from 3\'/right end of read')
 	snps.add_argument('--discard', default=False, action='store_true',
 		help='Discard discordant read-pairs')
 	snps.add_argument('--baq', default=False, action='store_true',
@@ -424,7 +426,7 @@ def print_snp_arguments(args):
 		lines.append("  minimum mapping quality score: %s" % args['mapq'])
 		lines.append("  minimum base quality score: %s" % args['baseq'])
 		lines.append("  minimum read quality score: %s" % args['readq'])
-		lines.append("  trim %s base-pairs from read-tails" % args['trim'])
+		lines.append("  trim %s base-pairs from 3'/right end of read" % args['trim'])
 		if args['discard']: lines.append("  discard discordant read-pairs")
 		if args['baq']: lines.append("  enable BAQ (per-base alignment quality)")
 		if args['adjust_mq']: lines.append("  adjust MAPQ")
@@ -574,7 +576,7 @@ Alternatively, you can manually specify one or more species using --species_id\n
 		sys.exit("\nError: BASEQ must be between 0 and 100\n")
 
 def write_readme(program, args):
-	outfile = open('%s/%s/README' % (args['outdir'], program), 'w')
+	outfile = open('%s/%s/readme.txt' % (args['outdir'], program), 'w')
 	if program == 'species':
 		outfile.write("""
 Description of output files and file formats from 'run_midas.py species'
@@ -599,7 +601,7 @@ species_profile.txt
   coverage: estimated genome-coverage (i.e. read-depth) of species in metagenome
   relative_abundance: estimated relative abundance of species in metagenome
 
-**Additional information for each species can be found in the reference database:
+Additional information for each species can be found in the reference database:
  %s/marker_genes
 """ % args['db'])
 	elif program == 'genes':
@@ -638,7 +640,7 @@ summary.txt
   mean_coverage: average read-depth across genes with at least 1 mapped read
   marker_coverage: median read-depth across 15 universal single copy genes
 
-**Additional information for each species can be found in the reference database:
+Additional information for each species can be found in the reference database:
  %s/pan_genomes
 """ % args['db'])
 	elif program == 'snps':

@@ -134,13 +134,18 @@ By default, the MIDAS_DB environmental variable is used""")
 	species.add_argument('--species_id', dest='species_id', type=str, metavar='CHAR',
 		help="""Comma-separated list of species ids""")
 	species.add_argument('--max_species', type=int, metavar='INT',
-		help="""Maximum number of species to merge. useful for testing (use all)""")
+		help="""Maximum number of species to merge. Useful for testing (use all)""")
 	sample = parser.add_argument_group('Sample filters (select subset of samples from INPUT)')
 	sample.add_argument('--sample_depth', type=float, default=1.0, metavar='FLOAT',
 		help="""Minimum read-depth across all genes with non-zero coverage (1.0)""")
 	sample.add_argument('--max_samples', type=int, metavar='INT',
-		help="""Maximum number of samples to process. useful for testing (use all)""")
-	gene = parser.add_argument_group('Presence/Absence')
+		help="""Maximum number of samples to process. Useful for testing (use all)""")
+	gene = parser.add_argument_group('Quantification')
+	gene.add_argument('--cluster_pid', type=str, dest='cluster_pid', default='95', choices=['75', '80', '85', '90', '95', '99'],
+		help="""In the database, pan-genomes are defined at 6 different %% identity clustering cutoffs
+CLUSTER_PID allows you to quantify gene content for any of these sets of gene clusters
+By default, gene content is reported for genes clustered at 95%% identity (95)
+""")
 	gene.add_argument('--min_copy', type=float, default=0.35, metavar='FLOAT',
 		help="""Genes >= MIN_COPY are classified as present
 Genes < MIN_COPY are classified as absent (0.35)""")
@@ -295,6 +300,7 @@ def print_genes_arguments(args):
 	print ("  keep samples with >=%s mean coverage across genes with non-zero coverage" % args['sample_depth'])
 	if args['max_samples']: print ("  keep <= %s samples" % args['max_samples'])
 	print ("Gene quantification criterea:")
+	print ("  quantify genes clustered at %s%% identity" % args['cluster_pid'])
 	print ("  present (1): genes with copy number >= %s" % args['min_copy'])
 	print ("  absent (0): genes with copy number < %s" % args['min_copy'])
 	print ("===============================")

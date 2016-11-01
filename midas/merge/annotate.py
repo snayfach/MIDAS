@@ -98,7 +98,6 @@ def annotate_site(site, genes, gene_index, contigs):
 	# gene_index: current position in list of genes; global variable
 	site.snp_types = {}
 	site.amino_acids = {}
-	
 	while True:
 		# 1. fetch next gene
 		#    if there are no more genes, snp must be non-coding so break
@@ -120,7 +119,7 @@ def annotate_site(site, genes, gene_index, contigs):
 		# 4. otherwise, snp must be in gene
 		#    annotate site (1D-4D) and snp (SYN, NS)
 		else:
-			site.gene_id = gene['gene_id'].split('|')[-1]
+			site.gene_id = gene['gene_id']
 			site.ref_codon, site.codon_pos = fetch_ref_codon(site, gene)
 			if not all([_ in ['A','T','C','G'] for _ in site.ref_codon]): # check for invalid bases in codon
 				site.site_type = 'NA'; site.gene_id = ''

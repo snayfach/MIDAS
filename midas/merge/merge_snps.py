@@ -160,7 +160,7 @@ def filter_snp_matrix(species_id, samples, args):
 			write_matrices(site, matrices)
 
 def write_readme(args, sp):
-	outfile = open('%s/%s/README' % (args['outdir'], sp.id), 'w')
+	outfile = open('%s/%s/readme.txt' % (args['outdir'], sp.id), 'w')
 	outfile.write("""
 Description of output files and file formats from 'merge_midas.py snps'
 
