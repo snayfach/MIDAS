@@ -17,27 +17,195 @@ class Species:
 class Genome:
 	def __init__(self, id, dir):
 		self.id=id
-		self.dir='%s/%s'%(dir,id)
-		self.files = self.init_files()
+		self.dir='%s/%s' % (dir, id)
+		self.files = {}
+		self.init_files()
+		self.is_rep = None
 
 	def init_files(self):
-		files = {}
 		if not os.path.isdir(self.dir):
 			sys.exit("\nError: genome directory '%s' does not exist" % (self.dir))
-		for type in ['fna', 'ffn', 'features']:
-			for ext in ['', '.gz', '.bz2']:
-				inpath = '%s/%s.%s%s' % (self.dir, self.id, type, ext)
-				if os.path.isfile(inpath):
-					files[type] = inpath
-			if type not in files:
+		for type in ['fna', 'ffn', 'faa', 'features']:
+			inpath = '%s/%s.%s' % (self.dir, self.id, type)
+			if os.path.isfile(inpath):
+				self.files[type] = inpath
+			else:
 				error = ""
-				error += "\nError: could not locate input file '%s/%s.%s(.gz|.bz2)'\n" % (self.dir, self.id, type)
+				error += "\nError: could not locate input file '%s/%s.%s'\n" % (self.dir, self.id, type)
 				error += "\nYour genome should contain the following files:\n"
 				error += "  %s/%s.fna (FASTA of genome sequence)\n" % (self.dir, self.id)
 				error += "  %s/%s.ffn (FASTA of gene sequences)\n" % (self.dir, self.id)
-				error += "  %s/%s.features (Genomic coordinates of genes)" % (self.dir, self.id)
+				error += "  %s/%s.faa (FASTA of protein sequences)\n" % (self.dir, self.id)
+				error += "  %s/%s.features (Genomic coordinates of genes)\n" % (self.dir, self.id)
 				sys.exit(error)
-		return files
+		file = open(self.files['features'])
+		header = next(file).rstrip('\n').split('\t')
+		for field in ['gene_id', 'scaffold_id', 'start', 'end', 'strand', 'gene_type']:
+			if field not in header:
+				sys.exit("\nError: missing required field '%s' in file '%s'\n" % (field, self.files['features']))
+		file.close()
+
+class Gene:
+	def __init__(self, id):
+		""" Instantiate Gene """
+		self.id = id
+		self.genome_id = None
+		self.seq = None
+		self.length = None
+		self.cluster_id = {}
+		self.centroid_id = {}
+
+class Pangenome:
+	def __init__(self, sp, outdir, ext):
+		""" Instantiate Pangenome """
+		self.dir = '%s/pan_genomes/%s' % (outdir, sp.id)
+		self.tmp = '%s/temp' % self.dir
+		self.species = sp
+		self.genomes = sp.genomes.values()
+		self.stats = {}
+		self.stats['genomes'] = len(self.genomes)
+		self.count_genes = 0
+		self.count_genes = 0
+		try: os.makedirs(self.tmp)
+		except: pass
+	
+	def store_genes(self):
+		""" Store genes from all genomes """
+		self.genes = {}
+		self.stats['genes'] = 0
+		for genome in self.genomes:
+			for rec in Bio.SeqIO.parse(genome.files['ffn'], 'fasta'):
+				if str(rec.seq) == '' or str(rec.id) in ['', '|']:
+					continue
+				else:
+					gene = Gene(rec.id)
+					gene.genome_id = genome.id
+					gene.seq = str(rec.seq).upper()
+					gene.length = len(gene.seq)
+					self.genes[gene.id] = gene
+					self.stats['genes'] += 1
+
+	def write_readme(self):
+		""" Concatenate all genes from pangenome into sequence file """
+		file = utility.iopen('%s/readme.txt' % self.dir, 'w')
+		file.write("""
+Description and statistics for pan-genome files
+
+Summary Statistics
+############
+
+Genomes: %(genomes)s
+Genes: %(genes)s
+Gene clusters (99%% identity): %(centroids_99)s
+Gene clusters (95%% identity): %(centroids_95)s
+Gene clusters (90%% identity): %(centroids_90)s
+Gene clusters (85%% identity): %(centroids_85)s
+Gene clusters (80%% identity): %(centroids_80)s
+Gene clusters (75%% identity): %(centroids_75)s
+		
+Output files
+############
+genes.ffn
+  all genes from specified genomes
+  
+centroids.ffn
+  gene sequences from 99%% identity gene clusters
+  used for recruiting metagenomic reads
+  
+gene_info.txt
+  information for all genes from genes.ffn
+  the fields centroid_{99,95,90,95,80,75} indicate mappings between gene_id and gene clusters
+""" % self.stats)
+		file.close()
+
+	def write_genes(self):
+		""" Concatenate all genes from pangenome into sequence file """
+		file = utility.iopen('%s/genes.ffn' % self.dir, 'w')
+		for gene in self.genes.values():
+			file.write('>%s\n%s\n' % (gene.id, gene.seq))
+		file.close()
+
+	def cluster_genes(self, threads):
+		""" Cluster genes at 99% ID; Clustering centroids at lower %ID cutoffs """
+		self.uclust(
+			genes='%s/genes.ffn' % self.dir,
+			pid=0.99,
+			centroids='%s/centroids.99.ffn' % self.tmp,
+			clusters='%s/uclust.99.txt' % self.tmp,
+			threads=threads)
+		self.store_gene_info(pid=99)
+		shutil.copy('%s/centroids.99.ffn' % self.tmp, '%s/centroids.ffn' % self.dir)
+		for pid in [95, 90, 85, 80, 75]:
+			self.uclust(
+				genes='%s/centroids.99.ffn' % self.tmp,
+				pid=pid/100.0,
+				centroids='%s/centroids.%s.ffn' % (self.tmp, pid),
+				clusters='%s/uclust.%s.txt' % (self.tmp, pid),
+				threads=threads)
+			self.store_gene_info(pid)
+		self.store_cluster_membership()
+
+	def store_gene_info(self, pid):
+		""" Parse UCLUST file and store mapping of gene_id to centroid_id at given %ID cutoff """
+		self.stats['centroids_%s' % pid] = 0
+		for r in self.parse_uclust('%s/uclust.%s.txt' % (self.tmp, pid)):
+			if r['type'] == 'H':
+				self.genes[r['gene_id']].cluster_id[pid] = r['cluster_id']
+				self.genes[r['gene_id']].centroid_id[pid] = r['centroid_id']
+			elif r['type'] == 'S':
+				self.genes[r['gene_id']].cluster_id[pid] = r['cluster_id']
+				self.genes[r['gene_id']].centroid_id[pid] = r['gene_id']
+				self.stats['centroids_%s' % pid] += 1
+			else:
+				continue
+			
+	def store_cluster_membership(self):
+		""" Map gene to 99% ID centroids at each clustering %ID cutoff """
+		for gene in self.genes.values():
+			gene.centroid_99 = gene.centroid_id[99]
+			gene.centroid_95 = self.genes[gene.centroid_99].centroid_id[95]
+			gene.centroid_90 = self.genes[gene.centroid_99].centroid_id[90]
+			gene.centroid_85 = self.genes[gene.centroid_99].centroid_id[85]
+			gene.centroid_80 = self.genes[gene.centroid_99].centroid_id[80]
+			gene.centroid_75 = self.genes[gene.centroid_99].centroid_id[75]
+
+	def write_gene_info(self):
+		""" Record gene info in gene_info.txt """
+		file = utility.iopen('%s/gene_info.txt' % self.dir, 'w')
+		header = ['gene_id', 'genome_id', 'gene_length', 'centroid_99', 'centroid_95', 'centroid_90', 'centroid_85', 'centroid_80', 'centroid_75']
+		file.write('\t'.join(header)+'\n')
+		for gene_id in sorted(self.genes.keys()):
+			g = self.genes[gene_id]
+			values = [g.id, g.genome_id, g.length, g.centroid_99, g.centroid_95, g.centroid_90, g.centroid_85, g.centroid_80, g.centroid_75]
+			file.write('\t'.join([str(_) for _ in values])+'\n')
+		file.close()
+
+	def clean_up(self):
+		""" Remove temporary files """
+		shutil.rmtree('%s/temp' % self.dir)
+
+	def parse_uclust(self, inpath):
+		""" Yield formatted records from UCLUST output file """
+		# centroids are type == 'S'
+		# non-centroids are type == 'H'
+		# clusters are type == 'C'
+		fields = ['type', 'cluster_id', 'size', 'pid', 'strand', 'skip1', 'skip2', 'skip3', 'gene_id', 'centroid_id']
+		with utility.iopen(inpath) as infile:
+			for index, line in enumerate(infile):
+				values = line.rstrip('\n').split('\t')
+				record = dict([(f,v) for f,v in zip(fields, values)])
+				yield record
+
+	def uclust(self, genes, pid, centroids, clusters, threads):
+		""" Run UCLUST from shell with specified arguments """
+		command = "usearch "
+		command += "-cluster_fast %s " % genes
+		command += "-id %s " % pid
+		command += "-centroids %s " % centroids
+		command += "-uc %s " % clusters
+		command += "-threads %s " % threads
+		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		utility.check_exit_code(process, command)
 
 def parse_mapping_file(args):
 	infile = utility.iopen(args['mapfile'])
@@ -69,6 +237,9 @@ def read_species(args):
 			sp.genomes[genome_id] = Genome(genome_id, args['indir'])
 			if record['rep_genome'] == '1':
 				sp.rep_genome = genome_id
+				sp.genomes[genome_id].is_rep = True
+			else:
+				sp.genomes[genome_id].is_rep = False
 		# store species
 		if len(species) < args['max_species']:
 			species[species_id] = sp
@@ -84,112 +255,9 @@ def read_genomes(species):
 	genomes = sum([sp.genomes.values() for sp in species], [])
 	return genomes
 
-def parse_hmmsearch(p_in):
-	""" Parse HMMER domblout files. Return data-type formatted dictionary """
-	f_in = utility.iopen(p_in)
-	for line in f_in:
-		if line[0] == '#': continue
-		x = line.rstrip().split()
-		query = x[0]
-		target = x[3]
-		evalue = float(x[12])
-		qcov = (int(x[20]) - int(x[19]) + 1)/float(x[2])
-		tcov = (int(x[16]) - int(x[15]) + 1)/float(x[5])
-		yield {'query':query, 'target':target, 'evalue':evalue, 'qcov':qcov, 'tcov':tcov, 'qlen':int(x[2]), 'tlen':int(x[5])}
-
-def find_hits(args, species, max_evalue, min_cov):
-	inpath = "%s/marker_genes/temp/%s.hmmsearch" % (args['outdir'], species.id)
-	hits = {}
-	for r in parse_hmmsearch(inpath):
-		if r['evalue'] > max_evalue:
-			continue
-		elif min(r['qcov'], r['tcov']) < min_cov:
-			continue
-		if r['target'] not in hits:
-			hits[r['target']] = r
-		elif r['evalue'] < hits[r['target']]['evalue']:
-			hits[r['target']] = r
-	return hits.values()
-
-def hmmsearch(args, species):
-	command = "hmmsearch --noali --cpu %s " % args['threads']
-	command += "--domtblout %s/marker_genes/temp/%s.hmmsearch " % (args['outdir'], species.id)
-	command += "%s/%s " % (os.path.dirname(__file__), 'phyeco.hmm')
-	command += "%s/pan_genomes/%s/centroids.faa > /dev/null" % (args['outdir'], species.id)
-	return command
-
-def hsblastn_index(fasta):
-	command = "hs-blastn index %s " % fasta
-	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env={'PATH':sys.path})
-	utility.check_exit_code(process, command)
-
-def parse_fasta(p_in):
-	""" Return lookup of seq_id to sequence for PATRIC genes """
-	seqs = {}
-	infile = utility.iopen(p_in)
-	for r in Bio.SeqIO.parse(infile, "fasta"):
-		seqs[r.id] = str(r.seq).upper()
-	infile.close()
-	return seqs
-
-def build_fasta_db(args, species):
-	seqfile = utility.iopen('%s/marker_genes/phyeco.fa' % args['outdir'], 'w')
-	mapfile = utility.iopen('%s/marker_genes/phyeco.map' % args['outdir'], 'w')
-	mapfile.write('\t'.join(['species_id', 'gene_id', 'gene_length', 'marker_id'])+'\n') # add back genome id
-	for index, sp in enumerate(species):
-		path = '%s/pan_genomes/%s/centroids.ffn' % (args['outdir'], sp.id)
-		fna = parse_fasta(path)
-		for h in find_hits(args, sp, max_evalue=1e-5, min_cov=0.70):
-			gene = fna[h['query']].upper()
-			mapfile.write('%s\t%s\t%s\t%s\n' % (sp.id, h['query'], len(gene), h['target']))
-			seqfile.write('>'+h['query']+'\n'+gene+'\n')
-	seqfile.close()
-	mapfile.close()
-
-def build_marker_db(args, genomes, species):
-	outdir = '%s/marker_genes/temp' % args['outdir']
-	if not os.path.isdir(outdir): os.makedirs(outdir)
-	print("1. Searching marker gene HMMs vs pangenomes")
-	for sp in species:
-		print("   species: %s" % sp.id)
-		command = hmmsearch(args, sp)
-		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		utility.check_exit_code(process, command)
-	print("2. Building FASTA of homologs")
-	build_fasta_db(args, species)
-	print("3. Building HS-BLASTN database of homologs")
-	command = "%s index %s/marker_genes/phyeco.fa " % (args['hs-blastn'], args['outdir'])
-	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	utility.check_exit_code(process, command)
-	print("4. Writing mapping cutoffs file")
-	build_mapping_cutoffs(args)
-
-def build_mapping_cutoffs(args):
-	cutoffs = {
-		'B000032':95.50,
-		'B000039':94.75,
-		'B000041':98.00,
-		'B000062':97.25,
-		'B000063':96.00,
-		'B000065':98.00,
-		'B000071':95.25,
-		'B000079':98.00,
-		'B000080':95.25,
-		'B000081':97.00,
-		'B000082':95.25,
-		'B000086':96.75,
-		'B000096':96.75,
-		'B000103':95.25,
-		'B000114':94.50,
-	}
-	outfile = open('%s/marker_genes/phyeco.mapping_cutoffs' % args['outdir'], 'w')
-	for marker_id, cutoff in cutoffs.items():
-		outfile.write(marker_id+'\t'+str(cutoff)+'\n')
-	outfile.close()
-
 def build_repgenome_db(args, genomes, species):
 	for sp in species:
-		print("species: %s" % sp.id)
+		print("%s" % sp.id)
 		outdir = '%s/rep_genomes/%s' % (args['outdir'], sp.id)
 		if not os.path.isdir(outdir): os.makedirs(outdir)
 		for ext in ['fna', 'features']:
@@ -199,167 +267,18 @@ def build_repgenome_db(args, genomes, species):
 
 def build_pangenome_db(args, species):
 	for sp in species:
-		print("species: %s" % sp.id)
-		pangenome = Pangenome(sp, args['outdir'], args['iter_size'], args['compress'])
-		pangenome.cluster_genes(args['pid'], args['threads'])
-		pangenome.translate()
-		pangenome.record_info()
-		pangenome.clean_up()
-
-class Gene:
-	def __init__(self, id):
-		self.id = id
-
-class GeneCluster:
-	def __init__(self, id):
-		self.id = id
-
-class Pangenome:
-	def __init__(self, sp, outdir, iter_size, ext):
-		self.dir = '%s/pan_genomes/%s' % (outdir, sp.id)
-		self.species = sp
-		self.genomes = sp.genomes.values()
-		self.ngenomes = len(self.genomes)
-		self.iter_size = iter_size
-		self.niters = 1 + (self.ngenomes - 1)/self.iter_size
-			
-	def batch_seqs(self, index, outdir, genomes):
-		seqfile = utility.iopen('%s/genes.ffn' % outdir, 'w')
-		mapfile = utility.iopen('%s/gene_to_genome.txt' % outdir, 'w')
-		start = index * self.iter_size
-		stop = start + self.iter_size
-		for genome in self.genomes[start:stop]:
-			for rec in Bio.SeqIO.parse(genome.files['ffn'], 'fasta'):
-				if str(rec.seq) == '' or str(rec.id) in ['', '|']:
-					continue
-				else:
-					seqfile.write('>%s\n%s\n' % (rec.id, str(rec.seq).upper()))
-					mapfile.write('%s\t%s\n' % (rec.id, genome.id))
-		seqfile.close()
-		mapfile.close()
-
-	def translate(self):
-		infile = utility.iopen('%s/centroids.ffn' % self.dir)
-		outfile = utility.iopen('%s/centroids.faa' % self.dir, 'w')
-		for r in Bio.SeqIO.parse(infile, 'fasta'):
-			if len(r.seq) % 3 == 0:
-				outfile.write('>'+r.id+'\n'+str(r.seq.translate()).rstrip('*')+'\n')
-		infile.close()
-		outfile.close()
-
-	def cluster_genes(self, pid, threads):
-		print("  1. Clustering genes")
-		# split genes into batches and cluster
-		for index in range(self.niters):
-			print("     iteration %s" % index)
-			outdir = '%s/temp/iter_%s' % (self.dir, index) if self.niters > 1 else '%s/temp' % self.dir
-			if not os.path.isdir(outdir): os.makedirs(outdir)
-			self.batch_seqs(index, outdir, self.genomes)
-			self.uclust('%s/genes.ffn' % outdir, pid, '%s/centroids.ffn' % outdir, '%s/uclust.txt' % outdir, threads)
-		# if split into > 1 batch, combine batches and recluster
-		if self.niters > 1:
-			print("  2. Combining centroids across clustering iterations")
-			seqfile = utility.iopen('%s/temp/genes.ffn' % self.dir, 'w')
-			mapfile = utility.iopen('%s/temp/gene_to_genome.txt' % self.dir, 'w')
-			for i in range(self.niters):
-				indir = '%s/temp/iter_%s' % (self.dir, i)
-				for line in utility.iopen('%s/centroids.ffn' % indir): seqfile.write(line)
-				for line in utility.iopen('%s/gene_to_genome.txt' % indir): mapfile.write(line)
-			seqfile.close()
-			mapfile.close()
-			print("  3. re-clustering combined centroids")
-			self.uclust('%s/temp/genes.ffn' % self.dir, pid, '%s/temp/centroids.ffn' % self.dir, '%s/temp/uclust.txt' % self.dir, threads)
-		# move centroids to final dest
-		shutil.move('%s/temp/centroids.ffn' % self.dir, '%s/centroids.ffn' % self.dir)
-
-	def map_gene_to_genome(self):
-		genes = {}
-		for line in utility.iopen('%s/temp/gene_to_genome.txt' % self.dir):
-			gene_id, genome_id = line.rstrip('\n').split('\t')
-			genes[gene_id] = Gene(gene_id)
-			genes[gene_id].genome_id = genome_id
-		return genes
-
-	def store_gene_info(self):
-		genes = self.map_gene_to_genome()
-		for r in self.parse_uclust('%s/temp/uclust.txt' % self.dir):
-			if r['type'] == 'H':
-				genes[r['gene_id']].cluster_id = r['cluster_id']
-				genes[r['gene_id']].centroid = '0'
-				genes[r['gene_id']].length = int(r['size'])
-			elif r['type'] == 'S':
-				genes[r['gene_id']].cluster_id = r['cluster_id']
-				genes[r['gene_id']].centroid = '1'
-				genes[r['gene_id']].length = int(r['size'])
-		return genes
-
-	def store_cluster_info(self):
-		clusters = {}
-		for r in self.parse_uclust('%s/temp/uclust.txt' % self.dir):
-			if r['type'] == 'C':
-				clusters[r['cluster_id']] = GeneCluster(r['cluster_id'])
-				clusters[r['cluster_id']].centroid_id = r['gene_id']
-				clusters[r['cluster_id']].size = int(r['size'])
-		return clusters
-
-	def update_info(self):
-		if self.niters == 1: return
-		for index in range(self.niters):
-			for r in self.parse_uclust('%s/temp/iter_%s/uclust.txt' % (self.dir, index)):
-				if r['type'] == 'H':
-					gene = self.genes[r['gene_id']]
-					cluster_id = self.genes[r['centroid_id']].cluster_id
-					gene.cluster_id = cluster_id
-					gene.centroid = '0'
-					gene.length = r['size']
-					self.clusters[cluster_id].size += 1
-
-	def write_cluster_info(self):
-		outfile = utility.iopen('%s/cluster_info.txt' % self.dir, 'w')
-		outfile.write('\t'.join(['cluster_id', 'size', 'centroid'])+'\n')
-		for cluster_id in sorted(self.clusters.keys()):
-			cluster = self.clusters[cluster_id]
-			outfile.write('\t'.join([cluster.id, str(cluster.size), cluster.centroid_id])+'\n')
-		outfile.close()
-
-	def write_gene_info(self):
-		outfile = utility.iopen('%s/gene_info.txt' % self.dir, 'w')
-		outfile.write('\t'.join(['gene_id', 'genome_id', 'cluster_id', 'centroid', 'length'])+'\n')
-		for gene_id in sorted(self.genes.keys()):
-			gene = self.genes[gene_id]
-			outfile.write('\t'.join([gene.id, gene.genome_id, gene.cluster_id, gene.centroid, str(gene.length)])+'\n')
-
-	def record_info(self):
-		self.genes = self.store_gene_info()
-		self.clusters = self.store_cluster_info()
-		self.update_info()
-		self.write_cluster_info()
-		self.write_gene_info()
-
-	def clean_up(self):
-		shutil.rmtree('%s/temp' % self.dir)
-
-	def parse_uclust(self, inpath):
-		""" Yield formatted records from UCLUST output file """
-		# centroids are type == 'S'
-		# non-centroids are type == 'H'
-		# clusters are type == 'C'
-		fields = ['type', 'cluster_id', 'size', 'pid', 'strand', 'skip1', 'skip2', 'skip3', 'gene_id', 'centroid_id']
-		with utility.iopen(inpath) as infile:
-			for index, line in enumerate(infile):
-				values = line.rstrip('\n').split('\t')
-				record = dict([(f,v) for f,v in zip(fields, values)])
-				yield record
-
-	def uclust(self, genes, pid, centroids, clusters, threads):
-		command = "usearch "
-		command += "-cluster_fast %s " % genes
-		command += "-id %s " % pid
-		command += "-centroids %s " % centroids
-		command += "-uc %s " % clusters
-		command += "-threads %s " % threads
-		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		utility.check_exit_code(process, command)
+		print("%s" % sp.id)
+		p = Pangenome(sp, outdir=args['outdir'], ext=args['compress'])
+		print("  catting genes")
+		p.store_genes()
+		p.write_genes()
+		print("  clustering genes")
+		p.cluster_genes(threads=args['threads'])
+		print("  writing gene info")
+		p.write_gene_info()
+		print("  removing temporary files")
+		p.clean_up()
+		p.write_readme()
 
 def write_species_info(args, species):
 	outfile = utility.iopen('%s/species_info.txt' % args['outdir'], 'w')
@@ -382,23 +301,135 @@ def compress(outdir):
 					outfile.close()
 					os.remove(inpath)
 
+def build_marker_db(args, genomes, species):
+	marker_genes = MarkerGenes(args['outdir'])
+	print("  searching marker gene HMMs vs pangenomes")
+	for sp in species:
+		for genome in sp.genomes.values():
+			marker_genes.hmmsearch(
+				inpath=genome.files['faa'],
+				outpath='%s/%s.hmmsearch' % (marker_genes.tmp, genome.id),
+				threads=args['threads'])
+			fna = marker_genes.parse_fasta(genome.files['ffn'])
+			for h in marker_genes.find_hits(
+					inpath='%s/%s.hmmsearch' % (marker_genes.tmp, genome.id),
+					max_evalue=1e-5,
+					min_cov=0.00):
+				gene = fna[h['query']].upper()
+				info = [sp.id, genome.id, h['query'], len(gene), h['target']]
+				marker_genes.info.write('\t'.join([str(_) for _ in info])+'\n')
+				if genome.is_rep:
+					marker_genes.fasta.write('>'+h['query']+'\n'+gene+'\n')
+	marker_genes.info.close()
+	marker_genes.fasta.close()
+	print("  building blast database")
+	marker_genes.build_hsblastn_db(hsblastn=args['hs-blastn'])
+	print("  writing mapping cutoffs file")
+	marker_genes.build_mapping_cutoffs()
+	print("  removing temporary files")
+	shutil.rmtree(marker_genes.tmp)
+
+class MarkerGenes:
+	def __init__(self, dir):
+		self.dir = '%s/marker_genes' % dir
+		self.tmp = '%s/temp' % self.dir
+		if not os.path.isdir(self.tmp): os.makedirs(self.tmp)
+		self.fasta = open('%s/phyeco.fa' % self.dir, 'w')
+		self.info = open('%s/phyeco.map' % self.dir, 'w')
+		self.header = ['species_id', 'genome_id', 'gene_id', 'gene_length', 'marker_id']
+		self.info.write('\t'.join(self.header)+'\n')
+
+	def hmmsearch(self, inpath, outpath, threads):
+		command = "hmmsearch --noali --cpu %s " % threads
+		command += "--domtblout %s " % outpath
+		command += "%s/%s " % (os.path.dirname(__file__), 'phyeco.hmm')
+		command += "%s > /dev/null" % inpath
+		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		utility.check_exit_code(process, command)
+
+	def parse_hmmsearch(self, p_in):
+		""" Parse HMMER domblout files. Return data-type formatted dictionary """
+		f_in = utility.iopen(p_in)
+		for line in f_in:
+			if line[0] == '#': continue
+			x = line.rstrip().split()
+			query = x[0]
+			target = x[3]
+			evalue = float(x[12])
+			qcov = (int(x[20]) - int(x[19]) + 1)/float(x[2])
+			tcov = (int(x[16]) - int(x[15]) + 1)/float(x[5])
+			yield {'query':query, 'target':target, 'evalue':evalue, 'qcov':qcov, 'tcov':tcov, 'qlen':int(x[2]), 'tlen':int(x[5])}
+
+	def find_hits(self, inpath, max_evalue, min_cov):
+		hits = {}
+		for r in self.parse_hmmsearch(inpath):
+			if r['evalue'] > max_evalue:
+				continue
+			elif min(r['qcov'], r['tcov']) < min_cov:
+				continue
+			if r['target'] not in hits:
+				hits[r['target']] = r
+			elif r['evalue'] < hits[r['target']]['evalue']:
+				hits[r['target']] = r
+		return hits.values()
+
+	def hsblastn_index(self, fasta):
+		command = "hs-blastn index %s " % fasta
+		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env={'PATH':sys.path})
+		utility.check_exit_code(process, command)
+	
+	def parse_fasta(self, p_in):
+		""" Return lookup of seq_id to sequence for PATRIC genes """
+		seqs = {}
+		infile = utility.iopen(p_in)
+		for r in Bio.SeqIO.parse(infile, "fasta"):
+			seqs[r.id] = str(r.seq).upper()
+		infile.close()
+		return seqs
+
+	def build_hsblastn_db(self, hsblastn):
+		command = "%s index " % hsblastn
+		command += " %s/phyeco.fa " % self.dir
+		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		utility.check_exit_code(process, command)
+	
+	def build_mapping_cutoffs(self):
+		cutoffs = {
+			'B000032':95.50,
+			'B000039':94.75,
+			'B000041':98.00,
+			'B000062':97.25,
+			'B000063':96.00,
+			'B000065':98.00,
+			'B000071':95.25,
+			'B000079':98.00,
+			'B000080':95.25,
+			'B000081':97.00,
+			'B000082':95.25,
+			'B000086':96.75,
+			'B000096':96.75,
+			'B000103':95.25,
+			'B000114':94.50,
+		}
+		outfile = open('%s/phyeco.mapping_cutoffs' % self.dir, 'w')
+		for marker_id, cutoff in cutoffs.items():
+			outfile.write(marker_id+'\t'+str(cutoff)+'\n')
+		outfile.close()
+
 def run_pipeline(args):
 		
+	print("Reading species info")
 	species = read_species(args)
 	genomes = read_genomes(species)
-	
 	write_species_info(args, species)
 	
-	print("Building pangenome database")
-	print("=====================")
+	print("\nBuilding pangenome database")
 	build_pangenome_db(args, species)
 				
 	print("\nBuilding representative genome database")
-	print("=====================")
 	build_repgenome_db(args, genomes, species)
 
 	print("\nBuilding marker genes database")
-	print("=====================")
 	build_marker_db(args, genomes, species)
 
 	print("")
