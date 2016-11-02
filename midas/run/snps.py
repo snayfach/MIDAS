@@ -19,9 +19,9 @@ def build_genome_db(args, species):
 		db_stats['species'] += 1
 		infile = utility.iopen(sp.paths['fna'])
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
-				outfile.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
-				db_stats['total_length'] += len(r.seq)
-				db_stats['total_seqs'] += 1
+			outfile.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
+			db_stats['total_length'] += len(r.seq)
+			db_stats['total_seqs'] += 1
 		infile.close()
 	outfile.close()
 	# print out database stats

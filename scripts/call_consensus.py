@@ -146,7 +146,7 @@ def sequence_description(sample):
 	desc = {}
 	desc['length'] = len(sample.seq)
 	desc['percent_missing'] = percent_missing(sample.seq)
-	desc['mean_depth'] = round(sample.sample_depth, 2)
+	desc['mean_depth'] = round(sample.mean_depth, 2)
 	return desc
 
 def write_consensus(args, samples):

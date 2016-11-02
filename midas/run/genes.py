@@ -170,9 +170,11 @@ def count_mapped_bp(args, species, genes):
 			continue
 		else:
 			gene_id = aln_file.getrname(aln.reference_id)
+			aln_len = len(aln.query_alignment_sequence)
+			gene_len = genes[gene_id].length
 			genes[gene_id].reads += 1
-			genes[gene_id].bases += len(aln.query_alignment_sequence)
-			genes[gene_id].depth += genes[gene_id].bases/float(genes[gene_id].length)
+			genes[gene_id].bases += aln_len
+			genes[gene_id].depth += aln_len/float(gene_len)
 			j += 1
 	print("  total aligned reads: %s" % i)
 	print("  total mapped reads: %s" % j)
@@ -193,7 +195,6 @@ def normalize(args, species, genes):
 	# compute marker depth
 	for gene in genes.values():
 		if gene.marker_id is not None:
-			gene.depth = gene.depth
 			species[gene.species_id].markers[gene.marker_id] += gene.depth
 	# compute median marker depth
 	for sp in species.values():
