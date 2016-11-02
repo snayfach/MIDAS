@@ -12,8 +12,8 @@ on Unix: `wget http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz`
 on OSX: `curl http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz > midas_db_v1.2.tar.gz`
 
 * This may take several minutes to several hours, depending on your internet speed
-* The entire database requires 32 GB of free space to download and decompress
-* Once decompressed, it takes 16G of free space
+* The entire database requires 36 GB of free space to download and decompress
+* Once decompressed, it takes 18G of free space
 * See midas_db_v1.2/README for more information
 
 #### Step 2. unpack tarball

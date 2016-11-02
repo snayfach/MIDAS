@@ -20,7 +20,7 @@ Or, download the latest source code:
 https://github.com/snayfach/MIDAS/archive/master.zip  
 And unpack the project: `unzip MIDAS-master.zip`  
 
-Or, download a stable release of the source code:
+Or, download a stable release of the source code:  
 [https://github.com/snayfach/MIDAS/releases] (https://github.com/snayfach/MIDAS/releases)  
 
 ### Install dependencies
@@ -45,7 +45,7 @@ If you still have installation issues, please open a new [issue] (https://github
 
 This will enable you to run MIDAS scripts:  
 `export PYTHONPATH=$PYTHONPATH:/path/to/MIDAS`  
-`export PATH=$PATH:/path/to/MIDAS/scripts` 
+`export PATH=$PATH:/path/to/MIDAS/scripts`   
 `export MIDAS_DB=/path/to/midas_database` 
 
 Be sure to replace '/path/to' with the appropriate path on your system  
