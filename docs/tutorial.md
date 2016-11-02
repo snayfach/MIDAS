@@ -14,14 +14,14 @@ Install python dependencies as needed:
 [read more...] (install.md)
 
 Download & unpack reference database:  
-[http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.1.tar.gz](http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.1.tar.gz)  
-`tar -zxvf midas_db_v1.1.tar.gz`  
+[http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz](http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz)  
+`tar -zxvf midas_db_v1.2.tar.gz`  
 [read more...] (ref_db.md)
 
 Update your environment:  
 `export PYTHONPATH=$PYTHONPATH:MIDAS`  
 `export PATH=$PATH:MIDAS/scripts`   
-`export MIDAS_DB=midas_db_v1.1`  
+`export MIDAS_DB=midas_db_v1.2`  
 
 Optionally, download & unpack example dataset:  
 [http://lighthouse.ucsf.edu/MIDAS/example.tar.gz](http://lighthouse.ucsf.edu/MIDAS/example.tar.gz)  

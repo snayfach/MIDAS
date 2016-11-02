@@ -4,27 +4,27 @@ Description of how the MIDAS database was constructed, how the species groups co
 ## Install reference database
 
 #### Step 1. download default database 
-Download from your browser:   
-[http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.1.tar.gz](http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.1.tar.gz)
+Download the latest version from your browser:   
+[http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz](http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz)
 
 Or, download from the command line:   
-on Unix: `wget http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.1.tar.gz`  
-on OSX: `curl http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.1.tar.gz > midas_db_v1.1.tar.gz`
+on Unix: `wget http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz`  
+on OSX: `curl http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz > midas_db_v1.2.tar.gz`
 
 * This may take several minutes to several hours, depending on your internet speed
-* The entire database requires 32 GB of free space to download and decompress
-* Once decompressed, it takes 16G of free space
-* See midas_db_v1.1/README for more information
+* The entire database requires 36 GB of free space to download and decompress
+* Once decompressed, it takes 18G of free space
+* See midas_db_v1.2/README for more information
 
 #### Step 2. unpack tarball
-`tar -zxvf midas_db_v1.1.tar.gz`  
+`tar -zxvf midas_db_v1.2.tar.gz`  
 
 #### Step 3. create MIDAS_DB environmental variable
 The MIDAS_DB variable tells MIDAS where the reference database is located:   
-`export MIDAS_DB=midas_db_v1.1`
+`export MIDAS_DB=midas_db_v1.2`
 
 Alternatively, you can manually specify the database location when you run MIDAS:  
-ex: `run_midas.py species outdir -d midas_db_v1.1 [options]`
+ex: `run_midas.py species outdir -d midas_db_v1.2 [options]`
 
 ## Build custom database
 Alternatively, you can build a custom database with your own genome sequences [read more] (build_db.md)
@@ -53,8 +53,11 @@ Each genome-cluster was annotated according to the consensus (i.e., most common)
 
 **Pan-genome**
 
-* The set of non-redundant genes (95% DNA identity) across all genomes within species
-* Metagenomic reads are mapped to pan-genome database to determine the gene-content of strains in a sample
+* The set of non-redundant genes (99% DNA identity) across all genomes within each species
+* Mapping between 99% identity gene clusters and gene clusters at lower % identity clustering thresholds (95, 90, 85, 80, and 75)
+* Metagenomic reads are initially mapped to centroid gene sequences from 99% gene families
+* Reads can be easily aggregated into gene clusters at lower % identity clustering thresholds
+* Mapped reads are used to determine the gene content of strains in a sample
 * Gene clustering was performed with USEARCH
 
 ### Database coverage across biomes

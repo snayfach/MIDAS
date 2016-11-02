@@ -20,7 +20,7 @@ def get_program():
 		print('\ttrack_markers   track rare SNPs between samples and determine transmission')
 		quit()
 	elif sys.argv[1] not in ['id_markers', 'track_markers']:
-		sys.exit("Unrecognized command: '%s'" % sys.argv[1])
+		sys.exit("\nError: Unrecognized command: '%s'\n" % sys.argv[1])
 		quit()
 	else:
 		return sys.argv[1]
@@ -32,7 +32,7 @@ def get_arguments(program):
 	elif program == 'track_markers':
 		args = track_arguments()
 	else:
-		sys.exit("Unrecognized program: '%s'" % program)
+		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 	return args
 
 def id_arguments():
@@ -130,8 +130,10 @@ useful for quick tests""")
 useful for quick tests""")
 
 	args = vars(parser.parse_args())
-	if not os.path.isdir(args['indir']): sys.exit("Specified input directory '%s' does not exist" % args['indir'])
-	if not os.path.isfile(args['markers']): sys.exit("Specified input file '%s' does not exist" % args['markers'])
+	if not os.path.isdir(args['indir']):
+		sys.exit("\nError: Specified input directory '%s' does not exist\n" % args['indir'])
+	if not os.path.isfile(args['markers']):
+		sys.exit("\nError: Specified input file '%s' does not exist\n" % args['markers'])
 	return args
 
 def run_program(program, args):
@@ -142,7 +144,7 @@ def run_program(program, args):
 	elif program == 'track_markers':
 		track_strains.track_markers(args)
 	else:
-		sys.exit("Unrecognized program: '%s'" % program)
+		sys.exit("Error: Unrecognized program: '%s'\n" % program)
 
 if __name__ == '__main__':
 	program = get_program()

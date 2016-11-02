@@ -105,25 +105,25 @@ def print_args(args):
 
 def check_args(args):
 	if not os.path.isdir(args['indir']):
-		sys.exit("Specified input directory '%s' does not exist" % args['indir'])
+		sys.exit("\nError: Specified input directory '%s' does not exist\n" % args['indir'])
 	if args['site_depth'] < 2:
-		sys.exit("\nError: --site_depth must be >=2 to calculate nucleotide variation")
+		sys.exit("\nError: --site_depth must be >=2 to calculate nucleotide variation\n")
 	if args['max_sites'] < 1:
-		sys.exit("\nError: --max_sites must be >= 1 to calculate nucleotide variation")
+		sys.exit("\nError: --max_sites must be >= 1 to calculate nucleotide variation\n")
 	if args['max_samples'] < 1:
-		sys.exit("\nError: --max_samples must be >= 1 to calculate nucleotide variation")
+		sys.exit("\nError: --max_samples must be >= 1 to calculate nucleotide variation\n")
 	if args['site_ratio'] < 0:
-		sys.exit("\nError: --site_ratio cannot be a negative number")
+		sys.exit("\nError: --site_ratio cannot be a negative number\n")
 	if args['site_depth'] < 0:
-		sys.exit("\nError: --site_depth cannot be a negative number")
+		sys.exit("\nError: --site_depth cannot be a negative number\n")
 	if args['sample_depth'] < 0:
-		sys.exit("\nError: --sample_depth cannot be a negative number")
+		sys.exit("\nError: --sample_depth cannot be a negative number\n")
 	if not 0 <= args['site_maf'] <= 1:
-		sys.exit("\nError: --site_maf must be between 0 and 1")
+		sys.exit("\nError: --site_maf must be between 0 and 1\n")
 	if not 0 <= args['site_prev'] <= 1:
-		sys.exit("\nError: --site_prev must be between 0 and 1")
+		sys.exit("\nError: --site_prev must be between 0 and 1\n")
 	if not 0 <= args['fract_cov'] <= 1:
-		sys.exit("\nError: --fract_cov must be between 0 and 1")
+		sys.exit("\nError: --fract_cov must be between 0 and 1\n")
 
 def init_sequences(samples):
 	for sample in samples.values():
@@ -146,7 +146,7 @@ def sequence_description(sample):
 	desc = {}
 	desc['length'] = len(sample.seq)
 	desc['percent_missing'] = percent_missing(sample.seq)
-	desc['mean_depth'] = round(sample.sample_depth, 2)
+	desc['mean_depth'] = round(sample.mean_depth, 2)
 	return desc
 
 def write_consensus(args, samples):

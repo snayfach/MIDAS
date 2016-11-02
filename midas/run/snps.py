@@ -19,9 +19,9 @@ def build_genome_db(args, species):
 		db_stats['species'] += 1
 		infile = utility.iopen(sp.paths['fna'])
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
-				outfile.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
-				db_stats['total_length'] += len(r.seq)
-				db_stats['total_seqs'] += 1
+			outfile.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
+			db_stats['total_length'] += len(r.seq)
+			db_stats['total_seqs'] += 1
 		infile.close()
 	outfile.close()
 	# print out database stats
@@ -55,9 +55,9 @@ def genome_align(args):
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	# Check for errors
+	utility.check_exit_code(process, command)
 	print("  finished aligning")
 	print("  checking bamfile integrity")
-	utility.check_exit_code(process, command)
 	utility.check_bamfile(args, bam_path)
 
 def pileup(args):

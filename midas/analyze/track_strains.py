@@ -90,6 +90,8 @@ def call_markers(species, samples, args):
 	# open marker list
 	markers = utility.parse_file(species.paths['markers'])
 	marker = fetch_marker(markers) # dictionary for 1st marker allele
+	if marker is None:
+		sys.exit("\nError: no marker alleles found in file: %s\n" % species.paths['markers'])
 	
 	# init markers per sample
 	for sample in samples.values():

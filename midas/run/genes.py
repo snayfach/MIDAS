@@ -4,10 +4,83 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import sys, os, subprocess, gzip
+import sys, os, subprocess, gzip, csv, Bio.SeqIO, numpy as np
+from collections import defaultdict
 from time import time
 from midas import utility
 from midas.run import stream_bam
+
+class Species:
+	""" Base class for species """
+	def __init__(self, id):
+		self.id = id
+		self.paths = {}
+		self.genes = []
+		self.pangenome_size = 0
+		self.reads = 0
+		self.bases = 0.0
+		self.depth = 0.0
+		self.markers = defaultdict(float)
+		
+	def init_ref_db(self, ref_db):
+		""" Set paths to input files """
+		self.dir = '%s/pan_genomes/%s' % (ref_db, self.id)
+		for ext in ['', '.gz']:
+			for file in ['centroids.ffn', 'cluster_info.txt', 'gene_info.txt']:
+				inpath = '%s/%s%s' % (self.dir, file, ext)
+				if os.path.isfile(inpath):
+					self.paths[file] = inpath
+
+def initialize_species(args):
+	""" Initialize Species objects """
+	species = {}
+	splist = '%s/genes/species.txt' % args['outdir']
+	if args['build_db']:
+		from midas.run.species import select_species
+		with open(splist, 'w') as outfile:
+			for id in select_species(args):
+				species[id] = Species(id)
+				outfile.write(id+'\n')
+	elif os.path.isfile(splist):
+		for line in open(splist):
+			species[id] = Species(line.rstrip())
+	for sp in species.values():
+		sp.init_ref_db(args['db'])
+	return species
+
+class Gene:
+	""" Base class for gene """
+	def __init__(self, id):
+		self.id = id
+		self.reads = 0
+		self.bases = 0.0
+		self.depth = 0.0
+		self.length = 0
+		self.copies = 0.0
+		self.marker_id = None
+
+def initialize_genes(args, species):
+	""" Initialize Gene objects """
+	genes = {}
+	# fetch gene_id, species_id, gene length
+	for sp in species.values():
+		path = sp.paths['centroids.ffn']
+		file = utility.iopen(path)
+		for seq in Bio.SeqIO.parse(file, 'fasta'):
+			genes[seq.id] = Gene(seq.id)
+			genes[seq.id].species_id = sp.id
+			genes[seq.id].length = len(seq.seq)
+			sp.pangenome_size += 1
+		file.close()
+	# fetch marker_id
+	path = '%s/marker_genes/phyeco.map' % args['db']
+	file = utility.iopen(path)
+	reader = csv.DictReader(file, delimiter='\t')
+	for r in reader:
+		if r['gene_id'] in genes:
+			genes[r['gene_id']].marker_id=r['marker_id']
+	file.close()
+	return genes
 
 def build_pangenome_db(args, species):
 	""" Build FASTA and BT2 database from pangene species centroids """
@@ -19,7 +92,7 @@ def build_pangenome_db(args, species):
 	db_stats = {'total_length':0, 'total_seqs':0, 'species':0}
 	for sp in species.values():
 		db_stats['species'] += 1
-		infile = utility.iopen(sp.pan_genome)
+		infile = utility.iopen(sp.paths['centroids.ffn'])
 		for r in Bio.SeqIO.parse(infile, 'fasta'):
 			pangenome_fasta.write('>%s\n%s\n' % (r.id, str(r.seq).upper()))
 			pangenome_map.write('%s\t%s\n' % (r.id, sp.id))
@@ -67,20 +140,26 @@ def pangenome_align(args):
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	# Check for errors
-	print("  finished aligning")
 	utility.check_exit_code(process, command)
+	print("  finished aligning")
 	print("  checking bamfile integrity")
 	utility.check_bamfile(args, bampath)
 
-def count_mapped_bp(args):
-	""" Count number of bp mapped to each centroid across pangenomes """
-	import pysam, numpy as np
+def pangenome_coverage(args, species, genes):
+	""" Compute coverage of pangenome for species_id and write results to disk """
+	count_mapped_bp(args, species, genes)
+	normalize(args, species, genes)
+	write_results(args, species, genes)
+
+def count_mapped_bp(args, species, genes):
+	""" Count number of bp mapped to each gene across pangenomes """
+	import pysam
 	bam_path = '/'.join([args['outdir'], 'genes/temp/pangenomes.bam'])
 	aln_file = pysam.AlignmentFile(bam_path, "rb")
-	ref_to_length = dict([(i,j) for i,j in zip(aln_file.references, aln_file.lengths)])
-	gene_to_cov = dict([(i,0.0) for i in aln_file.references])
+	i, j = 0,0
+	# loop over alignments, sum values per gene
 	for index, aln in enumerate(aln_file.fetch(until_eof = True)):
-		query = aln.query_name
+		i += 1
 		if stream_bam.compute_perc_id(aln) < args['mapid']:
 			continue
 		elif stream_bam.compute_aln_cov(aln) < args['aln_cov']:
@@ -91,145 +170,83 @@ def count_mapped_bp(args):
 			continue
 		else:
 			gene_id = aln_file.getrname(aln.reference_id)
-			cov = len(aln.query_alignment_sequence)/float(ref_to_length[gene_id])
-			gene_to_cov[gene_id] += cov
-	return gene_to_cov
+			aln_len = len(aln.query_alignment_sequence)
+			gene_len = genes[gene_id].length
+			genes[gene_id].reads += 1
+			genes[gene_id].bases += aln_len
+			genes[gene_id].depth += aln_len/float(gene_len)
+			j += 1
+	print("  total aligned reads: %s" % i)
+	print("  total mapped reads: %s" % j)
+	# loop over genes, sum values per species
+	for gene in genes.values():
+		species[gene.species_id].reads += gene.reads
+		species[gene.species_id].bases += gene.bases
+		species[gene.species_id].depth += gene.depth
+		species[gene.species_id].genes.append(gene.depth)
+	# loop over species, compute summaries
+	for sp in species.values():
+		sp.covered_genes = sum([1 for _ in sp.genes if _ > 0])
+		sp.mean_coverage = np.mean([_ for _ in sp.genes if _ > 0])
+		sp.fraction_covered = sp.covered_genes/float(sp.pangenome_size)
 
-def compute_marker_cov(args, species, gene_to_cov, ref_to_species):
-	""" Count number of bp mapped to each marker marker gene """
-	from numpy import median
-	# read in map of gene to marker
-	gene_to_marker = read_marker_map(args, species)
-	marker_ids = set([marker_id for gene_id, marker_id in gene_to_marker.items()])
-	# init marker coverage
-	species_to_marker_to_cov = {}
-	for species_id in species:
-		species_to_marker_to_cov[species_id] = {}
-		for marker_id in marker_ids:
-			species_to_marker_to_cov[species_id][marker_id] = 0.0
-	# compute marker coverages
-	for gene_id, marker_id in gene_to_marker.items():
-		if gene_id in ref_to_species:
-			species_id = ref_to_species[gene_id]
-			if marker_id in marker_ids and gene_id in gene_to_cov:
-				species_to_marker_to_cov[species_id][marker_id] += gene_to_cov[gene_id]
-	# compute median marker cov
-	species_to_norm = {}
-	for species_id in species_to_marker_to_cov:
-		covs = list(species_to_marker_to_cov[species_id].values())
-		species_to_norm[species_id] = median(covs)
-	return species_to_norm
+def normalize(args, species, genes):
+	""" Count number of bp mapped to each marker gene """
+	# compute marker depth
+	for gene in genes.values():
+		if gene.marker_id is not None:
+			species[gene.species_id].markers[gene.marker_id] += gene.depth
+	# compute median marker depth
+	for sp in species.values():
+		sp.marker_coverage = np.median(sp.markers.values())
+	# normalize genes by median marker depth
+	for gene in genes.values():
+		sp = species[gene.species_id]
+		if sp.marker_coverage > 0:
+			gene.copies = gene.depth/sp.marker_coverage
 
-def compute_pangenome_coverage(args, species):
-	""" Compute coverage of pangenome for species_id and write results to disk """
-	# map gene_id to species_id
-	ref_to_species = {}
-	for line in open('/'.join([args['outdir'], 'genes/temp/pangenomes.map'])):
-		gene_id, species_id = line.rstrip().split()
-		ref_to_species[gene_id] = species_id
-		
+def write_results(args, species, genes):
+	""" Write results to disk """
 	# open outfiles for each species_id
-	outfiles = {}
-	for species_id in species:
-		outpath = '/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])
-		outfiles[species_id] = utility.iopen(outpath, 'w')
-		outfiles[species_id].write('\t'.join(['gene_id', 'coverage', 'copy_number'])+'\n')
-	
-	# parse bam into cov files for each species_id
-	gene_to_cov = count_mapped_bp(args)
-
-	# compute normalization factor
-	species_to_norm = compute_marker_cov(args, species, gene_to_cov, ref_to_species)
-
+	header = ['gene_id', 'count_reads', 'coverage', 'copy_number']
+	for sp in species.values():
+		path = '/'.join([args['outdir'], 'genes/output/%s.genes.gz' % sp.id])
+		sp.out = utility.iopen(path, 'w')
+		sp.out.write('\t'.join(header)+'\n')
 	# write to output files
-	for gene_id in sorted(gene_to_cov):
-		cov = gene_to_cov[gene_id]
-		species_id = ref_to_species[gene_id]
-		outfile = outfiles[species_id]
-		normcov = cov/species_to_norm[species_id] if species_to_norm[species_id] > 0 else 0.0
-		outfile.write('\t'.join([str(x) for x in [gene_id, cov, normcov]])+'\n')
+	for gene_id in sorted(genes):
+		gene = genes[gene_id]
+		sp = species[gene.species_id]
+		values = [gene.id, gene.reads, gene.depth, gene.copies]
+		sp.out.write('\t'.join([str(_) for _ in values])+'\n')
+	# close output files
+	for sp in species.values():
+		sp.out.close()
+	# summary stats
+	path = '/'.join([args['outdir'], 'genes/summary.txt'])
+	file = open(path, 'w')
+	header = ['species_id', 'pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage', 'count_reads']
+	file.write('\t'.join(header)+'\n')
+	for sp in species.values():
+		values = [sp.id, sp.pangenome_size, sp.covered_genes, sp.fraction_covered, sp.mean_coverage, sp.marker_coverage, sp.reads]
+		file.write('\t'.join([str(_) for _ in values])+'\n')
+	file.close()
 
 def remove_tmp(args):
 	""" Remove specified temporary files """
 	import shutil
 	shutil.rmtree('/'.join([args['outdir'], 'genes/temp']))
 
-def genes_summary(args):
-	""" Get summary of mapping statistics """
-	# store stats
-	stats = {}
-	inpath = '%s/%s' % (args['outdir'], 'genes/temp/pangenomes.map')
-	for species_id in args['species_id']:
-		pangenome_size, covered_genes, total_coverage, marker_coverage = [0,0,0,0]
-		for r in utility.parse_file('/'.join([args['outdir'], 'genes/output/%s.genes.gz' % species_id])):
-			pangenome_size += 1
-			coverage = float(r['coverage'])
-			normcov = float(r['copy_number'])
-			if coverage > 0:
-				covered_genes += 1
-				total_coverage += coverage
-			if normcov > 0:
-				marker_coverage = coverage/normcov
-		stats[species_id] = {'pangenome_size':pangenome_size,
-							 'covered_genes':covered_genes,
-							 'fraction_covered':covered_genes/float(pangenome_size),
-							 'mean_coverage':total_coverage/covered_genes if covered_genes > 0 else 0.0,
-							 'marker_coverage':marker_coverage}
-	# write stats
-	fields = ['pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage']
-	outfile = open('/'.join([args['outdir'], 'genes/summary.txt']), 'w')
-	outfile.write('\t'.join(['species_id'] + fields)+'\n')
-	for species_id in stats:
-		record = [species_id] + [str(stats[species_id][field]) for field in fields]
-		outfile.write('\t'.join(record)+'\n')
-
-def read_marker_map(args, species):
-	gene_to_marker = {}
-	path = '%s/marker_genes/phyeco.map' % args['db']
-	for r in utility.parse_file(path):
-		if r['species_id'] in species:
-			gene_to_marker[r['gene_id']] = r['marker_id']
-	return gene_to_marker
-
-class Species:
-	""" Base class for species """
-	def __init__(self, id):
-		self.id = id
-		
-	def init_ref_db(self, ref_db):
-		self.dir = '%s/pan_genomes/%s' % (ref_db, self.id)
-		for ext in ['', '.gz']:
-			inpath = '%s/centroids.ffn%s' % (self.dir, ext)
-			if os.path.isfile(inpath): self.pan_genome = inpath
-			inpath = '%s/cluster_info.txt%s' % (self.dir, ext)
-			if os.path.isfile(inpath): self.cluster_info = inpath
-		self.gene_to_cluster = {}
-		self.cluster_to_gene = {}
-		for r in utility.parse_file(self.cluster_info):
-			self.gene_to_cluster[r['centroid']] = r['cluster_id']
-			self.gene_to_cluster[r['cluster_id']] = r['centroid']
-
-def initialize_species(args):
-	species = {}
-	splist = '%s/genes/species.txt' % args['outdir']
-	if args['build_db']:
-		from midas.run.species import select_species
-		with open(splist, 'w') as outfile:
-			for id in select_species(args):
-				species[id] = Species(id)
-				outfile.write(id+'\n')
-	elif os.path.isfile(splist):
-		for line in open(splist):
-			species[id] = Species(line.rstrip())
-	for sp in species.values():
-		sp.init_ref_db(args['db'])
-	return species
-
 def run_pipeline(args):
 	""" Run entire pipeline """
 	
-	# Initialize species
+	# Initialize reference data
+	print("\nReading reference data")
+	start = time()
 	species = initialize_species(args)
+	genes = initialize_genes(args, species)
+	print("  %s minutes" % round((time() - start)/60, 2) )
+	print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Build pangenome database for selected species
 	if args['build_db']:
@@ -254,8 +271,7 @@ def run_pipeline(args):
 		start = time()
 		print("\nComputing coverage of pangenomes")
 		args['log'].write("\nComputing coverage of pangenomes\n")
-		compute_pangenome_coverage(args, species)
-		genes_summary(args)
+		pangenome_coverage(args, species, genes)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
 

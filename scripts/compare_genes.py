@@ -61,7 +61,7 @@ def init_paths(args):
 		if os.path.isfile(inpath):
 			paths[ext] = inpath
 		else:
-			sys.exit('Input file does not exist: %s' % inpath)
+			sys.exit("\nError: Input file does not exist: %s\n" % inpath)
 	return paths
 
 def compute_euclidian(df, s1, s2):

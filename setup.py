@@ -6,7 +6,7 @@ import os
 
 setup(
 	name = 'MIDAS',
-	version = '1.1.0',
+	version = '1.2.0',
 	description = 'An integrated pipeline and for estimating species and strain-level genomic variation from metagenomic data',
 	license = 'GPL',
 	author = 'Stephen Nayfach',

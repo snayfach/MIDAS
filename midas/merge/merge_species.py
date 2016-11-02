@@ -87,7 +87,7 @@ def identify_samples(args):
 	return samples
 
 def write_readme(args):
-	outfile = open('%s/README' % args['outdir'], 'w')
+	outfile = open('%s/readme.txt' % args['outdir'], 'w')
 	outfile.write("""
 Description of output files and file formats from 'merge_midas.py species'
 

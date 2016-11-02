@@ -6,7 +6,7 @@
 
 import io, os, stat, sys, resource, gzip, platform, subprocess, bz2
 
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 def which(program):
 	""" Mimics unix 'which' function """
@@ -90,10 +90,10 @@ def add_executables(args):
 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
 	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools', 'stream_bam']:
 		if not os.path.isfile(args[arg]):
-			sys.exit("File not found: %s" % args[arg])
+			sys.exit("\nError: File not found: %s\n" % args[arg])
 	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
 		if not is_executable(args[arg]):
-			sys.exit("File not executable: %s" % args[arg])
+			sys.exit("\nError:File not executable: %s\n" % args[arg])
 
 def is_executable(f):
 	""" Check if file is executable by all """
@@ -106,7 +106,7 @@ def auto_detect_file_type(inpath):
 	for line in infile:
 		if line[0] == '>': return 'fasta'
 		elif line[0] == '@': return 'fastq'
-		else: sys.exit("Filetype [fasta, fastq] of %s could not be recognized" % inpath)
+		else: sys.exit("Error: Filetype [fasta, fastq] of %s could not be recognized\n" % inpath)
 	infile.close()
 
 def check_compression(inpath):
@@ -117,13 +117,13 @@ def check_compression(inpath):
 		next(file)
 		file.close()
 	except:
-		sys.exit("\nError: File extension '%s' does not match expected compression" % ext)
+		sys.exit("\nError: File extension '%s' does not match expected compression\n" % ext)
 
 def check_database(args):
-	if 'db' is None:
+	if args['db'] is None:
 		error = "\nError: No reference database specified\n"
-		error = "Use the flag -d to specify a database,\n"
-		error = "or set the MIDAS_DB environmental variable: export MIDAS_DB=/path/to/midas/db\n"
+		error += "Use the flag -d to specify a database,\n"
+		error += "or set the MIDAS_DB environmental variable: export MIDAS_DB=/path/to/midas/db\n"
 		sys.exit(error)
 	if not os.path.isdir(args['db']):
 		error = "\nError: Specified reference database does not exist: %s\n" % args['db']
@@ -179,7 +179,7 @@ def check_exit_code(process, command):
 	""" Capture stdout, stderr. Check unix exit code and exit if non-zero """
 	out, err = process.communicate()
 	if process.returncode != 0:
-		err_message = "\nError encountered executing:\n%s\n\nError message:\n%s" % (command, err)
+		err_message = "\nError encountered executing:\n%s\n\nError message:\n%s\n" % (command, err)
 		sys.exit(err_message)
 
 def check_bamfile(args, bampath):

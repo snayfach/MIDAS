@@ -34,6 +34,10 @@ Sample filters (select subset of samples from INPUT):
   --max_samples INT     Maximum number of samples to process. useful for testing (use all)
 
 Presence/Absence:
+  --cluster_pid {75,80,85,90,95,99}
+                        In the database, pan-genomes are defined at 6 different % identity clustering cutoffs
+                        CLUSTER_PID allows you to quantify gene content for any of these sets of gene clusters
+                        By default, gene content is reported for genes clustered at 95% identity (95)
   --min_copy FLOAT      Genes >= MIN_COPY are classified as present
                         Genes < MIN_COPY are classified as absent (0.35)
 ```
@@ -41,19 +45,22 @@ Presence/Absence:
 ## Examples
 
 Examples:
-1) Merge results for all species. Provide list of paths to sample directories:
+1) Merge results for all species. Provide list of paths to sample directories:  
 `merge_midas.py genes /path/to/outdir -i sample_1,sample_2 -t list`
 
-2) Merge results for one species:
+2) Merge results for one species:  
 `merge_midas.py genes /path/to/outdir --species_id Bacteroides_vulgatus_57955 -i sample_1,sample_2 -t list`
 
-3) Exclude low-coverage samples in output matrix:
+3) Quantify genes clusters at 90% identity:  
+`merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --cluster_pid 90`
+
+4) Exclude low-coverage samples in output matrix:  
 `merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --sample_depth 5.0`
 
-4) Use lenient threshold for determining gene presence-absence:
+5) Use lenient threshold for determining gene presence-absence:  
 `merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --min_copy 0.1`
 
-5) Run a quick test:
+6) Run a quick test:  
 `merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10`
 
 

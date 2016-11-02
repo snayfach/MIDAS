@@ -44,9 +44,8 @@ Read alignment options (if using --align):
 Quantify genes options (if using --call_genes):
   --readq INT           Discard reads with mean quality < READQ (20)
   --mapid FLOAT         Discard reads with alignment identity < MAPID (94.0)
-  --mapq INT            Discard reads with mapping quality < MAPQ (10)
   --aln_cov FLOAT       Discard reads with alignment coverage < ALN_COV (0.75)
-  --trim INT            Trim N base-pairs from read-tails (0)
+  --trim INT            Trim N base-pairs from 3'/right end of reads (0)
 ```
 
 ## Examples
