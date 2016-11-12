@@ -138,29 +138,33 @@ def format_pileup(args, species, contigs):
 		#   write info from pileup
 		write_present(sp.out, pileup=p)
 		sp.j += 1
+
+		# end of contig
 		if sp.j >= contig.length:
 			sp.i += 1; sp.j = 0
-			contig = contigs[sp.contigs[sp.i]]
 
 	# fill in downstream positions & contigs with zero coverage
 	for sp in species.values():
 		
-		# lefover positions on last contig
-		#   indicates that one or more downstream positions have zero coverage
-		contig = contigs[sp.contigs[sp.i]]
-		while sp.j < contig.length:
-			write_missing(sp.out, ref_id=contig.id, ref_pos=str(sp.j+1), ref_allele=contig.seq[sp.j])
-			sp.j += 1
-
-		# lefover contigs
-		#   indicates that one or more downstream contigs have zero coverage
-		sp.i += 1; sp.j = 0
-		while sp.i < len(sp.contigs):
+		# no remaining contigs
+		if sp.i < len(sp.contigs):
+		
+			# lefover positions on last contig
+			#   indicates that one or more downstream positions have zero coverage
 			contig = contigs[sp.contigs[sp.i]]
-			write_missing(sp.out, ref_id=contig.id, ref_pos=str(sp.j+1), ref_allele=contig.seq[sp.j])
-			sp.j += 1
-			if sp.j >= contig.length:
-				sp.i += 1; sp.j = 0
+			while sp.j < contig.length:
+				write_missing(sp.out, ref_id=contig.id, ref_pos=str(sp.j+1), ref_allele=contig.seq[sp.j])
+				sp.j += 1
+
+			# lefover contigs
+			#   indicates that one or more downstream contigs have zero coverage
+			sp.i += 1; sp.j = 0
+			while sp.i < len(sp.contigs):
+				contig = contigs[sp.contigs[sp.i]]
+				write_missing(sp.out, ref_id=contig.id, ref_pos=str(sp.j+1), ref_allele=contig.seq[sp.j])
+				sp.j += 1
+				if sp.j >= contig.length:
+					sp.i += 1; sp.j = 0
 
 		# close output files
 		sp.out.close()
@@ -281,7 +285,7 @@ def run_pipeline(args):
 		start = time()
 		print("\nRunning mpileup")
 		args['log'].write("\nRunning mpileup\n")
-		pileup(args)
+#		pileup(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
