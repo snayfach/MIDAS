@@ -67,12 +67,9 @@ merge_midas.py species /path/to/outdir -i /path/to/samples -t dir --max_samples 
 Can be a list of directories, a directory containing all samples, or a file with paths
 See '-t' for details""")
 	parser.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
-		help="""'list': -i incdicates a comma-separated list of paths to sample directories
-example: /path/to/samples/sample_1,/path/to/samples/sample_2
-'dir': -i incdicates a  directory containing all samples
-example: /path/to/samples
-'file': -i incdicates a file containing paths to sample directories
-example: /path/to/sample_paths.txt
+		help="""list: -i is a comma-separated list (ex: /path/to/samples/sample_1,/path/to/samples/sample_2)
+ dir: -i is a directory containing all samples (ex: /path/to/samples)
+file: -i is a file containing paths to sample directories (ex: /path/to/sample_paths.txt)
 """)
 	parser.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database
@@ -121,9 +118,9 @@ merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 
 Can be a list of directories, a directory containing all samples, or a file with paths
 See '-t' for details""")
 	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
-		help="""'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
-'dir': -i is a  directory containing all samples (ex: /samples_dir)
-'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
+		help="""list: -i is a comma-separated list (ex: /path/to/samples/sample_1,/path/to/samples/sample_2)
+ dir: -i is a directory containing all samples (ex: /path/to/samples)
+file: -i is a file containing paths to sample directories (ex: /path/to/sample_paths.txt)
 """)
 	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database
@@ -187,9 +184,9 @@ merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --max_species 1 -
 Can be a list of directories, a directory containing all samples, or a file with paths
 See '-t' for details""")
 	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
-		help="""'list': -i is a comma-separated list of paths to sample directories (ex: /sample1,/sample2)
-'dir': -i is a  directory containing all samples (ex: /samples_dir)
-'file': -i is a file containing paths to sample directories (ex: sample_paths.txt)
+		help="""list: -i is a comma-separated list (ex: /path/to/samples/sample_1,/path/to/samples/sample_2)
+ dir: -i is a directory containing all samples (ex: /path/to/samples)
+file: -i is a file containing paths to sample directories (ex: /path/to/sample_paths.txt)
 """)
 	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database
