@@ -123,7 +123,7 @@ def check_database(args):
 	if args['db'] is None:
 		error = "\nError: No reference database specified\n"
 		error += "Use the flag -d to specify a database,\n"
-		error += "or set the MIDAS_DB environmental variable: export MIDAS_DB=/path/to/midas/db\n"
+		error += "Or set the MIDAS_DB environmental variable: export MIDAS_DB=/path/to/midas/db\n"
 		sys.exit(error)
 	if not os.path.isdir(args['db']):
 		error = "\nError: Specified reference database does not exist: %s\n" % args['db']
