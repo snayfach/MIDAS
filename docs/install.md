@@ -62,14 +62,17 @@ Run the following command to test MIDAS:
 
 This will take a few minutes to complete
 
-### Update MIDAS
-Move to installation directory, pull the latest version, and install:  
+### Update MIDAS  
+MIDAS changes over time as new features are added and bugs are fixed  
+
+To update MIDAS, move to installation directory and pull the latest version:  
 `cd MIDAS`  
 `git pull` 
 
 Or, download the latest stable release of the source code:  
 [https://github.com/snayfach/MIDAS/releases] (https://github.com/snayfach/MIDAS/releases)  
  
+To be notified of these changes, click the "Watch" button in the upper right corner of the page  
 
 ## Next step
 [Download the reference database] (ref_db.md)
