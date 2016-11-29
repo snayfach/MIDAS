@@ -9,11 +9,11 @@ Before running these scripts, you'll need to have run:
 ####Command usage:
 
 ``` 
-gene_sharing.py --indir <PATH> --out <PATH> [options]
+compare_genes.py --indir <PATH> --out <PATH> [options]
 
-  --indir PATH          path to output from 'merge_midas.py genes' for one species
+  --indir PATH          Path to output from 'merge_midas.py genes' for one species
                         directory should be named according to a species_id and contains files 'genes_*.txt')
-  --out PATH            path to output file
+  --out PATH            Path to output file
 ```
 
 ####Options:
@@ -31,19 +31,19 @@ gene_sharing.py --indir <PATH> --out <PATH> [options]
 
 ####Examples:  
 1) Run with defaults:  
-`gene_sharing.py --indir /path/to/species --out distances.txt`
+`compare_genes.py --indir /path/to/species --out distances.txt`
 
 2) Run a quick test:  
-`gene_sharing.py --indir /path/to/species --out distances.txt --max_genes 1000 --max_samples 10`
+`compare_genes.py --indir /path/to/species --out distances.txt --max_genes 1000 --max_samples 10`
 
 3) Use a different distance metric:  
-`gene_sharing.py --indir /path/to/species --out distances.txt --distance manhattan`
+`compare_genes.py --indir /path/to/species --out distances.txt --distance manhattan`
 
 4) Use a lenient cutoff for determining gene presence absence:  
-`gene_sharing.py --indir /path/to/species --out distances.txt --cutoff 0.10`
+`compare_genes.py --indir /path/to/species --out distances.txt --cutoff 0.10`
 
 5) Use a strict cutoff for determining gene presence absence:  
-`gene_sharing.py --indir /path/to/species --out distances.txt --cutoff 0.75`
+`compare_genes.py --indir /path/to/species --out distances.txt --cutoff 0.75`
 
 ####Output format:  
   sample1: first sample identifier  
