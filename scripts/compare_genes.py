@@ -14,29 +14,29 @@ def parse_arguments():
 		usage=argparse.SUPPRESS,
 		description="""Description:
 This script will compare the gene content between all pairs of samples
-Gene presence-absence and gene copy number are used for comparison
+Before running this script, you'll need to have run: merge_midas.py genes
 
-Usage: gene_sharing.py indir outfile [options]
+Usage: compare_genes.py --indir <PATH> --out <PATH> [options]
 """,
 		epilog="""Examples:
 1) Run with defaults:
-gene_sharing.py --indir /path/to/species --out distances.txt
+compare_genes.py --indir /path/to/species --out distances.txt
 
 2) Run a quick test:
-gene_sharing.py --indir /path/to/species --out distances.txt --max_genes 1000 --max_samples 10
+compare_genes.py --indir /path/to/species --out distances.txt --max_genes 1000 --max_samples 10
 
 3) Use a different distance metric:
-gene_sharing.py --indir /path/to/species --out distances.txt --distance manhattan
+compare_genes.py --indir /path/to/species --out distances.txt --distance manhattan
 
 4) Use a lenient cutoff for determining gene presence absence:
-gene_sharing.py --indir /path/to/species --out distances.txt --cutoff 0.10
+compare_genes.py --indir /path/to/species --out distances.txt --cutoff 0.10
 
 5) Use a strict cutoff for determining gene presence absence:
-gene_sharing.py --indir /path/to/species --out distances.txt --cutoff 0.75
+compare_genes.py --indir /path/to/species --out distances.txt --cutoff 0.75
 """)
 	parser.add_argument('--indir', metavar='PATH', type=str, required=True,
 		help="""Path to output from `merge_midas.py genes` for one species
-Directory should be named according to a species_id and contains files 'genes_*.txt')""")
+directory should be named according to a species_id and contains files 'genes_*.txt')""")
 	parser.add_argument('--out', metavar='PATH', type=str, required=True,
 		help="""Path to output file""")
 	parser.add_argument('--max_genes', metavar='INT', type=int,
