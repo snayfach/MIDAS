@@ -285,7 +285,7 @@ def run_pipeline(args):
 		start = time()
 		print("\nRunning mpileup")
 		args['log'].write("\nRunning mpileup\n")
-#		pileup(args)
+		pileup(args)
 		print("  %s minutes" % round((time() - start)/60, 2) )
 		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
