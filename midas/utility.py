@@ -109,6 +109,25 @@ def auto_detect_file_type(inpath):
 		else: sys.exit("Error: Filetype [fasta, fastq] of %s could not be recognized\n" % inpath)
 	infile.close()
 
+def check_input_reads(args):
+	inpaths = []
+	for arg in ['m1', 'm2']:
+		if args[arg]:
+			for inpath in args[arg].split(','):
+				check_path(inpath)
+				check_compression(inpath)
+				inpaths.append(inpath)
+	if len(inpaths) != len(set(inpaths)):
+		sys.exit("\nError: Duplicate file paths specified with -1 and/or -2\n")
+	if args['m2'] and not args['m1']:
+		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads\n")
+	if 'align' in args and args['align'] and not args['m1']:
+		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ\n")
+
+def check_path(inpath):
+	if not os.path.isfile(inpath):
+		sys.exit("\nError: Input file does not exist: '%s'\n" % inpath)
+
 def check_compression(inpath):
 	""" Check that file extension matches expected compression """
 	ext = inpath.split('.')[-1]

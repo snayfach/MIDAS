@@ -272,7 +272,6 @@ def run_pipeline(args):
 
 	# Use bowtie2 to map reads to a representative genome for each species
 	if args['align']:
-		args['file_type'] = utility.auto_detect_file_type(args['m1'])
 		print("\nMapping reads to representative genomes")
 		args['log'].write("\nMapping reads to representative genomes\n")
 		start = time()

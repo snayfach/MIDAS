@@ -105,6 +105,9 @@ run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz -t 4 -n 4000000
 3) run with exactly 80 base-pair reads:
 run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz --read_length 80
 
+4) only align 2M reads to database, but scale the number of mapped reads and read-depth based on entire metagenome:
+run_midas.py species /path/to/outdir -1 /path/to/reads_1.fq.gz -n 2000000 -s
+
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str,
@@ -113,12 +116,15 @@ Name should correspond to sample identifier.""")
 	parser.add_argument('-1', type=str, dest='m1', required=True,
 		help="""FASTA/FASTQ file containing 1st mate if using paired-end reads.
 Otherwise FASTA/FASTQ containing unpaired reads.
-Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
+""")
 	parser.add_argument('-2', type=str, dest='m2',
 		help="""FASTA/FASTQ file containing 2nd mate if using paired-end reads.
-Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
+<M1> and <M2> can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)
+<M1> and <M2> can indicate multiple files (separate with comma)""")
 	parser.add_argument('-n', type=int, dest='max_reads',
 		help="""Number of reads to use from input file(s) (use all)""")
+	parser.add_argument('-s', dest='scale', action='store_true', default=False,
+		help="""If -n specified, scale read-depth of species to entire metagenome (False)""")
 	parser.add_argument('-t', dest='threads', default=1,
 		help="""Number of threads to use for database search (1)""")
 	parser.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
@@ -160,8 +166,6 @@ def print_species_arguments(args):
 	sys.stdout.write('\n'.join(lines)+'\n')
 
 def check_species(args):
-	# check file type
-	if args['m1']: args['file_type'] = utility.auto_detect_file_type(args['m1'])
 	# check database
 	utility.check_database(args)
 	# create output directories
@@ -176,13 +180,11 @@ def check_species(args):
 	# check alignment coverage
 	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
 		sys.exit("\nError: Invalid alignment coverage: %s. Must be between 0 and 1\n" % args['aln_cov'])
-	# check that m1 (and m2) exist
-	for arg in ['m1', 'm2']:
-		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nError: Input file does not exist: '%s'\n" % args[arg])
-	# check that extention matches compression
-	if args['m1']: utility.check_compression(args['m1'])
-	if args['m2']: utility.check_compression(args['m2'])
+	# check input files
+	utility.check_input_reads(args)
+	# detect_file_type
+	if args['m1']:
+		args['file_type'] = utility.auto_detect_file_type(args['m1'].split(',')[0])
 
 def create_directories(program, args):
 	dirs = [args['outdir']]
@@ -219,7 +221,7 @@ run_midas.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to
 
 4) just quantify genes, keep reads with >=95% alignment identity and reads with an average quality-score >=30:
 run_midas.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
-
+	
 """)
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str, help='Path to directory to store results. Name should correspond to sample identifier. ')
@@ -243,10 +245,11 @@ By default, the MIDAS_DB environmental variable is used""")
 	align.add_argument('-1', type=str, dest='m1', required=True,
 		help="""FASTA/FASTQ file containing 1st mate if using paired-end reads.
 Otherwise FASTA/FASTQ containing unpaired reads.
-Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
+""")
 	align.add_argument('-2', type=str, dest='m2',
 		help="""FASTA/FASTQ file containing 2nd mate if using paired-end reads.
-Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
+<M1> and <M2> can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)
+<M1> and <M2> can indicate multiple files (separate with comma)""")
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Alignment speed/sensitivity (very-sensitive)')
@@ -360,10 +363,11 @@ By default, the MIDAS_DB environmental variable is used""")
 	align.add_argument('-1', type=str, dest='m1', required=True,
 		help="""FASTA/FASTQ file containing 1st mate if using paired-end reads.
 Otherwise FASTA/FASTQ containing unpaired reads.
-Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
+""")
 	align.add_argument('-2', type=str, dest='m2',
 		help="""FASTA/FASTQ file containing 2nd mate if using paired-end reads.
-Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
+<M1> and <M2> can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)
+<M1> and <M2> can indicate multiple files (separate with comma)""")
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Bowtie2 alignment speed/sensitivity (very-sensitive)')
@@ -448,8 +452,6 @@ def check_selected_species(args):
 
 def check_genes(args):
 	""" Check validity of command line arguments """
-	# check file type
-	if args['m1']: args['file_type'] = utility.auto_detect_file_type(args['m1'])
 	# check database
 	utility.check_database(args)
 	# make sure selected species are valid
@@ -486,19 +488,14 @@ Alternatively, you can manually specify one or more species using --species_id\n
 		error = "\nError: You've specified --call_genes, but no alignments were found"
 		error += "\nTry running with --align\n"
 		sys.exit(error)
-	# no reads
-	if args['align'] and not args['m1']:
-		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ\n")
-	# check input file paths
-	for arg in ['m1', 'm2']:
-		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nError: Input file does not exist: '%s'\n" % args[arg])
-	# check compression
-	if args['m1']: utility.check_compression(args['m1'])
-	if args['m2']: utility.check_compression(args['m2'])
-	# input options
-	if args['m2'] and not args['m1']:
-		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads\n")
+
+	# check input files
+	utility.check_input_reads(args)
+
+	# detect_file_type
+	if args['m1']:
+		args['file_type'] = utility.auto_detect_file_type(args['m1'].split(',')[0])
+		
 	# sanity check input values
 	if args['mapid'] < 1 or args['mapid'] > 100:
 		sys.exit("\nError: MAPID must be between 1 and 100\n")
@@ -507,8 +504,6 @@ Alternatively, you can manually specify one or more species using --species_id\n
 
 def check_snps(args):
 	""" Check validity of command line arguments """
-	# check file type
-	if args['m1']: args['file_type'] = utility.auto_detect_file_type(args['m1'])
 	# check database
 	utility.check_database(args)
 	# make sure selected species are valid
@@ -554,19 +549,11 @@ Alternatively, you can manually specify one or more species using --species_id\n
 		error = "\nError: You've specified --call_snps, but the no genome database was found"
 		error += "\nTry running with --build_db\n"
 		sys.exit(error)
-	# no reads
-	if args['align'] and not args['m1']:
-		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ\n")
-	# check input file paths
-	for arg in ['m1', 'm2']:
-		if args[arg] and not os.path.isfile(args[arg]):
-			sys.exit("\nError: Input file does not exist: '%s'\n" % args[arg])
-	# check compression
-	if args['m1']: utility.check_compression(args['m1'])
-	if args['m2']: utility.check_compression(args['m2'])
-	# input options
-	if args['m2'] and not args['m1']:
-		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads\n")
+	# check input files
+	utility.check_input_reads(args)
+	# detect_file_type
+	if args['m1']:
+		args['file_type'] = utility.auto_detect_file_type(args['m1'].split(',')[0])
 	# sanity check input values
 	if args['mapid'] < 1 or args['mapid'] > 100:
 		sys.exit("\nError: MAPQ must be between 1 and 100\n")
@@ -600,6 +587,10 @@ species_profile.txt
   count_reads: number of reads mapped to marker genes
   coverage: estimated genome-coverage (i.e. read-depth) of species in metagenome
   relative_abundance: estimated relative abundance of species in metagenome
+
+NOTE: if using -n <max_reads> together with -s, count_reads and coverage are scaled values:
+count_reads = count_reads * <total_reads>/<max_reads>
+coverage = coverage * <total_reads>/<max_reads>
 
 Additional information for each species can be found in the reference database:
  %s/marker_genes

@@ -30,8 +30,8 @@ def map_reads_hsblast(args):
 	""" Use hs-blastn to map reads in fasta file to marker database """
 	# stream sequences
 	command = 'python %s' % args['stream_seqs']
-	command += ' -1 %s' % args['m1'] # fasta/fastq
-	if args['m2']: command += ' -2 %s' % args['m2'] # mate
+	command += ' -i %s' % args['m1'] # 1st mate
+	if args['m2']: command += ',%s' % args['m2'] # 2nd mate
 	if args['max_reads']: command += ' -n %s' % args['max_reads'] # number of reads
 	if args['read_length']: command += ' -l %s' % args['read_length'] # read length
 	command += ' 2> %s/species/temp/read_count.txt' % args['outdir'] # tmpfile to store # of reads, bp sampled
@@ -225,6 +225,26 @@ def select_species(args):
 	if len(my_species) == 0:
 		sys.exit("\nError: no species sastisfied your selection criteria. \n")
 	return my_species
+	
+def scale_depth(species_abundance, mate1, mate2, file_type, max_reads):
+	""" Scale read depth by bp ratio """
+	sampled_bp = 0
+	total_bp = 0
+	count_reads = 0
+	paths = mate1.split(',')
+	if mate2: paths += mate2.split(',')
+	divisor = 4 if file_type == 'fastq' else 2
+	for path in paths:
+		for line_number, line in enumerate(utility.iopen(path)):
+			if (line_number-1) % divisor == 0:
+				total_bp += len(line) - 1
+				if count_reads < max_reads:
+					sampled_bp += len(line) - 1
+				count_reads += 1
+	bp_ratio = float(total_bp)/sampled_bp
+	for id in species_abundance:
+		species_abundance[id]['cov'] *= bp_ratio
+		species_abundance[id]['count'] = int(species_abundance[id]['count'] * bp_ratio)
 
 def run_pipeline(args):
 	
@@ -259,6 +279,15 @@ def run_pipeline(args):
 	species_abundance = normalize_counts(species_alns, total_gene_length)
 	print("  %s minutes" % round((time() - start)/60, 2) )
 	print("  %s Gb maximum memory" % utility.max_mem_usage())
+	
+	# scale read depth
+	if args['max_reads'] and args['scale']:
+		start = time()
+		print("\nScaling species read-depth to total metagenome size")
+		args['log'].write("\nScaling species read-depth to total metagenome size\n")
+		scale_depth(species_abundance, args['m1'], args['m2'], args['file_type'], args['max_reads'])
+		print("  %s minutes" % round((time() - start)/60, 2) )
+		print("  %s Gb maximum memory" % utility.max_mem_usage())
 	
 	# write results
 	write_abundance(args['outdir'], species_abundance, species_info)
