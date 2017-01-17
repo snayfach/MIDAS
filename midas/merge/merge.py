@@ -4,119 +4,213 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import os, sys
+import os, sys, csv
 from midas import utility
 
 class Species:
 	""" Base class for species """
-	def __init__(self, id, info):
+	def __init__(self, id, species_info, genome_info):
 		self.id = id
 		self.samples = []
+		self.info = species_info[self.id]
+		self.genome_info = genome_info[self.info['rep_genome']]
+
+	def fetch_sample_depth(self):
+		self.sample_depth = []
+		for sample in self.samples:
+			self.sample_depth.append(float(sample.info[self.id]['mean_coverage']))
+
+	def write_sample_info(self, dtype, outdir):
+		""" Write summary file for samples """
+		outfile = open('%s/%s/%s_summary.txt' % (outdir, self.id, dtype), 'w')
+		if dtype == 'snps':
+			fields = ['genome_length', 'covered_bases', 'fraction_covered', 'mean_coverage']
+		else:
+			fields = ['pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage']
+		outfile.write('\t'.join(['sample_id']+fields)+'\n')
+		for sample in self.samples:
+			path = '%s/%s/summary.txt' % (sample.dir, dtype)
+			outfile.write(sample.id)
+			for field in fields:
+				value = sample.info[self.id][field]
+				outfile.write('\t' + str(value))
+			outfile.write('\n')
+
+	def open_outfiles(self, dtype, outdir):
+		""" Open output files for species """
+		self.outdir = os.path.join(outdir, self.id)
+		self.files = {}
+		if dtype == 'snps':
+			for ftype in ['info', 'freq', 'depth']:
+				path = '%s/snps_%s.txt' % (self.outdir, ftype)
+				self.files[ftype] = open(path, 'w')
+			for type in ['freq', 'depth']:
+				record = ['site_id']+[s.id for s in self.samples]
+				self.files[ftype].write('\t'.join(record)+'\n')
+			info_fields = ['site_id', 'site_prev', 'ref_allele', 'major_allele',
+						   'minor_allele', 'minor_freq', 'atcg_counts', 'site_type',
+						   'atcg_aas', 'gene_id']
+			self.files['info'].write('\t'.join(info_fields)+'\n')
+
+	def close_outfiles(self):
+		for file in self.files.values():
+			file.close()
 
 class Sample:
 	""" Base class for samples """
-	def __init__(self, dir):
+	def __init__(self, dir, data_type):
 		self.dir = dir
 		self.id = os.path.basename(self.dir)
-		self.paths = self.init_paths()
+		self.info = self.read_info(data_type)
 
-	def init_paths(self):
-		paths = {}
-		species = '/'.join([self.dir, 'species/species_profile.txt'])
-		if os.path.isfile(species): paths['species'] = species
-		else: paths['species'] = None
-		snps = '/'.join([self.dir, 'snps/summary.txt'])
-		if os.path.isfile(snps): paths['snps'] = snps
-		else: paths['snps'] = None
-		genes = '/'.join([self.dir, 'genes/summary.txt'])
-		if os.path.isfile(genes): paths['genes'] = genes
-		else: paths['genes'] = None
-		return paths
+	def read_info(self, data_type):
+		path = '%s/%s/summary.txt' % (self.dir, data_type)
+		if os.path.isfile(path):
+			info = {}
+			for r in csv.DictReader(open(path), delimiter='\t'):
+				info[r['species_id']] = r
+			return info
+		else:
+			return None
 
-def write_summary_stats(species_id, samples, args, type):
-	""" Write summary file for samples """
-	outfile = open('%s/%s/%s_summary.txt' % (args['outdir'], species_id, type), 'w')
-	if type == 'snps':
-		fields = ['genome_length', 'covered_bases', 'fraction_covered', 'mean_coverage']
+def init_samples(indirs, data_type):
+	""" Initialize samples """
+	samples = []
+	for dir in indirs:
+		sample = Sample(dir, data_type)
+		if sample.info is None:
+			pass
+			#sys.stderr.write("Warning: missing/incomplete output: %s\n" % dir)
+		else:
+			samples.append(sample)
+	return samples
+
+def read_species_info(db):
+	""" Read species annotations """
+	species_info = {}
+	path = os.path.join(db, 'species_info.txt')
+	for r in csv.DictReader(open(path), delimiter='\t'):
+		species_info[r['species_id']] = r
+	return species_info
+
+def read_genome_info(db):
+	""" Read genome annotations """
+	genome_info = {}
+	path = os.path.join(db, 'genome_info.txt')
+	for r in csv.DictReader(open(path), delimiter='\t'):
+		genome_info[r['genome_id']] = r
+	return genome_info
+
+def filter_sample_species(sample, species, species_id, args, dtype):
+	""" Determine whether sample-species pair fails filters """
+	info = sample.info[species_id]
+	if (args['species_id']
+			and species_id not in args['species_id'].split(',')):
+		return True # skip unspecified species
+	elif (args['max_samples']
+			and species_id in species
+			and len(species[species_id].samples) >= args['max_samples']):
+		return True # skip species with too many samples
+	elif float(info['mean_coverage']) < args['sample_depth']:
+		return True # skip low-coverage sample
+	elif dtype=='snps' and float(info['fraction_covered']) < args['fract_cov']:
+		return True # skip low-coverage sample
 	else:
-		fields = ['pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage']
-	outfile.write('\t'.join(['sample_id']+fields)+'\n')
-	for sample in samples:
-		stats = read_stats(sample.paths[type], type)
-		outfile.write(sample.id)
-		for field in fields:
-			if field in stats[species_id]:
-				outfile.write('\t' + str(stats[species_id][field]))
-			else: # temporary fix
-				outfile.write('\t')
-		outfile.write('\n')
+		return False
 
 def sort_species(species):
 	""" Sort list of species by number of samples in descending order """
 	x = sorted([(sp, len(sp.samples)) for sp in species], key=lambda x: x[1], reverse=True)
 	return [_[0] for _ in x]
 
-def select_species(args, type='genes'):
-	""" Select all species with a minimum number of high-coverage samples"""
-	# read species annotations
-	species_info = {}
-	inpath = os.path.join(args['db'], 'species_info.txt')
-	for rec in utility.parse_file(inpath):
-		species_info[rec['species_id']] = rec
-	# fetch all species with at least 1 sample
+def init_species(samples, args, dtype):
+	""" Store high quality sample-species pairs """
 	species = {}
-	for sample in load_samples(args):
-		if not sample.paths[type]:
-			sys.stderr.write("Warning: no %s output for sample: %s\n" % (type, sample.dir))
+	species_info = read_species_info(args['db'])
+	genome_info = read_genome_info(args['db'])
+	for sample in samples:
+		for species_id in sample.info:
+			if species_id not in species:
+				species[species_id] = Species(species_id, species_info, genome_info)
+			if filter_sample_species(sample, species, species_id, args, dtype):
+				continue
+			else:
+				species[species_id].samples.append(sample)
+	return species.values()
+
+def filter_species(species, args):
+	""" Pick subset of species to analyze """
+	keep = []
+	for sp in sort_species(species):
+		sp.nsamples = len(sp.samples)
+		if sp.nsamples < int(args['min_samples']):
 			continue
-		for id, info in read_stats(sample.paths[type], type).items():
-			if (args['species_id']
-					and id not in args['species_id'].split(',')):
-				continue # skip unspecified species
-			elif (args['max_samples']
-					and id in species
-					and len(species[id].samples) >= args['max_samples']):
-				continue # skip species with too many samples
-			elif float(info['mean_coverage']) < args['sample_depth']:
-				continue # skip low-coverage sample
-			elif type=='snps' and float(info['fraction_covered']) < args['fract_cov']:
-				continue # skip low-coverage sample
-			if id not in species:
-				species[id] = Species(id, species_info) # initialize new species
-			species[id].samples.append(sample) # append sample
-	# dict to list
-	species = species.values()
-	# remove species with an insufficient number of samples
-	species = [sp for sp in species if len(sp.samples) >= int(args['min_samples'])]
-	# sort by number of samples
-	species = sort_species(species)
-	# select a subset of species to analyze
-	if args['max_species'] is not None and len(species) > args['max_species']:
-		species = species[0:args['max_species']]
-	# create species directories
-	for sp in species:
-		outdir = os.path.join(args['outdir'], sp.id)
-		if not os.path.isdir(outdir): os.mkdir(outdir)
-	print("  found %s species with sufficient high-coverage samples\n" % len(species))
+		elif args['max_species'] and len(keep) >= args['max_species']:
+			continue
+		else:
+			sp.fetch_sample_depth()
+			sp.outdir = args['outdir']+'/'+sp.id
+			keep.append(sp)
+			if not os.path.isdir(sp.outdir):
+				os.mkdir(sp.outdir)
+	return keep
+
+def select_species(args, dtype):
+	""" Select all species with a minimum number of high-coverage samples"""
+	samples = init_samples(args['indirs'], dtype)
+	species = init_species(samples, args, dtype)
+	species = filter_species(species, args)
 	return species
 
-def read_stats(inpath, type):
-	stats = {}
-	for rec in utility.parse_file(inpath):
-		if 'cluster_id' in rec: rec['species_id'] = rec['cluster_id']
-		if 'phyeco_coverage' in rec: rec['marker_coverage'] = rec['phyeco_coverage']
-		if 'average_depth' in rec: rec['mean_coverage'] = rec['average_depth']
-		if type=='genes':
-			rec['fraction_covered'] = float(rec['covered_genes'])/float(rec['pangenome_size'])
-		stats[rec['species_id']] = rec
-	return stats
+def write_snps_readme(args, sp):
+	outfile = open('%s/%s/readme.txt' % (args['outdir'], sp.id), 'w')
+	outfile.write("""
+Description of output files and file formats from 'merge_midas.py snps'
 
-def load_samples(args):
-	samples = []
-	for dir in args['indirs']:
-		if os.path.isdir(dir):
-			samples.append(Sample(dir))
-		else:
-			sys.stderr.write("Warning: specified sample dir does not exist: %s\n" % dir)
-	return samples
+Output files
+############
+snps_freq.txt
+  frequency of minor allele per genomic site and per sample
+  see: snps_info.txt for major, minor, and reference alleles
+snps_depth.txt
+  number of reads mapped to genomic site per sample
+  only accounts for reads matching either major or minor allele
+snps_info.txt  
+  metadata for genomic site
+  see below for more information
+snps_summary.txt
+  alignment summary statistics per sample
+  see below for more information
+snps_log.txt
+  log file containing parameters used
+
+Output formats
+############
+snps_freq.txt and snps_depth.txt
+  tab-delimited matrix files
+  field names are sample ids
+  row names are genome site ids
+  genomic sites have the format: ref_id|ref_pos (eg: NC_ATTCG|1 corresponds to position 1 on contig NC_ATTCG)
+snps_summary.txt
+  sample_id: sample identifier
+  genome_length: number of base pairs in representative genome
+  covered_bases: number of reference sites with at least 1 mapped read
+  fraction_covered: proportion of reference sites with at least 1 mapped read
+  mean_coverage: average read-depth across reference sites with at least 1 mapped read
+snps_info.txt
+  site_id: genomic site_id, format=ref_id|ref_pos
+  site_prev: proportion of samples where site_id was covered with sufficient depth
+  ref_allele: allele in reference genome
+  major_allele: most common allele in metagenomes
+  minor_allele: second most common allele in metagenomes
+  minor_freq: frequency of minor allele in pooled metagenomes
+  atcg_counts: counts of all 4 alleles (A,T,C,G) in pooled metagenomes
+  site_type: NC (non-coding), 1D, 2D, 3D, 4D (degeneracy)
+  atcg_aas: amino acids encoded by 4 possible alleles
+  gene_id: gene that intersects site
+
+Additional information for species can be found in the reference database:
+ %s/rep_genomes/%s
+""" % (args['db'], sp.id) )
+	outfile.close()
 

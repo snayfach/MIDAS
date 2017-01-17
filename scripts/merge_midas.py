@@ -10,15 +10,16 @@ from midas import utility
 def get_program():
 	""" Get program specified by user (species, genes, or snps) """
 	if len(sys.argv) == 1 or sys.argv[1] in ['-h', '--help']:
+		print('Description: merge MIDAS results across metagenomic samples')
 		print('')
 		print('Usage: merge_midas.py <command> [options]')
 		print('')
-		print('Note: use merge_midas.py <command> -h to view usage for a specific command')
-		print('')
 		print('Commands:')
-		print('\tspecies\t merge abundances of bacterial species across samples')
-		print('\tgenes\t merge pan-genome gene copy numbers of species across samples')
-		print('\tsnps\t merge single nucleotide variants of species across samples')
+		print('\tspecies\t build species abundance matrix')
+		print('\tgenes\t build pangenome matrix for each species')
+		print('\tsnps\t perform multi-sample SNP calling and build SNP matrix for each species')
+		print('')
+		print('Note: use merge_midas.py <command> -h to view usage for a specific command')
 		quit()
 	elif sys.argv[1] not in ['species', 'genes', 'snps']:
 		sys.exit("\nError: Unrecognized command: '%s'\n" % sys.argv[1])
@@ -45,7 +46,7 @@ def species_arguments():
 		description="""
 Description: Merge species abundance files across samples
 
-Usage: merge_midas.py species outdir [options]
+Usage: merge_midas.py species <outdir> [options]
 """,
 		epilog="""Examples:
 1) provide list of paths to sample directories:
@@ -59,7 +60,7 @@ merge_midas.py species /path/to/outdir -i /path/to/samples/sample_paths.txt -t f
 
 4) run a quick test:
 merge_midas.py species /path/to/outdir -i /path/to/samples -t dir --max_samples 2
-""")
+	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str, help='Directory for output files')
 	parser.add_argument('-i', type=str, dest='input', required=True,
@@ -90,7 +91,7 @@ def genes_arguments():
 		description="""
 Description: merge results from pan-genome profiling across samples
 
-Usage: merge_midas.py genes outdir [options]
+Usage: merge_midas.py genes <outdir> [options]
 """,
 		epilog="""Examples:
 1) Merge results for all species. Provide list of paths to sample directories:
@@ -107,15 +108,14 @@ merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --min_copy 0.1
 
 5) Run a quick test:
 merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10
-
-""")
+	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str,
-		help="directory for output files. a subdirectory will be created for each species_id")
+		help="Directory for output files.\nA subdirectory will be created for each species_id")
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
 		help="""Input to sample directories output by run_midas.py
-Can be a list of directories, a directory containing all samples, or a file with paths
+Can be a list of directories, a directory containing all samples, or a file with paths.
 See '-t' for details""")
 	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
 		help="""list: -i is a comma-separated list (ex: /path/to/samples/sample_1,/path/to/samples/sample_2)
@@ -123,7 +123,7 @@ See '-t' for details""")
 file: -i is a file containing paths to sample directories (ex: /path/to/sample_paths.txt)
 """)
 	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
-		help="""Path to reference database
+		help="""Path to reference database.
 By default, the MIDAS_DB environmental variable is used""")
 	species = parser.add_argument_group('Species filters (select subset of species from INPUT)')
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
@@ -139,9 +139,9 @@ By default, the MIDAS_DB environmental variable is used""")
 		help="""Maximum number of samples to process. Useful for testing (use all)""")
 	gene = parser.add_argument_group('Quantification')
 	gene.add_argument('--cluster_pid', type=str, dest='cluster_pid', default='95', choices=['75', '80', '85', '90', '95', '99'],
-		help="""In the database, pan-genomes are defined at 6 different %% identity clustering cutoffs
-CLUSTER_PID allows you to quantify gene content for any of these sets of gene clusters
-By default, gene content is reported for genes clustered at 95%% identity (95)
+		help="""In the database, pan-genomes are defined at 6 different %% identity clustering cutoffs.
+CLUSTER_PID allows you to quantify gene content for any of these sets of gene clusters.
+By default, gene content is reported for genes clustered at 95%% identity
 """)
 	gene.add_argument('--min_copy', type=float, default=0.35, metavar='FLOAT',
 		help="""Genes >= MIN_COPY are classified as present
@@ -155,29 +155,43 @@ def snps_arguments():
 		formatter_class=argparse.RawTextHelpFormatter,
 		usage=argparse.SUPPRESS,
 		description="""
-Description: merge single-nucleotide variant results across samples
+Description: perform multi-sample core-genome SNP calling 
 
-Usage: merge_midas.py snps outdir [options]
+The pipeline can be broken down into the following steps:
+  1) take MIDAS output files from multiple samples
+  2) identify species to process (based on user criterea, e.g. min # of samples)
+  3) scan across the representative genome of each species
+  4) pool nucleotide variants from all metagenomic samples & call the major and minor allele
+  5) determine if genomic site is a SNP (e.g. minor allele frequency >1%)
+  6) determine if genomic site is in the core-genome (e.g. non-zero depth in >95% of samples)
+  7) annotate genomic site by gene_id and coding changes
+  8) write core-genome SNPs to matrix files
+
+Usage: merge_midas.py snps <outdir> [options]
 """,
 		epilog="""Examples:
-1) Merge results for all species. Provide list of paths to sample directories:
+1) Call SNPs for all species. Provide list of paths to sample directories:
 merge_midas.py snps /path/to/outdir -i sample_1,sample_2 -t list
 
-2) Merge results for one species (id=Bacteroides_vulgatus_57955):
+2) Call SNPs for one species (id=Bacteroides_vulgatus_57955):
 merge_midas.py snps /path/to/outdir --species_id Bacteroides_vulgatus_57955 -i sample_1,sample_2 -t list
 
-3) Only use samples with >15x average depth and only use sites covered by >=10 reads in at least >=95% of samples:
-merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --sample_depth 15 --site_depth 10 --site_prev 0.95
+3) Merge results for all sites in the core genome, including those that aren't SNPs
+(this is useful for comparing core-genome-wide diversity patterns between species):
+merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --core-sites
 
 4) Run a quick test:
 merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10 --max_sites 1000
-
-""")
+	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str,
-		help="Directory for output files. a subdirectory will be created for each species_id")
+		help="Directory for output files. \na subdirectory will be created for each species_id")
 	parser.add_argument('--threads', type=int, default=1, metavar='INT',
 		help="Number of CPUs to use for merging files (1)\nIncreases speed when merging many species")
+	parser.add_argument('--sites_per_iter', type=int, default=1000, metavar='INT',
+		help=argparse.SUPPRESS)
+	parser.add_argument('--max_gb', type=float, metavar='FLOAT',
+		help=argparse.SUPPRESS)
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
 		help="""Input to sample directories output by run_midas.py
@@ -191,13 +205,26 @@ file: -i is a file containing paths to sample directories (ex: /path/to/sample_p
 	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database
 By default, the MIDAS_DB environmental variable is used""")
+	presets = parser.add_argument_group("Presets (option groups for easily...)")
+
+	snps = parser.add_argument_group("Presets")
+	snps.add_argument('--core_snps', action='store_true',
+		help="""Same as: --site_depth 1 --site_ratio 2.0 --site_prev 0.95 --snp_maf 0.01 --snp_type bi (default)""")
+	snps.add_argument('--core_sites', action='store_true',
+		help="""Same as: --site_depth 1 --site_ratio 2.0 --site_prev 0.95 --snp_maf 0.0 --snp_type any""")
+	snps.add_argument('--all_snps', action='store_true',
+		help="""Same as: --site_prev 0.0 --snp_maf 0.01 --snp_type bi""")
+	snps.add_argument('--all_sites', action='store_true',
+		help="""Same as: --site_prev 0.0 --snp_maf 0.0 --snp_type any""")
+			
 	species = parser.add_argument_group("Species filters (select subset of species from INPUT)")
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
 		help="""All species with >= MIN_SAMPLES (1)""")
 	species.add_argument('--species_id', dest='species_id', type=str, metavar='CHAR',
 		help="""Comma-separated list of species ids""")
 	species.add_argument('--max_species', type=int, metavar='INT',
-		help="""Maximum number of species to merge (use all)""")
+		help="""Maximum number of species to call SNPs for (all with >= 1 sample)""")
+	
 	sample = parser.add_argument_group("Sample filters (select subset of samples from INPUT)")
 	sample.add_argument('--sample_depth', dest='sample_depth', type=float, default=5.0, metavar='FLOAT',
 		help="""Minimum average read depth per sample (5.0)""")
@@ -205,23 +232,62 @@ By default, the MIDAS_DB environmental variable is used""")
 		help="""Fraction of reference sites covered by at least 1 read (0.4)""")
 	sample.add_argument('--max_samples', type=int, metavar='INT',
 		help="""Maximum number of samples to process. useful for quick tests (use all)""")
+	sample.add_argument('--all_samples', default=False, action='store_true',
+		help="""Include all samples in output""")
+		
 	snps = parser.add_argument_group("Site filters (select subset of genomic sites from INPUT)")
-	snps.add_argument('--site_depth', type=int, default=3, metavar='INT',
-		help="""Minimum number of mapped reads per site.
-A high value like 20 will result in accurate allele frequencies, but may discard many sites.
-A low value like 1 will retain many sites but may not result in accurate allele frequencies (3)""")
+	snps.add_argument('--snp_maf', type=float, default=0.01, metavar='FLOAT',
+		help="""Minimum pooled minor allele frequency of site (0.01)
+This filter determines if there is a SNP at a genomic site.
+Values above zero (e.g. 0.01, 0.02, 0.05) will only keep common variants.
+Set this to zero to include invariant sites""")
+	snps.add_argument('--snp_type', choices=['bi', 'any'],
+		help="""A SNP is defined by the minor allele frequency: see --snp_maf
+bi: only keep bi-allelic SNPs (default)
+any: keep all (including tri and quad allelic) SNPs
+""")
+	snps.add_argument('--site_depth', type=int, default=1, metavar='INT',
+		help="""Minimum number of reads mapped to genomic site (1)
+Used in combination with --site_prev to determine if site is in core-genome""")
+	snps.add_argument('--site_ratio', type=float, default=2.0, metavar='FLOAT',
+		help="""Maximum ratio of site depth to genome depth (2.0)
+This filter helps to eliminate genomic sites with abnormally high read depth""")
 	snps.add_argument('--site_prev', type=float, default=0.95, metavar='FLOAT',
-		help="""Site has at least <site_depth> coverage in at least <site_prev> proportion of samples.
-A value of 1.0 will select sites that have sufficent coverage in all samples.
-A value of 0.0 will select all sites, including those with low coverage in many samples
-NAs recorded for included sites with less than <site_depth> in a sample (0.95)""")
-	snps.add_argument('--site_maf', type=float, default=0.0, metavar='FLOAT',
-		help="""Minimum minor allele frequency of site across samples.
-Setting this to zero (default) will keep invariant sites across samples.
-Setting this above zero (e.g. 0.01, 0.02, 0.05) will only keep common variants""")
+		help="""Minimum fraction of sample where genomic site is >= SITE_DEPTH and <= SITE_RATIO (0.95)
+A high value selects for sites in the core-genome (i.e. present in nearly all strains).
+A low value includes sites in variable regions and/or with abnormally high read depth""")
 	snps.add_argument('--max_sites', type=int, default=float('Inf'), metavar='INT',
-		help="""Maximum number of sites to include in output. useful for quick tests (use all)""")
+		help="""Maximum number of sites to include in output (use all). Useful for quick tests """)
+
 	args = vars(parser.parse_args())
+	args = add_snp_presets(args)
+	return args
+
+def add_snp_presets(args):
+	""" Set argument values based on selected presets """
+	if args['all_samples']:
+		args['sample_depth'] = 0.0
+		args['fract_cov'] = 0.0
+	if args['all_sites']:
+		args['site_prev'] = 0.0
+		args['snp_maf'] = 0.0
+		args['snp_type'] = 'any'
+	if args['all_snps']:
+		args['site_prev'] = 0.0
+		args['snp_maf'] = 0.01
+		args['snp_type'] = 'bi'
+	if args['core_sites']:
+		args['site_depth'] = 1
+		args['site_ratio'] = 2.0
+		args['site_prev'] = 0.95
+		args['snp_maf'] = 0.0
+		args['snp_type'] = 'any'
+	if args['core_snps']:
+		args['site_depth'] = 1
+		args['site_ratio'] = 2.0
+		args['site_prev'] = 0.95
+		args['snp_maf'] = 0.01
+		args['snp_type'] = 'bi'
 	return args
 
 def check_arguments(program, args):
@@ -320,23 +386,27 @@ def print_snps_arguments(args):
 	print ("  keep samples where >= %s percent of sites have non-zero coverage" % (100*args['fract_cov']))
 	if args['max_samples']: print ("  keep <= %s samples" % args['max_samples'])
 	print ("Site selection criteria:")
-	print ("  keep sites covered by >= %s reads across >= %s percent of samples" % (args['site_depth'], 100*args['site_prev']))
+	print ("  keep sites with >= %s%% pooled minor allele frequency" % (100*args['snp_maf']))
+	print ("  keep sites with depth >= %s in >= %s%% of samples" % (args['site_depth'], 100*args['site_prev']) )
+	print ("  keep sites with depth <= %sx the mean-genome-wide-depth in >= %s%% of samples" % (args['site_ratio'], 100*args['site_prev']) )
 	if args['max_sites'] != float('Inf'): print ("  keep <= %s sites" % (args['max_sites']))
 	print ("Number of CPUs to use: %s" % args['threads'])
 	print ("===============================")
 	print ("")
 
+
+
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
 	if program == 'species':
-		from midas.merge import merge_species
-		merge_species.run_pipeline(args)
+		from midas.merge import species
+		species.run_pipeline(args)
 	elif program == 'genes':
-		from midas.merge import merge_genes
-		merge_genes.run_pipeline(args)
+		from midas.merge import genes
+		genes.run_pipeline(args)
 	elif program == 'snps':
-		from midas.merge import merge_snps
-		merge_snps.run_pipeline(args)
+		from midas.merge import snps
+		snps.run_pipeline(args)
 	else:
 		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
 

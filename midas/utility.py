@@ -4,7 +4,8 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import io, os, stat, sys, resource, gzip, platform, subprocess, bz2
+import io, os, stat, sys, resource, gzip, platform, subprocess, bz2, Bio.SeqIO
+
 
 __version__ = '1.2.1'
 
@@ -38,13 +39,13 @@ def print_copyright(log=None):
 def batch_samples(samples, threads):
 	""" Split up samples into batches
 		assert: batch_size * threads < max_open
-		assert: batch_size uses all threads
+		assert: len(batches) == threads
 	"""
 	import resource
 	import math
 	max_open = int(0.8 * resource.getrlimit(resource.RLIMIT_NOFILE)[0]) # max open files on system
 	max_size = math.floor(max_open/threads) # max batch size to avoid exceeding max_open
-	min_size = math.ceil(len(samples)/threads) # min batch size to use all threads
+	min_size = math.ceil(len(samples)/float(threads)) # min batch size to use all threads
 	size = min(min_size, max_size)
 	batches = []
 	batch = []
@@ -108,25 +109,6 @@ def auto_detect_file_type(inpath):
 		elif line[0] == '@': return 'fastq'
 		else: sys.exit("Error: Filetype [fasta, fastq] of %s could not be recognized\n" % inpath)
 	infile.close()
-
-def check_input_reads(args):
-	inpaths = []
-	for arg in ['m1', 'm2']:
-		if args[arg]:
-			for inpath in args[arg].split(','):
-				check_path(inpath)
-				check_compression(inpath)
-				inpaths.append(inpath)
-	if len(inpaths) != len(set(inpaths)):
-		sys.exit("\nError: Duplicate file paths specified with -1 and/or -2\n")
-	if args['m2'] and not args['m1']:
-		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads\n")
-	if 'align' in args and args['align'] and not args['m1']:
-		sys.exit("\nError: To align reads, you must specify path to input FASTA/FASTQ\n")
-
-def check_path(inpath):
-	if not os.path.isfile(inpath):
-		sys.exit("\nError: Input file does not exist: '%s'\n" % inpath)
 
 def check_compression(inpath):
 	""" Check that file extension matches expected compression """
@@ -209,3 +191,74 @@ def check_bamfile(args, bampath):
 	if err.decode('ascii') != '': # need to use decode to convert to characters for python3
 		err_message = "\nWarning, bamfile may be corrupt: %s\nSamtools reported this error: %s\n" % (bampath, err.rstrip())
 		sys.exit(err_message)
+
+def read_genes(species_id, db):
+	""" Read in gene coordinates from features file """
+	genome = read_genome(db, species_id)
+	genes = []
+	path = '%s/rep_genomes/%s/genome.features.gz' % (db, species_id)
+	for gene in parse_file(path):
+		if gene['gene_type'] == 'RNA':
+			continue
+		else:
+			gene['start'] = int(gene['start'])
+			gene['end'] = int(gene['end'])
+			gene['seq'] = get_gene_seq(gene, genome[gene['scaffold_id']])
+			genes.append(gene)
+	return [genes, 0]
+
+def read_genome(db, species_id):
+	""" Read in representative genome from reference database """
+	inpath = '%s/rep_genomes/%s/genome.fna.gz' % (db, species_id)
+	infile = iopen(inpath)
+	genome = {}
+	for r in Bio.SeqIO.parse(infile, 'fasta'):
+		genome[r.id] = r.seq.upper()
+	infile.close()
+	return genome
+
+def get_gene_seq(gene, genome):
+	""" Fetch nucleotide sequence of gene from genome """
+	seq = genome[gene['start']-1:gene['end']] # 2x check this works for + and - genes
+	if gene['strand'] == '-':
+		return(rev_comp(seq))
+	else:
+		return(seq)
+
+def complement(base):
+	""" Complement nucleotide """
+	d = {'A':'T', 'T':'A', 'G':'C', 'C':'G'}
+	if base in d: return d[base]
+	else: return base
+
+def rev_comp(seq):
+	""" Reverse complement sequence """
+	return(''.join([complement(base) for base in list(seq[::-1])]))
+
+def translate(codon):
+	""" Translate individual codon """
+	codontable = {
+	'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M',
+	'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
+	'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K',
+	'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
+	'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L',
+	'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
+	'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q',
+	'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R',
+	'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V',
+	'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A',
+	'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E',
+	'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
+	'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S',
+	'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
+	'TAC':'Y', 'TAT':'Y', 'TAA':'_', 'TAG':'_',
+	'TGC':'C', 'TGT':'C', 'TGA':'_', 'TGG':'W',
+	}
+	return codontable[str(codon)]
+
+def index_replace(codon, allele, pos, strand):
+	""" Replace character at index i in string x with y"""
+	bases = list(codon)
+	bases[pos] = allele if strand == '+' else complement(allele)
+	return(''.join(bases))

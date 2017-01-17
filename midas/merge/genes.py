@@ -98,25 +98,30 @@ def read_cluster_map(sp, db, pid):
 
 def run_pipeline(args):
 
-	print("Identifying species")
-	species = merge.select_species(args, type='genes')
-	
-	for sp in species:
-	
-		print("Merging: %s for %s samples" % (sp.id, len(sp.samples)))
-		sp.dir = os.path.join(args['outdir'], sp.id)
-		if not os.path.isdir(sp.dir): os.mkdir(sp.dir)
-		read_cluster_map(sp, args['db'], args['cluster_pid'])
-			
-		print("  building pangenome matrices")
-		build_gene_matrices(sp, min_copy=args['min_copy'])
-		write_gene_matrices(sp)
-
-		print("  writing summary statistics")
-		merge.write_summary_stats(sp.id, sp.samples, args, 'genes')
-
-		write_readme(args, sp)
+	print("Identifying species and samples")
+	species_list = merge.select_species(args, dtype='genes')
+	for species in species_list:
+		print("  %s" % species.id)
+		print("    count genomes: %s" % species.info['count_genomes'])
+		print("    count samples: %s" % len(species.samples))
 		
-		print("")
+	print("\nMerging genes")
+	for species in species_list:
+			
+		print("  %s" % species.id)
+		species.dir = os.path.join(args['outdir'], species.id)
+		if not os.path.isdir(species.dir): os.mkdir(species.dir)
+		read_cluster_map(species, args['db'], args['cluster_pid'])
+			
+		print("    building pangenome matrices")
+		build_gene_matrices(species, min_copy=args['min_copy'])
+		write_gene_matrices(species)
+
+		print("    writing summary statistics")
+		species.write_sample_info(dtype='genes', outdir=args['outdir'])
+
+		write_readme(args, species)
+		
+		print("    done!")
 
 

@@ -6,7 +6,24 @@
 
 import os, sys, numpy as np
 from midas.run import species
-from midas.merge import merge
+
+class Sample:
+	""" Base class for samples """
+	def __init__(self, dir):
+		self.dir = dir
+		self.id = os.path.basename(self.dir)
+		self.path = '%s/species/species_profile.txt' % self.dir
+
+def init_samples(indirs):
+	""" Initialize samples """
+	samples = []
+	for sample_dir in indirs:
+		species_profile = '%s/species/species_profile.txt' % sample_dir
+		if not os.path.exists(species_profile):
+			sys.stderr.write("Warning: missing/incomplete output: %s\n" % sample_dir)
+		else:
+			samples.append(Sample(sample_dir))
+	return samples
 
 def store_data(args, samples, species_ids):
 	data = {}
@@ -15,7 +32,7 @@ def store_data(args, samples, species_ids):
 		for field in ['relative_abundance', 'coverage', 'count_reads']:
 			data[species_id][field] = []
 	for sample in samples:
-		abundance = species.read_abundance(sample.paths['species'])
+		abundance = species.read_abundance(sample.path)
 		for species_id, values in abundance.items():
 			for field in ['relative_abundance', 'coverage', 'count_reads']:
 				if field in values: # temporary fix
@@ -72,8 +89,8 @@ def write_stats(args, stats):
 
 def identify_samples(args):
 	samples = []
-	for sample in merge.load_samples(args):
-		if not sample.paths['species']:
+	for sample in init_samples(args['indirs']):
+		if not sample.path:
 			sys.stderr.write("Warning: no species profile for %s\n" % sample.dir)
 		elif sample.id in [s.id for s in samples]:
 			sys.stderr.write("Warning: sample_id '%s' specified more than one time.\nSkipping: %s\n" % (sample.id, sample.dir))
@@ -133,3 +150,4 @@ def run_pipeline(args):
 	write_stats(args, stats)
 	# write readme
 	write_readme(args)
+	
