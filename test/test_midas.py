@@ -4,6 +4,7 @@ import unittest
 import shutil
 import os
 import subprocess
+import sys
 from distutils.version import StrictVersion
 
 def run(command):
@@ -136,11 +137,18 @@ class MergeSNPs(unittest.TestCase):
 	def setUp(self):
 		self.retcodes = []
 		self.retcodes.append(run('run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'))
-		self.retcodes.append(run('merge_midas.py snps ./snps -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --sample_depth 0.0 --max_sites 100 --fract_cov 0.0'))
+		self.retcodes.append(run('merge_midas.py snps ./snps -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --all_samples --max_sites 100'))
 	def test_help_text(self):
 		error = "\n\nFailed to execute the command: merge_midas.py snps "
 		self.assertTrue(sum(self.retcodes)==0, msg=error)
 
 if __name__ == '__main__':
+	
+	if os.path.basename(os.getcwd()) != 'test':
+		sys.exit("\nError: Invalid working directory\nMove to /path/to/MIDAS/test and run 'python test_midas.py'\n")
+
 	unittest.main()
-	shutil.rmtree('test')
+
+	for dir in ['sample', 'species', 'genes', 'snps']:
+		shutil.rmtree('test')
+
