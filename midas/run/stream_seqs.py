@@ -65,11 +65,13 @@ def main():
 
 def parse_args():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-i', type=str, dest='input')
+	parser.add_argument('-1', type=str, dest='m1')
+	parser.add_argument('-2', type=str, dest='m2')
 	parser.add_argument('-l', type=int, dest='read_length')
 	parser.add_argument('-n', type=int, dest='max_reads', default=float('Inf'))
 	args = vars(parser.parse_args())
-	args['input'] = args['input'].split(',')
+	args['input'] = [args['m1']]
+	if args['m2']: args['input'].append(args['m2'])
 	return args
 
 if __name__ == "__main__":
