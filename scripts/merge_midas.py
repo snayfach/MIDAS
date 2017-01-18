@@ -73,8 +73,8 @@ merge_midas.py species /path/to/outdir -i /path/to/samples -t dir --max_samples 
 	parser.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database
 By default the MIDAS_DB environmental variable is used""")
-	parser.add_argument('--min_cov', metavar='FLOAT', type=float, default=1.0,
-		help="""Minimum marker-gene-coverage for estimating species prevalence (1.0)""")
+	parser.add_argument('--sample_depth', dest='min_cov', metavar='FLOAT', type=float, default=1.0,
+		help="""Minimum per-sample marker-gene-depth for estimating species prevalence (1.0)""")
 	parser.add_argument('--max_samples', type=int, metavar='INT',
 		help="""Maximum number of samples to process.
 Useful for testing (use all)""")
@@ -184,10 +184,6 @@ merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --max_species 1 -
 		help="Directory for output files. \nA subdirectory will be created for each species_id")
 	parser.add_argument('--threads', type=int, default=1, metavar='INT',
 		help="Number of CPUs to use (1)")
-	parser.add_argument('--sites_per_iter', type=int, default=1000, metavar='INT',
-		help=argparse.SUPPRESS)
-	parser.add_argument('--max_gb', type=float, metavar='FLOAT',
-		help=argparse.SUPPRESS)
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
 		help="""Input to sample directories output by run_midas.py; see '-t' for details""")
@@ -267,7 +263,7 @@ def add_snp_presets(args):
 		args['fract_cov'] = 0.0
 	if args['all_sites']:
 		args['site_prev'] = 0.0
-		args['snp_type'] = ['any']
+		args['snp_type'] = None
 	if args['all_snps']:
 		args['site_prev'] = 0.0
 		args['snp_type'] = ['bi']
@@ -275,26 +271,42 @@ def add_snp_presets(args):
 		args['site_depth'] = 1
 		args['site_ratio'] = 2.0
 		args['site_prev'] = 0.95
-		args['snp_type'] = ['any']
+		args['snp_type'] = None
 	if args['core_snps']:
 		args['site_depth'] = 1
 		args['site_ratio'] = 2.0
 		args['site_prev'] = 0.95
 		args['snp_type'] = ['bi']
-	if args['snp_type'] == ['any']:
-		args['snp_type'] = ['mono', 'bi', 'tri', 'quad']
 	return args
 
 def check_arguments(program, args):
 	""" Run program specified by user (species, genes, or snps) """
-	if program in ['species', 'snps', 'genes']:
-		if not os.path.isdir(args['outdir']): os.mkdir(args['outdir'])
-		check_input(args)
-		utility.check_database(args)
-	else:
+
+	if program not in ['species', 'snps', 'genes']:
 		sys.exit("\nError: Unrecognized program: '%s'\n" % program)
+		
 	if platform.system() not in ['Linux', 'Darwin']:
 		sys.exit("\nError: Operating system '%s' not supported\n" % system())
+	
+	for arg in ['allele_freq', 'fract_cov', 'site_prev']:
+		if arg in args and args[arg] and (args[arg] < 0 or args[arg] > 1):
+			sys.exit("\nError: --%s must be between 0.0 and 1.0\n" % arg)
+
+	for arg in ['max_samples', 'min_samples', 'max_species', 'threads', 'site_depth',
+	            'max_sites', 'sample_depth', 'min_copy', 'site_ratio']:
+		if arg in args and args[arg] and (args[arg] < 0):
+			sys.exit("\nError: --%s cannot be a negative value\n" % arg)
+
+	check_input(args)
+
+	check_output(args)
+
+	utility.check_database(args)
+
+
+def check_output(args):
+	if not os.path.isdir(args['outdir']):
+		os.mkdir(args['outdir'])
 
 def check_input(args):
 	args['indirs'] = []
@@ -355,7 +367,10 @@ def print_genes_arguments(args):
 	else: print ("  keep species with >= %s samples" % args['min_samples'])
 	if args['max_species']: print ("  keep <= %s species" % args['max_species'])
 	print ("Sample selection criteria:")
-	print ("  keep samples with >=%s mean coverage across genes with non-zero coverage" % args['sample_depth'])
+	if args['sample_depth'] == 0:
+		print ("  keep all samples in input regardless of read depth and coverage")
+	else:
+		print ("  keep samples with >=%s mean coverage across genes with non-zero coverage" % args['sample_depth'])
 	if args['max_samples']: print ("  keep <= %s samples" % args['max_samples'])
 	print ("Gene quantification criterea:")
 	print ("  quantify genes clustered at %s%% identity" % args['cluster_pid'])
@@ -372,20 +387,33 @@ def print_snps_arguments(args):
 	print ("Input: %s" % args['input'])
 	print ("Input type: %s" % args['intype'])
 	print ("Output directory: %s" % args['outdir'])
+	print ("SNP definition: >=%s%% allele frequency" % (100*args['allele_freq']))
 	print ("Species selection criteria:")
 	if args['species_id']: print ("  keep species ids: %s" % args['species_id'].split(','))
 	else: print ("  keep species with >= %s samples" % args['min_samples'])
 	if args['max_species']: print ("  keep <= %s species" % args['max_species'])
 	print ("Sample selection criteria:")
-	print ("  keep samples with >= %s mean coverage across sites with non-zero coverage" % args['sample_depth'])
-	print ("  keep samples where >= %s percent of sites have non-zero coverage" % (100*args['fract_cov']))
-	if args['max_samples']: print ("  keep <= %s samples" % args['max_samples'])
+	if args['sample_depth'] == 0 and args['fract_cov'] == 0:
+		print ("  keep all samples in input regardless of read depth and coverage")
+	else:
+		print ("  keep samples with >= %s mean coverage across sites with non-zero coverage" % args['sample_depth'])
+		print ("  keep samples where >= %s percent of sites have non-zero coverage" % (100*args['fract_cov']))
+
+	if args['max_samples']:
+		print ("  keep <= %s samples" % args['max_samples'])
+
 	print ("Site selection criteria:")
-	print ("  minimum allele frequency for SNP calling: %s%%" % (100*args['allele_freq']))
-	print ("  keep %s-alleic sites" % (','.join(args['snp_type'])))
-	print ("  keep sites with depth >= %s in >= %s%% of samples" % (args['site_depth'], 100*args['site_prev']) )
-	print ("  keep sites with depth <= %sx the mean-genome-wide-depth in >= %s%% of samples" % (args['site_ratio'], 100*args['site_prev']) )
-	if args['max_sites'] != float('Inf'): print ("  keep <= %s sites" % (args['max_sites']))
+	if args['snp_type']:
+		print ("  keep %s-allelic sites" % ','.join(args['snp_type']) )
+	else:
+		print ("  keep sites regardless of observed alleles")
+	if args['site_prev'] == 0:
+		print ("  keep sites regardless of read depth")
+	else:
+		print ("  keep sites with depth >= %s in >= %s%% of samples" % (args['site_depth'], 100*args['site_prev']) )
+		print ("  keep sites with depth <= %sx the mean-genome-wide-depth in >= %s%% of samples" % (args['site_ratio'], 100*args['site_prev']) )
+	if args['max_sites'] != float('Inf'):
+		print ("  keep <= %s sites" % (args['max_sites']))
 	print ("Number of CPUs to use: %s" % args['threads'])
 	print ("===============================")
 	print ("")

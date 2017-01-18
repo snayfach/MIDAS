@@ -48,6 +48,9 @@ class GenomicSite:
 	def call_alleles(self, snp_freq):
 		""" Call major and minor alleles at GenomicSite """
 		
+		# check at least 1 mapped read
+		if self.pooled_depth == 0: return
+		
 		# get sorted counts
 		alleles = list('ATCG')
 		freqs = [float(count)/self.pooled_depth for count in self.pooled_counts]
@@ -64,7 +67,7 @@ class GenomicSite:
 			self.minor_index = alleles.index(self.minor_allele)
 		
 		# classify SNP
-		snp_types = ['QUAD', 'TRI', 'BI', 'MONO']
+		snp_types = ['quad', 'tri', 'bi', 'mono']
 		for snp_type, allele_freq in zip(snp_types, allele_freqs[::-1]):
 			allele, freq = allele_freq
 			if freq >= snp_freq:
@@ -103,7 +106,7 @@ class GenomicSite:
 		""" Filter genomic site based on MAF and prevalence """
 		if self.prevalence < min_prev:
 			self.flag = (True, 'min_prev')
-		elif self.snp_type.lower() not in snp_type:
+		elif snp_type is not None and self.snp_type in snp_type:
 			self.flag = (True, 'snp_type')
 		else:
 			self.flag = (False, None)
@@ -174,7 +177,7 @@ class GenomicSite:
 				replace_none(self.minor_allele),
 				str(self.count_samples),
 				atcg_counts,
-				self.snp_type,
+				replace_none(self.snp_type).upper(),
 				self.site_type,
 				replace_none(atcg_aas),
 				replace_none(self.gene_id)]
@@ -413,6 +416,5 @@ def run_pipeline(args):
 		merge.write_snps_readme(args, species)
 		species.write_sample_info(dtype='snps', outdir=args['outdir'])
 		shutil.rmtree(species.tempdir)
-		print "    done!"
 
 
