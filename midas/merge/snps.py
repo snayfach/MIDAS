@@ -8,6 +8,7 @@ import sys, os, shutil
 from midas import utility
 from midas.merge import merge
 from time import time
+from operator import itemgetter
 
 class GenomicSite:
 	def __init__(self, values):
@@ -26,17 +27,16 @@ class GenomicSite:
 		self.total_samples = len(self.sample_counts)
 		self.pooled_counts = self.compute_pooled_counts() # <list>, count of each allele across all samples
 		self.pooled_depth = sum(self.pooled_counts)
-		self.major_allele = ''
-		self.minor_allele = ''
-		self.minor_freq = 0.0
-		self.misc_freq = 0.0
+		self.major_allele = None
+		self.minor_allele = None
+		self.snp_type = None
 					
 		# site annotations
-		self.site_type = ''
-		self.gene_id = ''
-		self.amino_acids = ''
-		self.ref_codon = ''
-		self.codon_pos = ''
+		self.site_type = None
+		self.gene_id = None
+		self.amino_acids = None
+		self.ref_codon = None
+		self.codon_pos = None
 		
 	def compute_pooled_counts(self):
 		""" Compute count of 4 nucleotides across samples """
@@ -45,31 +45,31 @@ class GenomicSite:
 			pooled_counts.append(sum([counts[i] for counts in self.sample_counts]))
 		return pooled_counts
 
-	def call_alleles(self):
+	def call_alleles(self, snp_freq):
 		""" Call major and minor alleles at GenomicSite """
+		
+		# get sorted counts
 		alleles = list('ATCG')
-		pooled_counts = list(self.pooled_counts)
+		freqs = [float(count)/self.pooled_depth for count in self.pooled_counts]
+		allele_freqs = sorted(zip(alleles, freqs), key=itemgetter(1), reverse=True)
 
 		# major allele
-		if max(pooled_counts) == 0: return
-		self.major_count = max(pooled_counts)
-		self.major_index = pooled_counts.index(self.major_count)
-		self.major_allele = alleles[self.major_index]
-		alleles.remove(self.major_allele)
-		pooled_counts.remove(self.major_count)
-	
-		# minor allele
-		if max(pooled_counts) == 0: return
-		self.minor_count = max(pooled_counts)
-		self.minor_index = pooled_counts.index(self.minor_count)
-		self.minor_allele = alleles[self.minor_index]
-		pooled_counts.remove(self.minor_count)
-		self.minor_freq = float(self.minor_count)/(self.minor_count+self.major_count)
+		if allele_freqs[0][1] > 0:
+			self.major_allele = allele_freqs[0][0]
+			self.major_index = alleles.index(self.major_allele)
 		
-		# tri and quad alleles
-		if max(pooled_counts) == 0: return
-		self.misc_count = sum(pooled_counts)
-		self.misc_freq = self.misc_count/float(self.pooled_depth)
+		# minor allele
+		if allele_freqs[1][1] > 0:
+			self.minor_allele = allele_freqs[1][0]
+			self.minor_index = alleles.index(self.minor_allele)
+		
+		# classify SNP
+		snp_types = ['QUAD', 'TRI', 'BI', 'MONO']
+		for snp_type, allele_freq in zip(snp_types, allele_freqs[::-1]):
+			allele, freq = allele_freq
+			if freq >= snp_freq:
+				self.snp_type = snp_type
+				break
 
 	def compute_per_sample_mafs(self):
 		""" Compute per-sample depth (major + minor allele) and minor allele freq at GenomicSite """
@@ -99,13 +99,11 @@ class GenomicSite:
 		self.count_samples = sum(pass_qc)
 		self.prevalence = sum(pass_qc)/float(len(pass_qc))
 
-	def flag(self, min_maf=0.0, min_prev=0.0, snp_type='any'):
+	def flag(self, min_prev=0.0, snp_type='any'):
 		""" Filter genomic site based on MAF and prevalence """
-		if self.minor_freq < min_maf:
-			self.flag = (True, 'min_maf')
-		elif self.prevalence < min_prev:
+		if self.prevalence < min_prev:
 			self.flag = (True, 'min_prev')
-		elif snp_type == 'bi' and self.misc_freq >= min_maf:
+		elif self.snp_type.lower() not in snp_type:
 			self.flag = (True, 'snp_type')
 		else:
 			self.flag = (False, None)
@@ -167,19 +165,19 @@ class GenomicSite:
 		""" Store data for GenomicSite in Species"""
 		# snps_info
 		atcg_counts = ','.join([str(_) for _ in self.pooled_counts])
-		atcg_aas = ','.join([self.amino_acids[_] for _ in list('ATCG')]) if self.amino_acids != {} else ''
+		atcg_aas = ','.join([self.amino_acids[_] for _ in list('ATCG')]) if self.amino_acids else None
 		info = [self.id,
 				self.ref_id,
 				str(self.ref_pos),
 				self.ref_allele,
-				self.major_allele,
-				self.minor_allele,
-				'{0:.3g}'.format(self.minor_freq),
+				replace_none(self.major_allele),
+				replace_none(self.minor_allele),
 				str(self.count_samples),
 				atcg_counts,
+				self.snp_type,
 				self.site_type,
-				atcg_aas,
-				self.gene_id]
+				replace_none(atcg_aas),
+				replace_none(self.gene_id)]
 		info = '\t'.join(info)+'\n'
 		files['info'].write(info)
 		# snps_freq
@@ -188,6 +186,39 @@ class GenomicSite:
 		# snps_depth
 		depth = self.id + '\t' + '\t'.join([str(depth) for depth in self.sample_depths])+'\n'
 		files['depth'].write(depth)
+
+def parallel(function, argument_list, threads):
+	""" Based on: https://gist.github.com/admackin/003dd646e5fadee8b8d6 """
+	import multiprocessing as mp
+	import signal
+	import time
+	
+	def init_worker():
+		signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+	pool = mp.Pool(threads, init_worker)
+	
+	try:
+		results = []
+		for arguments in argument_list:
+			p = pool.apply_async(function, args=arguments)
+			results.append(p)
+		pool.close()
+		
+		while True:
+			if all(r.ready() for r in results):
+				for r in results: # catches errors in child process
+					r.get()
+				return
+			time.sleep(1)
+
+	except KeyboardInterrupt:
+		pool.terminate()
+		pool.join()
+		sys.exit("\nKeyboardInterrupt")
+
+def replace_none(input_string, replace_string="NA"):
+	return input_string if input_string is not None else replace_string
 
 def read_run_midas_snps(species_id, samples):
 	""" Open SNP files for species across samples """
@@ -234,33 +265,6 @@ def build_temp_count_matrix(tempdir, species_id, samples, thread, max_sites):
 			allele_counts = [r[-1] for r in records]
 			matrix_file.write(site_id+'\t'+'\t'.join(allele_counts)+'\n')
 
-def parallel(function, argument_list, threads):
-	""" Based on: https://gist.github.com/admackin/003dd646e5fadee8b8d6 """
-	import multiprocessing as mp
-	import signal
-	import time
-	
-	def init_worker():
-		signal.signal(signal.SIGINT, signal.SIG_IGN)
-
-	pool = mp.Pool(threads, init_worker)
-	
-	try:
-		results = []
-		for arguments in argument_list:
-			p = pool.apply_async(function, args=arguments)
-			results.append(p)
-		pool.close()
-		while True:
-			if all(r.ready() for r in results):
-				return
-			time.sleep(1)
-
-	except KeyboardInterrupt:
-		pool.terminate()
-		pool.join()
-		sys.exit("\nKeyboardInterrupt")
-
 def parallel_build_temp_count_matrixes(species, args):
 	""" Split up samples into batches, merge each batch, merge together batches """
 	samples_list = utility.batch_samples(species.samples, threads=args['threads'])	
@@ -294,13 +298,13 @@ def write_merge_midas(species, args, thread=None):
 		record = ['site_id']+[s.id for s in species.samples]
 		files[ftype].write('\t'.join(record)+'\n')
 	info_fields = ['site_id', 'ref_id', 'ref_pos',
-				   'ref_allele', 'major_allele', 'minor_allele', 'minor_freq',
-				   'count_samples', 'count_atcg', 'site_type',
+				   'ref_allele', 'major_allele', 'minor_allele',
+				   'count_samples', 'count_atcg', 'snp_type', 'site_type',
 				   'amino_acid_atcg', 'gene_id']
 	files['info'].write('\t'.join(info_fields)+'\n')
 	return files
 
-def build_sharded_tables(species, args, thread):
+def build_sharded_tables(species, args, thread, line_from, line_to):
 	""" Build merged output files for species using every <thread>th site"""
 	infiles = read_count_matrixes(species, args)
 	outfiles = write_merge_midas(species, args, thread)
@@ -314,15 +318,17 @@ def build_sharded_tables(species, args, thread):
 			break
 		# control which lines are processed
 		line_num += 1
-		if (line_num % args['threads'] == thread) is False:
+		if line_num < line_from:
 			continue
+		elif line_num >= line_to:
+			break
 		# initialize GenomicSite
 		values = sum([line.rstrip().split()[1:] for line in lines], [lines[0].split()[0]])
 		site = GenomicSite(values)
-		site.call_alleles()
+		site.call_alleles(args['allele_freq'])
 		site.compute_per_sample_mafs()
 		site.compute_prevalence(species.sample_depth, args['site_depth'], args['site_ratio'])
-		site.flag(args['snp_maf'], args['site_prev'], args['snp_type'])
+		site.flag(args['site_prev'], args['snp_type'])
 		# decide what to do with site
 		if site.flag[0] is True:
 			continue
@@ -335,10 +341,24 @@ def build_sharded_tables(species, args, thread):
 
 def parallel_build_sharded_tables(species, args):
 	""" """
+	# get number of total lines to process
+	infiles = read_count_matrixes(species, args)
+	num_lines = 0
+	for line in infiles[0]:
+		num_lines += 1
+	for file in infiles:
+		file.close()
+
+	lines_per = max(1, num_lines/args['threads'])
+	line_ranges = [[thread * lines_per, thread * lines_per + lines_per] for thread in range(args['threads'])]
+	line_ranges[-1][-1] = num_lines
+
 	argument_list = []
-	for thread in range(args['threads']):
-		arguments=(species, args, thread)
+	for thread, line_range in zip(range(args['threads']), line_ranges):
+		line_from, line_to = line_range
+		arguments=(species, args, thread, line_from, line_to)
 		argument_list.append(arguments)
+
 	parallel(build_sharded_tables, argument_list, args['threads'])
 
 def merge_sharded_tables(species, args):
@@ -352,19 +372,15 @@ def merge_sharded_tables(species, args):
 		for ftype in ['freq', 'depth', 'info']:
 			path = '%s/%s/temp/snps_%s.%s.txt' % (args['outdir'], species.id, ftype, thread)
 			infiles[thread][ftype] = open(path)
-	# write headers
+	# skip headers
 	for thread in range(args['threads']):
 		for ftype in ['freq', 'depth', 'info']:
 			next(infiles[thread][ftype])
 	# write remainder of lines
-	while True:
-		for thread in range(args['threads']):
-			try:
-				outfiles['freq'].write(next(infiles[thread]['freq']))
-				outfiles['depth'].write(next(infiles[thread]['depth']))
-				outfiles['info'].write(next(infiles[thread]['info']))
-			except StopIteration:
-				return
+	for thread in range(args['threads']):
+		for ftype in ['freq', 'depth', 'info']:
+			for line in infiles[thread][ftype]:
+				outfiles[ftype].write(line)
 
 def run_pipeline(args):
 	

@@ -150,5 +150,5 @@ if __name__ == '__main__':
 	unittest.main()
 
 	for dir in ['sample', 'species', 'genes', 'snps']:
-		shutil.rmtree('test')
+		shutil.rmtree(dir)
 

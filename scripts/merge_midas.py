@@ -64,14 +64,12 @@ merge_midas.py species /path/to/outdir -i /path/to/samples -t dir --max_samples 
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str, help='Directory for output files')
 	parser.add_argument('-i', type=str, dest='input', required=True,
-		help="""Input to sample directories output by run_midas.py
-Can be a list of directories, a directory containing all samples, or a file with paths
-See '-t' for details""")
-	parser.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
-		help="""list: -i is a comma-separated list (ex: /path/to/samples/sample_1,/path/to/samples/sample_2)
- dir: -i is a directory containing all samples (ex: /path/to/samples)
-file: -i is a file containing paths to sample directories (ex: /path/to/sample_paths.txt)
-""")
+		help="""Input to sample directories output by run_midas.py; see '-t' for details""")
+	parser.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True, metavar="INPUT_TYPE",
+		help="""Specify one of the following:
+  list: -i is a comma-separated list (ex: /samples/sample_1,/samples/sample_2)
+  dir: -i is a directory containing all samples (ex: /samples)
+  file: -i is a file of paths to samples (ex: /sample_paths.txt)""")
 	parser.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database
 By default the MIDAS_DB environmental variable is used""")
@@ -114,14 +112,12 @@ merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 
 		help="Directory for output files.\nA subdirectory will be created for each species_id")
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
-		help="""Input to sample directories output by run_midas.py
-Can be a list of directories, a directory containing all samples, or a file with paths.
-See '-t' for details""")
-	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
-		help="""list: -i is a comma-separated list (ex: /path/to/samples/sample_1,/path/to/samples/sample_2)
- dir: -i is a directory containing all samples (ex: /path/to/samples)
-file: -i is a file containing paths to sample directories (ex: /path/to/sample_paths.txt)
-""")
+		help="""Input to sample directories output by run_midas.py; see '-t' for details""")
+	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True, metavar="INPUT_TYPE",
+		help="""Specify one of the following:
+  list: -i is a comma-separated list (ex: /samples/sample_1,/samples/sample_2)
+  dir: -i is a directory containing all samples (ex: /samples)
+  file: -i is a file of paths to samples (ex: /sample_paths.txt)""")
 	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database.
 By default, the MIDAS_DB environmental variable is used""")
@@ -185,23 +181,21 @@ merge_midas.py snps /path/to/outdir -i /path/to/samples -t dir --max_species 1 -
 	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str,
-		help="Directory for output files. \na subdirectory will be created for each species_id")
+		help="Directory for output files. \nA subdirectory will be created for each species_id")
 	parser.add_argument('--threads', type=int, default=1, metavar='INT',
-		help="Number of CPUs to use for merging files (1)\nIncreases speed when merging many species")
+		help="Number of CPUs to use (1)")
 	parser.add_argument('--sites_per_iter', type=int, default=1000, metavar='INT',
 		help=argparse.SUPPRESS)
 	parser.add_argument('--max_gb', type=float, metavar='FLOAT',
 		help=argparse.SUPPRESS)
 	io = parser.add_argument_group('Input/Output')
 	io.add_argument('-i', type=str, dest='input', required=True,
-		help="""Input to sample directories output by run_midas.py
-Can be a list of directories, a directory containing all samples, or a file with paths
-See '-t' for details""")
-	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True,
-		help="""list: -i is a comma-separated list (ex: /path/to/samples/sample_1,/path/to/samples/sample_2)
- dir: -i is a directory containing all samples (ex: /path/to/samples)
-file: -i is a file containing paths to sample directories (ex: /path/to/sample_paths.txt)
-""")
+		help="""Input to sample directories output by run_midas.py; see '-t' for details""")
+	io.add_argument('-t', choices=['list','file','dir'], dest='intype', required=True, metavar="INPUT_TYPE",
+		help="""Specify one of the following:
+  list: -i is a comma-separated list (ex: /samples/sample_1,/samples/sample_2)
+  dir: -i is a directory containing all samples (ex: /samples)
+  file: -i is a file of paths to samples (ex: /sample_paths.txt)""")
 	io.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database
 By default, the MIDAS_DB environmental variable is used""")
@@ -209,13 +203,13 @@ By default, the MIDAS_DB environmental variable is used""")
 
 	snps = parser.add_argument_group("Presets")
 	snps.add_argument('--core_snps', action='store_true',
-		help="""Same as: --site_depth 1 --site_ratio 2.0 --site_prev 0.95 --snp_maf 0.01 --snp_type bi (default)""")
+		help="""Same as: --snp_type bi --site_depth 1 --site_ratio 2.0 --site_prev 0.95 (default)""")
 	snps.add_argument('--core_sites', action='store_true',
-		help="""Same as: --site_depth 1 --site_ratio 2.0 --site_prev 0.95 --snp_maf 0.0 --snp_type any""")
+		help="""Same as: --snp_type any --site_depth 1 --site_ratio 2.0 --site_prev 0.95""")
 	snps.add_argument('--all_snps', action='store_true',
-		help="""Same as: --site_prev 0.0 --snp_maf 0.01 --snp_type bi""")
+		help="""Same as: --snp_type bi --site_prev 0.0""")
 	snps.add_argument('--all_sites', action='store_true',
-		help="""Same as: --site_prev 0.0 --snp_maf 0.0 --snp_type any""")
+		help="""Same as: --snp_type any --site_prev 0.0""")
 			
 	species = parser.add_argument_group("Species filters (select subset of species from INPUT)")
 	species.add_argument('--min_samples', type=int, default=1, metavar='INT',
@@ -236,15 +230,18 @@ By default, the MIDAS_DB environmental variable is used""")
 		help="""Include all samples in output""")
 		
 	snps = parser.add_argument_group("Site filters (select subset of genomic sites from INPUT)")
-	snps.add_argument('--snp_maf', type=float, default=0.01, metavar='FLOAT',
-		help="""Minimum pooled minor allele frequency of site (0.01)
-This filter determines if there is a SNP at a genomic site.
-Values above zero (e.g. 0.01, 0.02, 0.05) will only keep common variants.
-Set this to zero to include invariant sites""")
-	snps.add_argument('--snp_type', choices=['bi', 'any'],
-		help="""A SNP is defined by the minor allele frequency: see --snp_maf
-bi: only keep bi-allelic SNPs (default)
-any: keep all (including tri and quad allelic) SNPs
+	snps.add_argument('--snp_type', choices=['any', 'mono', 'bi', 'tri', 'quad'], nargs='+', default=['bi'], metavar="",
+		help="""Specify one or more of the following:
+  mono: keep sites with 1 allele > ALLELE_FREQ
+  bi: keep sites with 2 alleles > ALLELE_FREQ (default)
+  tri: keep sites with 3 alleles > ALLELE_FREQ
+  quad: keep sites with 4 alleles > ALLELE_FREQ
+  any: keep sites regardless of observed alleles
+""")
+	snps.add_argument('--allele_freq', type=float, default=0.01, metavar='FLOAT',
+		help="""Minimum frequency for calling an allele present (0.01)
+Values > 0.0 and < 0.5 are accepted.
+Ex: --snp_type=bi --allele_freq=0.01 keeps bi-allelic SNPs with a minimum frequency of 1%%
 """)
 	snps.add_argument('--site_depth', type=int, default=1, metavar='INT',
 		help="""Minimum number of reads mapped to genomic site (1)
@@ -270,24 +267,22 @@ def add_snp_presets(args):
 		args['fract_cov'] = 0.0
 	if args['all_sites']:
 		args['site_prev'] = 0.0
-		args['snp_maf'] = 0.0
-		args['snp_type'] = 'any'
+		args['snp_type'] = ['any']
 	if args['all_snps']:
 		args['site_prev'] = 0.0
-		args['snp_maf'] = 0.01
-		args['snp_type'] = 'bi'
+		args['snp_type'] = ['bi']
 	if args['core_sites']:
 		args['site_depth'] = 1
 		args['site_ratio'] = 2.0
 		args['site_prev'] = 0.95
-		args['snp_maf'] = 0.0
-		args['snp_type'] = 'any'
+		args['snp_type'] = ['any']
 	if args['core_snps']:
 		args['site_depth'] = 1
 		args['site_ratio'] = 2.0
 		args['site_prev'] = 0.95
-		args['snp_maf'] = 0.01
-		args['snp_type'] = 'bi'
+		args['snp_type'] = ['bi']
+	if args['snp_type'] == ['any']:
+		args['snp_type'] = ['mono', 'bi', 'tri', 'quad']
 	return args
 
 def check_arguments(program, args):
@@ -386,15 +381,14 @@ def print_snps_arguments(args):
 	print ("  keep samples where >= %s percent of sites have non-zero coverage" % (100*args['fract_cov']))
 	if args['max_samples']: print ("  keep <= %s samples" % args['max_samples'])
 	print ("Site selection criteria:")
-	print ("  keep sites with >= %s%% pooled minor allele frequency" % (100*args['snp_maf']))
+	print ("  minimum allele frequency for SNP calling: %s%%" % (100*args['allele_freq']))
+	print ("  keep %s-alleic sites" % (','.join(args['snp_type'])))
 	print ("  keep sites with depth >= %s in >= %s%% of samples" % (args['site_depth'], 100*args['site_prev']) )
 	print ("  keep sites with depth <= %sx the mean-genome-wide-depth in >= %s%% of samples" % (args['site_ratio'], 100*args['site_prev']) )
 	if args['max_sites'] != float('Inf'): print ("  keep <= %s sites" % (args['max_sites']))
 	print ("Number of CPUs to use: %s" % args['threads'])
 	print ("===============================")
 	print ("")
-
-
 
 def run_program(program, args):
 	""" Run program specified by user (species, genes, or snps) """
