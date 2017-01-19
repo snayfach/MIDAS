@@ -233,20 +233,12 @@ def read_run_midas_snps(species_id, samples):
 		infiles.append(file)
 	return infiles
 
-def write_count_matrix(outdir, sample_ids, thread=None):
-	""" Open matrix for writing and write header """
-	if thread is None:
-		file = open('%s/atcg_counts.txt' % outdir, 'w')
-	else:
-		file = open('%s/atcg_counts.%s.txt' % (outdir, thread), 'w')
-	file.write('\t'.join(['site_id']+sample_ids)+'\n')
-	return file
-
-def build_temp_count_matrix(tempdir, species_id, samples, thread, max_sites):
+def build_temp_count_matrix(tempdir, species_id, samples, split_num, max_sites):
 	""" Build SNP matrices using a subset of total samples """
 	sample_ids = [s.id for s in samples]
 	midas_files = read_run_midas_snps(species_id, samples)
-	matrix_file = write_count_matrix(tempdir, sample_ids, thread)
+	matrix_file = open('%s/atcg_counts.%s.txt' % (tempdir, split_num), 'w')
+	matrix_file.write('\t'.join(['site_id']+sample_ids)+'\n')
 	nsites = 0
 	while True:
 		records = []
@@ -270,20 +262,19 @@ def build_temp_count_matrix(tempdir, species_id, samples, thread, max_sites):
 
 def parallel_build_temp_count_matrixes(species, args):
 	""" Split up samples into batches, merge each batch, merge together batches """
-	samples_list = utility.batch_samples(species.samples, threads=args['threads'])	
 	argument_list = []
-	for thread, sample_ids in zip(range(args['threads']), samples_list):
-		arguments=(species.tempdir, species.id, sample_ids, thread, args['max_sites'])
+	for split_num, sample_ids in enumerate(species.sample_lists):
+		arguments=(species.tempdir, species.id, sample_ids, split_num, args['max_sites'])
 		argument_list.append(arguments)
 	parallel(build_temp_count_matrix, argument_list, args['threads'])
 
 def	read_count_matrixes(species, args):
 	""" Open matrices for reading and skip headers """
 	files = []
-	for j in range(args['threads']):
-		path = '%s/atcg_counts.%s.txt' % (species.tempdir, j)
+	for split_num in range(species.num_splits):
+		path = '%s/atcg_counts.%s.txt' % (species.tempdir, split_num)
 		files.append(open(path))
-		next(files[j])
+		next(files[split_num])
 	return files
 
 def write_merge_midas(species, args, thread=None):
@@ -357,7 +348,7 @@ def parallel_build_sharded_tables(species, args):
 	line_ranges[-1][-1] = num_lines
 
 	argument_list = []
-	for thread, line_range in zip(range(args['threads']), line_ranges):
+	for thread, line_range in enumerate(line_ranges):
 		line_from, line_to = line_range
 		arguments=(species, args, thread, line_from, line_to)
 		argument_list.append(arguments)
@@ -402,7 +393,9 @@ def run_pipeline(args):
 		print("  %s" % species.id)
 		species.tempdir = '%s/%s/temp' % (args['outdir'], species.id)
 		if not os.path.isdir(species.tempdir): os.mkdir(species.tempdir)
-
+		species.sample_lists = utility.batch_samples(species.samples, threads=args['threads'])
+		species.num_splits = len(species.sample_lists)
+		
 		print("    merging count data")
 		parallel_build_temp_count_matrixes(species, args)
 

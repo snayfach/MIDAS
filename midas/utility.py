@@ -6,8 +6,7 @@
 
 import io, os, stat, sys, resource, gzip, platform, subprocess, bz2, Bio.SeqIO
 
-
-__version__ = '1.2.1'
+__version__ = '1.3.0'
 
 def which(program):
 	""" Mimics unix 'which' function """

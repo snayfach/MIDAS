@@ -199,14 +199,16 @@ snps_summary.txt
   mean_coverage: average read-depth across reference sites with at least 1 mapped read
 snps_info.txt
   site_id: genomic site_id, format=ref_id|ref_pos
-  site_prev: proportion of samples where site_id was covered with sufficient depth
+  ref_id: scaffold/contig identifier
+  ref_pos: position of site on ref_id
   ref_allele: allele in reference genome
   major_allele: most common allele in metagenomes
   minor_allele: second most common allele in metagenomes
-  minor_freq: frequency of minor allele in pooled metagenomes
-  atcg_counts: counts of all 4 alleles (A,T,C,G) in pooled metagenomes
+  count_samples: number of metagenomes where site_id was found
+  count_atcg: counts of all 4 alleles (A,T,C,G) in pooled metagenomes
+  snp_type: site is [MONO,BI,TRI,QUAD]-allelic
   site_type: NC (non-coding), 1D, 2D, 3D, 4D (degeneracy)
-  atcg_aas: amino acids encoded by 4 possible alleles
+  amino_acid_atcg: amino acids encoded by 4 possible alleles
   gene_id: gene that intersects site
 
 Additional information for species can be found in the reference database:
