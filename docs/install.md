@@ -10,6 +10,9 @@ Python modules (installed via setup.py):
 * Pysam (>=0.8.1)
 * Pandas (>=0.17.1)
 
+### Speed and memory usage
+Most steps of the program are quite fast, require < 2Gb of RAM, and are compatible with multithreading. For a typical gut metagenome, expect ~30 minutes for species profiling and 60-90 minutes each for calling nucleotide and gene copy number variants.
+
 ### Download the software
 
 Clone the latest version from GitHub (recommended):  
