@@ -2,7 +2,7 @@
 
 # Parses pileup base string and returns the counts for all possible alleles
 
-import csv, gzip
+import csv, gzip, sys
 
 class Pileup:
 	def __init__(self, row):
@@ -62,6 +62,7 @@ class Pileup:
 def main(pileup_path):
 	pileup_file = gzip.open(pileup_path)
 	fnames =['ref_id', 'ref_pos', 'ref_allele', 'depth', 'pileup', 'qualities']
+	csv.field_size_limit(sys.maxsize) # to deal with long fields
 	pileup_reader = csv.reader(pileup_file, delimiter='\t')
 	for row in pileup_reader:
 		if row[2].upper() not in ['A','T','C','G']:
