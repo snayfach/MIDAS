@@ -92,13 +92,8 @@ def add_executables(args):
 		if not os.path.isfile(args[arg]):
 			sys.exit("\nError: File not found: %s\n" % args[arg])
 	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
-		if not is_executable(args[arg]):
-			sys.exit("\nError:File not executable: %s\n" % args[arg])
-
-def is_executable(f):
-	""" Check if file is executable by all """
-	st = os.stat(f)
-	return bool(st.st_mode & stat.S_IXOTH)
+		if not os.access(args[arg], os.X_OK):
+			sys.exit("\nError: File not executable: %s\n" % args[arg])
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
