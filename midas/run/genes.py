@@ -8,7 +8,6 @@ import sys, os, subprocess, gzip, csv, Bio.SeqIO, numpy as np
 from collections import defaultdict
 from time import time
 from midas import utility
-from midas.run import stream_bam
 
 class Species:
 	""" Base class for species """
@@ -43,7 +42,8 @@ def initialize_species(args):
 				outfile.write(id+'\n')
 	elif os.path.isfile(splist):
 		for line in open(splist):
-			species[id] = Species(line.rstrip())
+			id = line.rstrip()
+			species[id] = Species(id)
 	for sp in species.values():
 		sp.init_ref_db(args['db'])
 	return species
@@ -106,9 +106,10 @@ def build_pangenome_db(args, species):
 	print("  total genes: %s" % db_stats['total_seqs'])
 	print("  total base-pairs: %s" % db_stats['total_length'])
 	# bowtie2 database
-	inpath = '/'.join([outdir, 'pangenomes.fa'])
-	outpath = '/'.join([outdir, 'pangenomes'])
-	command = ' '.join([args['bowtie2-build'], inpath, outpath])
+	command = '%s ' % args['bowtie2-build']
+	command += '--threads %s ' % args['threads']
+	command += '%s/snps/temp/pangenomes.fa ' % args['outdir']
+	command += '%s/snps/temp/pangenomes ' % args['outdir']
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
@@ -135,7 +136,9 @@ def pangenome_align(args):
 	else: command += '-U %s ' % args['m1']
 	#   output unsorted bam
 	bampath = '/'.join([args['outdir'], 'genes/temp/pangenomes.bam'])
-	command += '| %s view -b - > %s' % (args['samtools'], bampath)
+	command += '| %s view ' % args['samtools']
+	command += '--threads %s ' % args['threads']
+	command += '-b - > %s' % bampath
 	# Run command
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -151,25 +154,37 @@ def pangenome_coverage(args, species, genes):
 	normalize(args, species, genes)
 	write_results(args, species, genes)
 
+def keep_read(aln, min_pid, min_readq, min_mapq, min_aln_cov):
+	align_len = len(aln.query_alignment_sequence)
+	query_len = aln.query_length
+	# min pid
+	if 100*(align_len-dict(aln.tags)['NM'])/float(align_len) < min_pid:
+		return False
+	# min read quality
+	elif np.mean(aln.query_qualities) < min_readq:
+		return False
+	# min map quality
+	elif aln.mapping_quality < min_mapq:
+		return False
+	# min aln cov
+	elif align_len/float(query_len)  < min_aln_cov:
+		return False
+	else:
+		return True
+		
 def count_mapped_bp(args, species, genes):
 	""" Count number of bp mapped to each gene across pangenomes """
 	import pysam
 	bam_path = '/'.join([args['outdir'], 'genes/temp/pangenomes.bam'])
-	aln_file = pysam.AlignmentFile(bam_path, "rb")
+	bamfile = pysam.AlignmentFile(bam_path, "rb")
 	i, j = 0,0
 	# loop over alignments, sum values per gene
-	for index, aln in enumerate(aln_file.fetch(until_eof = True)):
+	for index, aln in enumerate(bamfile.fetch(until_eof = True)):
 		i += 1
-		if stream_bam.compute_perc_id(aln) < args['mapid']:
-			continue
-		elif stream_bam.compute_aln_cov(aln) < args['aln_cov']:
-			continue
-		elif np.mean(aln.query_qualities) < args['readq']:
-			continue
-		elif aln.mapping_quality < args['mapq']:
+		if not keep_read(aln, args['mapid'], args['readq'], args['mapq'], args['aln_cov'])
 			continue
 		else:
-			gene_id = aln_file.getrname(aln.reference_id)
+			gene_id = bamfile.getrname(aln.reference_id)
 			aln_len = len(aln.query_alignment_sequence)
 			gene_len = genes[gene_id].length
 			genes[gene_id].reads += 1
