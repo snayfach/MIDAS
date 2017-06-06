@@ -82,13 +82,13 @@ def add_executables(args):
 	""" Identify relative file and directory paths """
 	src_dir = os.path.dirname(os.path.abspath(__file__))
 	main_dir = os.path.dirname(src_dir)
-	args['stream_bam'] = '/'.join([src_dir, 'run', 'stream_bam.py'])
 	args['stream_seqs'] = '/'.join([src_dir, 'run', 'stream_seqs.py'])
 	args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
 	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
 	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools', 'stream_bam']:
+	
+	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools']:
 		if not os.path.isfile(args[arg]):
 			sys.exit("\nError: File not found: %s\n" % args[arg])
 	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
@@ -190,9 +190,15 @@ def read_genes(species_id, db):
 	""" Read in gene coordinates from features file """
 	genome = read_genome(db, species_id)
 	genes = []
-	path = '%s/rep_genomes/%s/genome.features.gz' % (db, species_id)
-	for gene in parse_file(path):
-		if gene['gene_type'] == 'RNA':
+	basename = '%s/rep_genomes/%s/genome.features' % (db, species_id)
+	if os.path.exists(basename):
+		fpath = basename
+	elif os.path.exists(basename+'.gz'):
+		fpath = basename+'.gz'
+	else:
+		sys.exit("\nError: rep genome for %s not found\n" % species_id)
+	for gene in parse_file(fpath):
+		if 'gene_type' in gene and gene['gene_type'] == 'RNA':
 			continue
 		else:
 			gene['start'] = int(gene['start'])
@@ -203,8 +209,14 @@ def read_genes(species_id, db):
 
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """
-	inpath = '%s/rep_genomes/%s/genome.fna.gz' % (db, species_id)
-	infile = iopen(inpath)
+	basename = '%s/rep_genomes/%s/genome.fna' % (db, species_id)
+	if os.path.exists(basename):
+		fpath = basename
+	elif os.path.exists(basename+'.gz'):
+		fpath = basename+'.gz'
+	else:
+		sys.exit("\nError: rep genome for %s not found\n" % species_id)
+	infile = iopen(fpath)
 	genome = {}
 	for r in Bio.SeqIO.parse(infile, 'fasta'):
 		genome[r.id] = r.seq.upper()

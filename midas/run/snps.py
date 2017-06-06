@@ -5,10 +5,60 @@
 # Freely distributed under the GNU General Public License (GPLv3)
 
 import sys, os, subprocess, shutil, csv
+import Bio.SeqIO, pysam, numpy as np
 from time import time
 from midas import utility
-import parse_pileup, Bio.SeqIO
 
+class Species:
+	""" Base class for species """
+	def __init__(self, id):
+		self.id = id
+		self.paths = {}
+		
+	def fetch_paths(self, ref_db):
+		indir =  '%s/rep_genomes/%s' % (ref_db, self.id)
+		for ext in ['', '.gz']:
+			for type in ['fna', 'features']:
+				path = '%s/genome.%s%s' % (indir, type, ext)
+				if os.path.isfile(path):
+					self.paths[type] = path
+
+class Contig:
+	""" Base class for contig """
+	def __init__(self, id):
+		self.id = id
+		
+def initialize_species(args):
+	species = {}
+	splist = '%s/snps/species.txt' % args['outdir']
+	if args['build_db']:
+		from midas.run.species import select_species
+		with open(splist, 'w') as outfile:
+			for id in select_species(args):
+				species[id] = Species(id)
+				outfile.write(id+'\n')
+	elif os.path.isfile(splist):
+		for line in open(splist):
+			id = line.rstrip()
+			species[id] = Species(id)
+	for sp in species.values():
+		sp.fetch_paths(ref_db=args['db'])
+	return species
+
+def initialize_contigs(species):
+	contigs = {}
+	for sp in species.values():
+		infile = utility.iopen(sp.paths['fna'])
+		for rec in Bio.SeqIO.parse(infile, 'fasta'):
+			contig = Contig(rec.id)
+			contig.id = rec.id
+			contig.seq = str(rec.seq).upper()
+			contig.length = len(contig.seq)
+			contig.species_id = sp.id
+			contigs[contig.id] = contig
+		infile.close()
+	return contigs
+	
 def build_genome_db(args, species):
 	""" Build FASTA and BT2 database of representative genomes """
 	import Bio.SeqIO
@@ -29,9 +79,10 @@ def build_genome_db(args, species):
 	print("  total contigs: %s" % db_stats['total_seqs'])
 	print("  total base-pairs: %s" % db_stats['total_length'])
 	# bowtie2 database
-	inpath = '/'.join([args['outdir'], 'snps/temp/genomes.fa'])
-	outpath = '/'.join([args['outdir'], 'snps/temp/genomes'])
-	command = ' '.join([args['bowtie2-build'], inpath, outpath])
+	command = '%s ' % args['bowtie2-build']
+	command += '--threads %s ' % args['threads']
+	command += '%s/snps/temp/genomes.fa ' % args['outdir']
+	command += '%s/snps/temp/genomes ' % args['outdir']
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
@@ -45,12 +96,15 @@ def genome_align(args):
 	if args['max_reads']: command += '-u %s ' % args['max_reads'] # max num of reads
 	if args['trim']: command += '--trim3 %s ' % args['trim'] # trim 3'
 	command += '--%s ' % args['speed'] # speed/sensitivity
-	command += '--threads %s ' % args['threads'] # threads
+	command += '--threads %s ' % args['threads'] 
 	command += '-f ' if args['file_type'] == 'fasta' else '-q ' # input type
 	command += '-1 %s -2 %s '  % (args['m1'], args['m2']) if args['m2'] else '-U %s ' % args['m1'] # input reads
 	# Pipe to samtools
 	command += '| %s view -b - ' % args['samtools'] # convert to bam
-	command += '| %s sort -f - %s ' % (args['samtools'], bam_path) # sort bam
+	command += '--threads %s ' % args['threads']
+	command += '| %s sort - ' % args['samtools']
+	command += '--threads %s ' % args['threads']
+	command += '-o %s ' % bam_path
 	# Run command
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -60,130 +114,98 @@ def genome_align(args):
 	print("  checking bamfile integrity")
 	utility.check_bamfile(args, bam_path)
 
-def pileup(args):
-	""" Filter alignments by % id, use samtools to create pileup, filter low quality bases """
-	# Stream bam, filter alignments
-	command = 'python %s ' % args['stream_bam']
-	command += '%s ' % os.path.join(args['outdir'], 'snps/temp/genomes.bam')
-	command += '/dev/stdout '
-	command += '%s ' % args['mapid']
-	command += '%s ' % args['readq']
-	command += '%s ' % args['mapq']
-	# Pipe to mpileup
-	command += '| %s mpileup '  % args['samtools']
-	command += '-d 10000 ' # set max depth
-	if not args['baq']: command += '-B ' # BAQ
-	if args['adjust_mq']: command += '-C 50 ' # adjust MQ
-	if not args['discard']: command += '-A ' # keep discordant read pairs
-	command += '-Q %s ' % (args['baseq']) # base quality filtering
-	command += '-f %s ' % ('%s/snps/temp/genomes.fa' % args['outdir']) # reference fna file
-	command += '- ' #   input bam file
-	command += '| gzip > %s ' % ('%s/snps/temp/genomes.mpileup.gz' % args['outdir']) # output file
-	# Run command
+def index_bam(args):
+	start = time()
+	print("\nIndexing bamfile")
+	args['log'].write("\nIndexing bamfile\n")
+	command = '%s index %s/snps/temp/genomes.bam' % (args['samtools'], args['outdir'])
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
+	print("  %s minutes" % round((time() - start)/60, 2) )
+	print("  %s Gb maximum memory" % utility.max_mem_usage())
 
-def write_missing(outfile, ref_id, ref_pos, ref_allele):
-	""" Write record for formatted SNP file """
-	values = [ref_id, ref_pos, ref_allele, 'NA', '0.0', '0', '0,0,0,0']
-	outfile.write('\t'.join(values)+'\n')
+def keep_read(aln):
+	align_len = len(aln.query_alignment_sequence)
+	query_len = aln.query_length
+	# min pid
+	if 100*(align_len-dict(aln.tags)['NM'])/float(align_len) < min_pid:
+		return False
+	# min read quality
+	elif np.mean(aln.query_qualities) < min_readq:
+		return False
+	# min map quality
+	elif aln.mapping_quality < min_mapq:
+		return False
+	# min aln cov
+	elif align_len/float(query_len)  < min_aln_cov:
+		return False
+	else:
+		return True
 
-def write_present(outfile, pileup):
-	""" Write record for formatted SNP file """
-	values = [pileup.ref_id, str(pileup.ref_pos), pileup.ref_allele,
-	          pileup.alt_allele, str(pileup.ref_freq), str(pileup.depth),
-			  pileup.allele_string()]
-	outfile.write('\t'.join(values)+'\n')
-
-def format_pileup(args, species, contigs):
-	""" Parse mpileups and fill in missing positions """
-
+def pysam_pileup(args, species, contigs):
+	start = time()
+	print("\nCounting alleles")
+	args['log'].write("\nCounting alleles\n")
+	
+	# Set global variables for read filtering
+	global min_pid
+	min_pid = args['mapid']
+	global min_readq
+	min_readq = args['readq']
+	global min_mapq
+	min_mapq = args['mapq']
+	global min_aln_cov
+	min_aln_cov = 0.70
+	global min_baseq
+	min_baseq = args['baseq']
+	
 	# open outfiles
 	for sp in species.values():
 		sp.out = utility.iopen('/'.join([args['outdir'], 'snps/output/%s.snps.gz' % sp.id]), 'w')
-		header = ['ref_id', 'ref_pos', 'ref_allele', 'alt_allele', 'ref_freq', 'depth', 'count_atcg']
+		header = ['ref_id', 'ref_pos', 'ref_allele', 'depth', 'count_a', 'count_c', 'count_g', 'count_t']
 		sp.out.write('\t'.join(header)+'\n')
-		sp.contigs = sorted([c.id for c in contigs.values() if c.species_id == sp.id])
-		sp.i = 0 # contig index
-		sp.j = 0 # position index
-		
-	# parse pileup
-	pileup_path = '%s/snps/temp/genomes.mpileup.gz' % args['outdir']
-	for p in parse_pileup.main(pileup_path):
-	
-		# fetch contig info
-		sp = species[contigs[p.ref_id].species_id]
-		contig = contigs[sp.contigs[sp.i]]
-				
-		# contig ids don't match
-		#   indicates that one or more upstream contigs have zero coverage
-		while p.ref_id != contig.id:
-			write_missing(sp.out, ref_id=contig.id, ref_pos=str(sp.j+1), ref_allele=contig.seq[sp.j])
-			sp.j += 1
-			if sp.j >= contig.length:
-				sp.i += 1; sp.j = 0
-				contig = contigs[sp.contigs[sp.i]]
-			
-		# positions don't match
-		#   indicates that one or more upstream positions have zero coverage
-		while p.ref_pos != sp.j+1:
-			write_missing(sp.out, ref_id=contig.id, ref_pos=str(sp.j+1), ref_allele=contig.seq[sp.j])
-			sp.j += 1
-			if sp.j >= contig.length:
-				sp.i += 1; sp.j = 0
-				contig = contigs[sp.contigs[sp.i]]
-				
-		# match
-		#   write info from pileup
-		write_present(sp.out, pileup=p)
-		sp.j += 1
 
-		# end of contig
-		if sp.j >= contig.length:
-			sp.i += 1; sp.j = 0
+	bampath = '%s/snps/temp/genomes.bam' % args['outdir']
+	with pysam.AlignmentFile(bampath, 'rb') as bamfile:
+		for contig in contigs.values():
+			sp = species[contig.species_id]
+			start_pos = 0
+			end_pos = contig.length
+			counts = bamfile.count_coverage(contig.id, start_pos, end_pos, 
+										    quality_threshold=min_baseq, 
+											read_callback=keep_read)
+			for i in range(start_pos, end_pos):
+				ref_pos = i+1
+				ref_allele = contig.seq[i]
+				depth = sum([counts[_][i] for _ in range(4)])
+				count_a = counts[0][i]
+				count_c = counts[1][i]
+				count_g = counts[2][i]
+				count_t = counts[3][i]
+				row = [contig.id, ref_pos, ref_allele, depth, count_a, count_c, count_g, count_t]
+				sp.out.write('\t'.join([str(_) for _ in row])+'\n')
 
-	# fill in downstream positions & contigs with zero coverage
+	# close outfiles
 	for sp in species.values():
-		
-		# no remaining contigs
-		if sp.i < len(sp.contigs):
-		
-			# lefover positions on last contig
-			#   indicates that one or more downstream positions have zero coverage
-			contig = contigs[sp.contigs[sp.i]]
-			while sp.j < contig.length:
-				write_missing(sp.out, ref_id=contig.id, ref_pos=str(sp.j+1), ref_allele=contig.seq[sp.j])
-				sp.j += 1
-
-			# lefover contigs
-			#   indicates that one or more downstream contigs have zero coverage
-			sp.i += 1; sp.j = 0
-			while sp.i < len(sp.contigs):
-				contig = contigs[sp.contigs[sp.i]]
-				write_missing(sp.out, ref_id=contig.id, ref_pos=str(sp.j+1), ref_allele=contig.seq[sp.j])
-				sp.j += 1
-				if sp.j >= contig.length:
-					sp.i += 1; sp.j = 0
-
-		# close output files
 		sp.out.close()
+
+	print("  %s minutes" % round((time() - start)/60, 2) )
+	print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 def snps_summary(args, species):
 	""" Get summary of mapping statistics """
 	# store stats
 	stats = {}
 	for species_id in species:
-		genome_length, covered_bases, total_depth, maf = [0,0,0,0]
+		genome_length, covered_bases, total_depth = [0,0,0]
 		for r in utility.parse_file('/'.join([args['outdir'], 'snps/output/%s.snps.gz' % species_id])):
 			genome_length += 1
 			depth = int(r['depth'])
 			if depth > 0:
 				covered_bases += 1
 				total_depth += depth
-				ref_freq = float(r['ref_freq'])
-				maf += ref_freq if ref_freq <= 0.5 else 1 - ref_freq
-		fraction_covered = covered_bases/float(genome_length)
+		fraction_covered = covered_bases/float(genome_length) if float(genome_length) > 0 else 'NA'
 		mean_coverage = total_depth/float(covered_bases) if covered_bases > 0 else 0
 		stats[species_id] = {'genome_length':genome_length, 'covered_bases':covered_bases,
 							 'fraction_covered':fraction_covered,'mean_coverage':mean_coverage}
@@ -200,59 +222,9 @@ def remove_tmp(args):
 	""" Remove specified temporary files """
 	shutil.rmtree('/'.join([args['outdir'], 'snps/temp']))
 
-class Species:
-	""" Base class for species """
-	def __init__(self, id):
-		self.id = id
-		self.paths = {}
-		self.contigs = []
-		
-	def fetch_paths(self, ref_db):
-		indir =  '%s/rep_genomes/%s' % (ref_db, self.id)
-		for ext in ['', '.gz']:
-			for type in ['fna', 'features']:
-				path = '%s/genome.%s%s' % (indir, type, ext)
-				if os.path.isfile(path):
-					self.paths[type] = path
-
-def initialize_species(args):
-	species = {}
-	splist = '%s/snps/species.txt' % args['outdir']
-	if args['build_db']:
-		from midas.run.species import select_species
-		with open(splist, 'w') as outfile:
-			for id in select_species(args):
-				species[id] = Species(id)
-				outfile.write(id+'\n')
-	elif os.path.isfile(splist):
-		for line in open(splist):
-			id = line.rstrip()
-			species[id] = Species(id)
-	for sp in species.values():
-		sp.fetch_paths(ref_db=args['db'])
-	return species
-
-class Contig:
-	""" Base class for contig """
-	def __init__(self, id):
-		self.id = id
-
-def initialize_contigs(species):
-	contigs = {}
-	for sp in species.values():
-		infile = utility.iopen(sp.paths['fna'])
-		for rec in Bio.SeqIO.parse(infile, 'fasta'):
-			contig = Contig(rec.id)
-			contig.seq = str(rec.seq).upper()
-			contig.length = len(contig.seq)
-			contig.species_id = sp.id
-			contigs[contig.id] = contig
-		infile.close()
-	return contigs
-
 def run_pipeline(args):
 	""" Run entire pipeline """
-	
+		
 	# Initialize reference data
 	print("\nReading reference data")
 	start = time()
@@ -282,20 +254,9 @@ def run_pipeline(args):
 
 	# Use mpileup to identify SNPs
 	if args['call']:
-		start = time()
-		print("\nRunning mpileup")
-		args['log'].write("\nRunning mpileup\n")
-		pileup(args)
-		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory" % utility.max_mem_usage())
-
-	# Split pileup into files for each species, format, and report summary statistics
-		print("\nFormatting output")
-		args['log'].write("\nFormatting output\n")
-		format_pileup(args, species, contigs)
+		index_bam(args)
+		pysam_pileup(args, species, contigs)
 		snps_summary(args, species)
-		print("  %s minutes" % round((time() - start)/60, 2) )
-		print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 	# Optionally remove temporary files
 	if args['remove_temp']: remove_tmp(args)

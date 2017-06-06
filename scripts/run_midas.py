@@ -493,8 +493,8 @@ Alternatively, you can manually specify one or more species using --species_id\n
 	# no bamfile but --cov specified
 	if (args['cov']
 		and not args['align']
-		and not os.path.isfile('%s/genes/temp/pangenome.bam' % args['outdir'])):
-		error = "\nError: You've specified --call_genes, but no alignments were found"
+		and not os.path.isfile('%s/genes/temp/pangenomes.bam' % args['outdir'])):
+		error = "\nError: You've specified --call, but no alignments were found"
 		error += "\nTry running with --align\n"
 		sys.exit(error)
 	# no reads

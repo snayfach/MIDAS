@@ -11,13 +11,13 @@ from time import time
 from operator import itemgetter
 
 class GenomicSite:
-	def __init__(self, values):
+	def __init__(self, id, values):
 	
 		# initialize
+		self.id = str(id) #values[0].rsplit('|', 1)[0]
 		self.ref_id, self.ref_pos, self.ref_allele  = values[0].rsplit('|', 2)
 		self.ref_pos = int(self.ref_pos)
-		self.id = values[0].rsplit('|', 1)[0]
-
+		
 		# per-sample statistics
 		self.sample_counts = [[int(j) for j in i.split(',')] for i in values[1:]] # <list>, per sample allele counts
 		self.sample_mafs = []  # <list>, minor allele frequencies
@@ -52,7 +52,7 @@ class GenomicSite:
 		if self.pooled_depth == 0: return
 		
 		# get sorted counts
-		alleles = list('ATCG')
+		alleles = list('ACGT')
 		freqs = [float(count)/self.pooled_depth for count in self.pooled_counts]
 		allele_freqs = sorted(zip(alleles, freqs), key=itemgetter(1), reverse=True)
 
@@ -167,8 +167,7 @@ class GenomicSite:
 	def write(self, files):
 		""" Store data for GenomicSite in Species"""
 		# snps_info
-		atcg_counts = ','.join([str(_) for _ in self.pooled_counts])
-		atcg_aas = ','.join([self.amino_acids[_] for _ in list('ATCG')]) if self.amino_acids else None
+		count_a, count_c, count_g, count_t = [str(_) for _ in self.pooled_counts]
 		info = [self.id,
 				self.ref_id,
 				str(self.ref_pos),
@@ -176,10 +175,10 @@ class GenomicSite:
 				replace_none(self.major_allele),
 				replace_none(self.minor_allele),
 				str(self.count_samples),
-				atcg_counts,
+				count_a, count_c, count_g, count_t,
 				replace_none(self.snp_type).upper(),
 				self.site_type,
-				replace_none(atcg_aas),
+				str(self.amino_acids),
 				replace_none(self.gene_id)]
 		info = '\t'.join(info)+'\n'
 		files['info'].write(info)
@@ -237,7 +236,7 @@ def build_temp_count_matrix(tempdir, species_id, samples, split_num, max_sites):
 	""" Build SNP matrices using a subset of total samples """
 	sample_ids = [s.id for s in samples]
 	midas_files = read_run_midas_snps(species_id, samples)
-	matrix_file = open('%s/atcg_counts.%s.txt' % (tempdir, split_num), 'w')
+	matrix_file = open('%s/acgt_counts.%s.txt' % (tempdir, split_num), 'w')
 	matrix_file.write('\t'.join(['site_id']+sample_ids)+'\n')
 	nsites = 0
 	while True:
@@ -257,7 +256,7 @@ def build_temp_count_matrix(tempdir, species_id, samples, split_num, max_sites):
 		else:
 			nsites += 1
 			site_id = '|'.join(records[0][0:3])
-			allele_counts = [r[-1] for r in records]
+			allele_counts = [','.join(r[-4:]) for r in records]
 			matrix_file.write(site_id+'\t'+'\t'.join(allele_counts)+'\n')
 
 def parallel_build_temp_count_matrixes(species, args):
@@ -272,7 +271,7 @@ def	read_count_matrixes(species, args):
 	""" Open matrices for reading and skip headers """
 	files = []
 	for split_num in range(species.num_splits):
-		path = '%s/atcg_counts.%s.txt' % (species.tempdir, split_num)
+		path = '%s/acgt_counts.%s.txt' % (species.tempdir, split_num)
 		files.append(open(path))
 		next(files[split_num])
 	return files
@@ -291,10 +290,21 @@ def write_merge_midas(species, args, thread=None):
 	for ftype in ['freq', 'depth']:
 		record = ['site_id']+[s.id for s in species.samples]
 		files[ftype].write('\t'.join(record)+'\n')
-	info_fields = ['site_id', 'ref_id', 'ref_pos',
-				   'ref_allele', 'major_allele', 'minor_allele',
-				   'count_samples', 'count_atcg', 'snp_type', 'site_type',
-				   'amino_acid_atcg', 'gene_id']
+	info_fields = ['site_id', 
+				   'ref_id', 
+				   'ref_pos',
+				   'ref_allele', 
+				   'major_allele', 
+				   'minor_allele',
+				   'count_samples', 
+				   'count_a', 
+				   'count_c',
+				   'count_g',
+				   'count_t',
+				   'snp_type', 
+				   'site_type',
+				   'amino_acids',
+				   'gene_id']
 	files['info'].write('\t'.join(info_fields)+'\n')
 	return files
 
@@ -318,7 +328,8 @@ def build_sharded_tables(species, args, thread, line_from, line_to):
 			break
 		# initialize GenomicSite
 		values = sum([line.rstrip().split()[1:] for line in lines], [lines[0].split()[0]])
-		site = GenomicSite(values)
+		site_id = line_num+1
+		site = GenomicSite(site_id, values)
 		site.call_alleles(args['allele_freq'])
 		site.compute_per_sample_mafs()
 		site.compute_prevalence(species.sample_depth, args['site_depth'], args['site_ratio'])
@@ -382,9 +393,12 @@ def run_pipeline(args):
 	species_list = merge.select_species(args, dtype='snps')
 	for species in species_list:
 		print("  %s" % species.id)
-		print("    genome name: %s" % species.genome_info['genome_name'])
-		print("    genome length: %s" % species.genome_info['length'])
-		print("    count contigs: %s" % max(1, int(species.genome_info['contigs'])))
+		if 'genome_name' in species.genome_info: 
+			print("    genome name: %s" % species.genome_info['genome_name'])
+		if 'length' in species.genome_info:
+			print("    genome length: %s" % species.genome_info['length'])
+		if 'contigs' in species.genome_info:
+			print("    count contigs: %s" % max(1, int(species.genome_info['contigs'])))
 		print("    count samples: %s" % len(species.samples))
 	
 	print("\nMerging snps")
