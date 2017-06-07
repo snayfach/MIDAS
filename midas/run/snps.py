@@ -14,6 +14,13 @@ class Species:
 	def __init__(self, id):
 		self.id = id
 		self.paths = {}
+		self.aligned_reads = 0
+		self.mapped_reads = 0
+		self.genome_length = 0
+		self.covered_bases = 0
+		self.total_depth = 0
+		self.fraction_covered = 0
+		self.mean_coverage = 0
 		
 	def fetch_paths(self, ref_db):
 		indir =  '%s/rep_genomes/%s' % (ref_db, self.id)
@@ -131,6 +138,8 @@ def index_bam(args):
 	print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 def keep_read(aln):
+	global sp
+	sp.aligned_reads += 1
 	align_len = len(aln.query_alignment_sequence)
 	query_len = aln.query_length
 	# min pid
@@ -146,6 +155,7 @@ def keep_read(aln):
 	elif align_len/float(query_len)  < min_aln_cov:
 		return False
 	else:
+		sp.mapped_reads += 1
 		return True
 
 def pysam_pileup(args, species, contigs):
@@ -154,6 +164,7 @@ def pysam_pileup(args, species, contigs):
 	args['log'].write("\nCounting alleles\n")
 	
 	# Set global variables for read filtering
+	global sp
 	global min_pid
 	min_pid = args['mapid']
 	global min_readq
@@ -171,16 +182,21 @@ def pysam_pileup(args, species, contigs):
 		header = ['ref_id', 'ref_pos', 'ref_allele', 'depth', 'count_a', 'count_c', 'count_g', 'count_t']
 		sp.out.write('\t'.join(header)+'\n')
 
+	# compute coverage
 	bampath = '%s/snps/temp/genomes.bam' % args['outdir']
 	with pysam.AlignmentFile(bampath, 'rb') as bamfile:
 		for contig in contigs.values():
+			
 			sp = species[contig.species_id]
-			start_pos = 0
-			end_pos = contig.length
-			counts = bamfile.count_coverage(contig.id, start_pos, end_pos, 
-										    quality_threshold=min_baseq, 
-											read_callback=keep_read)
-			for i in range(start_pos, end_pos):
+			
+			counts = bamfile.count_coverage(
+				contig.id, 
+				start=0, 
+				end=contig.length, 
+				quality_threshold=min_baseq, 
+				read_callback=keep_read)
+				
+			for i in range(0, contig.length):
 				ref_pos = i+1
 				ref_allele = contig.seq[i]
 				depth = sum([counts[_][i] for _ in range(4)])
@@ -190,6 +206,19 @@ def pysam_pileup(args, species, contigs):
 				count_t = counts[3][i]
 				row = [contig.id, ref_pos, ref_allele, depth, count_a, count_c, count_g, count_t]
 				sp.out.write('\t'.join([str(_) for _ in row])+'\n')
+				sp.genome_length += 1
+				sp.total_depth += depth
+				if depth > 0: sp.covered_bases += 1
+	
+	print("  total aligned reads: %s" % sum([sp.aligned_reads for sp in species.values()]))
+	print("  total mapped reads: %s" % sum([sp.mapped_reads for sp in species.values()]))
+	
+	# coverage summary
+	for sp in species.values():
+		if sp.genome_length > 0:
+			sp.fraction_covered = sp.covered_bases/float(sp.genome_length) 
+		if sp.covered_bases > 0:
+			sp.mean_coverage = sp.total_depth/float(sp.covered_bases) 
 
 	# close outfiles
 	for sp in species.values():
@@ -200,27 +229,19 @@ def pysam_pileup(args, species, contigs):
 
 def snps_summary(args, species):
 	""" Get summary of mapping statistics """
-	# store stats
-	stats = {}
-	for species_id in species:
-		genome_length, covered_bases, total_depth = [0,0,0]
-		for r in utility.parse_file('/'.join([args['outdir'], 'snps/output/%s.snps.gz' % species_id])):
-			genome_length += 1
-			depth = int(r['depth'])
-			if depth > 0:
-				covered_bases += 1
-				total_depth += depth
-		fraction_covered = covered_bases/float(genome_length) if float(genome_length) > 0 else 'NA'
-		mean_coverage = total_depth/float(covered_bases) if covered_bases > 0 else 0
-		stats[species_id] = {'genome_length':genome_length, 'covered_bases':covered_bases,
-							 'fraction_covered':fraction_covered,'mean_coverage':mean_coverage}
-	# write stats
-	fields = ['genome_length', 'covered_bases', 'fraction_covered', 'mean_coverage']
-	outfile = open('/'.join([args['outdir'], 'snps/summary.txt']), 'w')
-	outfile.write('\t'.join(['species_id'] + fields)+'\n')
-	for species_id in stats:
-		record = [species_id] + [str(stats[species_id][field]) for field in fields]
-		outfile.write('\t'.join(record)+'\n')
+	
+	fields = ['species_id', 'genome_length', 'covered_bases', 'fraction_covered', 'mean_coverage', 'aligned_reads', 'mapped_reads']
+	outfile = open(args['outdir'] + '/snps/summary.txt', 'w')
+	outfile.write('\t'.join(fields)+'\n')
+	
+	for sp in species.values():
+		outfile.write(sp.id+'\t')
+		outfile.write(str(sp.genome_length)+'\t')
+		outfile.write(str(sp.covered_bases)+'\t')
+		outfile.write(str(sp.fraction_covered)+'\t')
+		outfile.write(str(sp.mean_coverage)+'\t')
+		outfile.write(str(sp.aligned_reads)+'\t')
+		outfile.write(str(sp.mapped_reads)+'\n')
 	outfile.close()
 
 def remove_tmp(args):

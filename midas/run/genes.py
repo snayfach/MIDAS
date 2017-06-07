@@ -16,9 +16,8 @@ class Species:
 		self.paths = {}
 		self.genes = []
 		self.pangenome_size = 0
-		self.reads = 0
-		self.bases = 0.0
-		self.depth = 0.0
+		self.aligned_reads = 0
+		self.mapped_reads = 0
 		self.markers = defaultdict(float)
 		
 	def init_ref_db(self, ref_db):
@@ -52,8 +51,8 @@ class Gene:
 	""" Base class for gene """
 	def __init__(self, id):
 		self.id = id
-		self.reads = 0
-		self.bases = 0.0
+		self.aligned_reads = 0
+		self.mapped_reads = 0
 		self.depth = 0.0
 		self.length = 0
 		self.copies = 0.0
@@ -108,8 +107,8 @@ def build_pangenome_db(args, species):
 	# bowtie2 database
 	command = '%s ' % args['bowtie2-build']
 	command += '--threads %s ' % args['threads']
-	command += '%s/snps/temp/pangenomes.fa ' % args['outdir']
-	command += '%s/snps/temp/pangenomes ' % args['outdir']
+	command += '%s/genes/temp/pangenomes.fa ' % args['outdir']
+	command += '%s/genes/temp/pangenomes ' % args['outdir']
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)
@@ -173,32 +172,33 @@ def count_mapped_bp(args, species, genes):
 	import pysam
 	bam_path = '/'.join([args['outdir'], 'genes/temp/pangenomes.bam'])
 	bamfile = pysam.AlignmentFile(bam_path, "rb")
-	i, j = 0,0
+
 	# loop over alignments, sum values per gene
 	for index, aln in enumerate(bamfile.fetch(until_eof = True)):
-		i += 1
-		if not keep_read(aln, args['mapid'], args['readq'], args['mapq'], args['aln_cov'])
+			
+		gene = genes[bamfile.getrname(aln.reference_id)]
+		species[gene.species_id].aligned_reads += 1
+		gene.aligned_reads += 1
+		
+		if not keep_read(aln, args['mapid'], args['readq'], args['mapq'], args['aln_cov']):
 			continue
 		else:
-			gene_id = bamfile.getrname(aln.reference_id)
-			aln_len = len(aln.query_alignment_sequence)
-			gene_len = genes[gene_id].length
-			genes[gene_id].reads += 1
-			genes[gene_id].bases += aln_len
-			genes[gene_id].depth += aln_len/float(gene_len)
-			j += 1
-	print("  total aligned reads: %s" % i)
-	print("  total mapped reads: %s" % j)
+			species[gene.species_id].mapped_reads += 1			
+			gene.mapped_reads += 1
+			gene.depth += len(aln.query_alignment_sequence)/float(gene.length)
+	
+	print("  total aligned reads: %s" % sum([sp.aligned_reads for sp in species.values()]))
+	print("  total mapped reads: %s" % sum([sp.mapped_reads for sp in species.values()]))
+	
 	# loop over genes, sum values per species
 	for gene in genes.values():
-		species[gene.species_id].reads += gene.reads
-		species[gene.species_id].bases += gene.bases
-		species[gene.species_id].depth += gene.depth
 		species[gene.species_id].genes.append(gene.depth)
+	
 	# loop over species, compute summaries
 	for sp in species.values():
-		sp.covered_genes = sum([1 for _ in sp.genes if _ > 0])
-		sp.mean_coverage = np.mean([_ for _ in sp.genes if _ > 0])
+		non_zero_genes = [_ for _ in sp.genes if _ > 0]
+		sp.covered_genes = len(non_zero_genes)
+		sp.mean_coverage = np.mean(non_zero_genes) if len(non_zero_genes) > 0 else 0
 		sp.fraction_covered = sp.covered_genes/float(sp.pangenome_size)
 
 def normalize(args, species, genes):
@@ -228,7 +228,7 @@ def write_results(args, species, genes):
 	for gene_id in sorted(genes):
 		gene = genes[gene_id]
 		sp = species[gene.species_id]
-		values = [gene.id, gene.reads, gene.depth, gene.copies]
+		values = [gene.id, gene.mapped_reads, gene.depth, gene.copies]
 		sp.out.write('\t'.join([str(_) for _ in values])+'\n')
 	# close output files
 	for sp in species.values():
@@ -236,10 +236,10 @@ def write_results(args, species, genes):
 	# summary stats
 	path = '/'.join([args['outdir'], 'genes/summary.txt'])
 	file = open(path, 'w')
-	header = ['species_id', 'pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage', 'count_reads']
+	header = ['species_id', 'pangenome_size', 'covered_genes', 'fraction_covered', 'mean_coverage', 'marker_coverage', 'aligned_reads', 'mapped_reads']
 	file.write('\t'.join(header)+'\n')
 	for sp in species.values():
-		values = [sp.id, sp.pangenome_size, sp.covered_genes, sp.fraction_covered, sp.mean_coverage, sp.marker_coverage, sp.reads]
+		values = [sp.id, sp.pangenome_size, sp.covered_genes, sp.fraction_covered, sp.mean_coverage, sp.marker_coverage, sp.aligned_reads, sp.mapped_reads]
 		file.write('\t'.join([str(_) for _ in values])+'\n')
 	file.close()
 
