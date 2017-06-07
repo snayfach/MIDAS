@@ -98,7 +98,12 @@ def genome_align(args):
 	command += '--%s ' % args['speed'] # speed/sensitivity
 	command += '--threads %s ' % args['threads'] 
 	command += '-f ' if args['file_type'] == 'fasta' else '-q ' # input type
-	command += '-1 %s -2 %s '  % (args['m1'], args['m2']) if args['m2'] else '-U %s ' % args['m1'] # input reads
+	if args['m2']: # -1 and -2 contain paired reads
+		command += '-1 %s -2 %s ' % (args['m1'], args['m2']) 
+	elif args['interleaved']: # -1 contains paired reads
+		command += '--interleaved %s ' % args['m1'] 
+	else: # -1 contains unpaired reads
+		command += '-U %s ' % args['m1'] 
 	# Pipe to samtools
 	command += '| %s view -b - ' % args['samtools'] # convert to bam
 	command += '--threads %s ' % args['threads']

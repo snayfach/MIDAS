@@ -149,8 +149,11 @@ def print_species_arguments(args):
 	lines.append("Script: run_midas.py species")
 	lines.append("Database: %s" % args['db'])
 	lines.append("Output directory: %s" % args['outdir'])
-	lines.append("Input reads (1st mate): %s" % args['m1'])
-	lines.append("Input reads (2nd mate): %s" % args['m2'])
+	if args['m2']:
+		lines.append("Input reads (1st mate): %s" % args['m1'])
+		lines.append("Input reads (2nd mate): %s" % args['m2'])
+	else:
+		lines.append("Input reads (unpaired): %s" % args['m1'])
 	lines.append("Remove temporary files: %s" % args['remove_temp'])
 	lines.append("Word size for database search: %s" % args['word_size'])
 	if args['mapid']:
@@ -255,6 +258,8 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 	align.add_argument('-2', type=str, dest='m2',
 		help="""FASTA/FASTQ file containing 2nd mate if using paired-end reads.
 Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
+	align.add_argument('--interleaved', action='store_true', default=False,
+		help='FASTA/FASTQ file in -1 are paired and contain forward AND reverse reads')
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Alignment speed/sensitivity (very-sensitive)')
@@ -302,8 +307,13 @@ def print_gene_arguments(args):
 			lines.append("  include specified species id(s): %s" % args['species_id'])
 	if args['align']:
 		lines.append("Read alignment options:")
-		lines.append("  input reads (1st mate): %s" % args['m1'])
-		lines.append("  input reads (2nd mate): %s" % args['m2'])
+		if args['interleaved']: 
+			lines.append("  input reads (1st + 2nd mate): %s" % args['m1'])
+		elif args['m2']:
+			lines.append("  input reads (1st mate): %s" % args['m1'])
+			lines.append("  input reads (2nd mate): %s" % args['m2'])
+		else:
+			lines.append("  input reads (unpaired): %s" % args['m1'])
 		lines.append("  alignment speed/sensitivity: %s" % args['speed'])
 		lines.append("  number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
 		lines.append("  number of threads for database search: %s" % args['threads'])
@@ -375,6 +385,8 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 	align.add_argument('-2', type=str, dest='m2',
 		help="""FASTA/FASTQ file containing 2nd mate if using paired-end reads.
 Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
+	align.add_argument('--interleaved', action='store_true', default=False,
+		help='FASTA/FASTQ file in -1 are paired and contain forward AND reverse reads')
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Bowtie2 alignment speed/sensitivity (very-sensitive)')
@@ -426,8 +438,13 @@ def print_snp_arguments(args):
 			lines.append("  include specified species id(s): %s" % args['species_id'])
 	if args['align']:
 		lines.append("Read alignment options:")
-		lines.append("  input reads (1st mate): %s" % args['m1'])
-		lines.append("  input reads (2nd mate): %s" % args['m2'])
+		if args['interleaved']: 
+			lines.append("  input reads (1st + 2nd mate): %s" % args['m1'])
+		elif args['m2']:
+			lines.append("  input reads (1st mate): %s" % args['m1'])
+			lines.append("  input reads (2nd mate): %s" % args['m2'])
+		else:
+			lines.append("  input reads (unpaired): %s" % args['m1'])
 		lines.append("  alignment speed/sensitivity: %s" % args['speed'])
 		lines.append("  number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
 		lines.append("  number of threads for database search: %s" % args['threads'])
@@ -510,6 +527,8 @@ Alternatively, you can manually specify one or more species using --species_id\n
 	# input options
 	if args['m2'] and not args['m1']:
 		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads\n")
+	if args['m2'] and args['interleaved']:
+		sys.exit("\nError: Cannot specify --interleaved together with -2\n")
 	# sanity check input values
 	if args['mapid'] < 1 or args['mapid'] > 100:
 		sys.exit("\nError: MAPID must be between 1 and 100\n")
@@ -578,6 +597,8 @@ Alternatively, you can manually specify one or more species using --species_id\n
 	# input options
 	if args['m2'] and not args['m1']:
 		sys.exit("\nError: Must specify -1 and -2 if aligning paired end reads\n")
+	if args['m2'] and args['interleaved']:
+		sys.exit("\nError: Cannot specify --interleaved together with -2\n")
 	# sanity check input values
 	if args['mapid'] < 1 or args['mapid'] > 100:
 		sys.exit("\nError: MAPQ must be between 1 and 100\n")

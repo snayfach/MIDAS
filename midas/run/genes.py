@@ -116,25 +116,21 @@ def build_pangenome_db(args, species):
 
 def pangenome_align(args):
 	""" Use Bowtie2 to map reads to all specified genome species """
-	# Build command
+	# Bowtie2
 	command = '%s --no-unal ' % args['bowtie2']
-	#   index
-	command += '-x %s ' % '/'.join([args['outdir'], 'genes/temp/pangenomes'])
-	#   specify reads
-	if args['max_reads']: command += '-u %s ' % args['max_reads']
-	#   trim reads
-	if args['trim']: command += '--trim3 %s ' % args['trim']
-	#   speed/sensitivity
-	command += '--%s-local ' % args['speed']
-	#   threads
-	command += '--threads %s ' % args['threads']
-	#   file type
-	if args['file_type'] == 'fasta': command += '-f '
-	else: command += '-q '
-	#   input file
-	if (args['m1'] and args['m2']): command += '-1 %s -2 %s ' % (args['m1'], args['m2'])
-	else: command += '-U %s ' % args['m1']
-	#   output unsorted bam
+	command += '-x %s ' % '/'.join([args['outdir'], 'genes/temp/pangenomes']) # index
+	if args['max_reads']: command += '-u %s ' % args['max_reads'] # max num of reads
+	if args['trim']: command += '--trim3 %s ' % args['trim'] # trim 3'
+	command += '--%s-local ' % args['speed'] #   speed/sensitivity
+	command += '--threads %s ' % args['threads'] #   threads
+	command += '-f ' if args['file_type'] == 'fasta' else '-q ' # input type
+	if args['m2']: # -1 and -2 contain paired reads
+		command += '-1 %s -2 %s ' % (args['m1'], args['m2']) 
+	elif args['interleaved']: # -1 contains paired reads
+		command += '--interleaved %s ' % args['m1'] 
+	else: # -1 contains unpaired reads
+		command += '-U %s ' % args['m1'] 
+	# Output unsorted bam
 	bampath = '/'.join([args['outdir'], 'genes/temp/pangenomes.bam'])
 	command += '| %s view ' % args['samtools']
 	command += '--threads %s ' % args['threads']
