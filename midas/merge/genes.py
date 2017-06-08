@@ -80,7 +80,8 @@ genes_summary.txt
   fraction_covered: proportion of genes with at least 1 mapped read
   mean_coverage: average read-depth across genes with at least 1 mapped read
   marker_coverage: median read-depth across 15 universal single copy genes
-
+  aligned_reads: number of reads that aligned to pangenome
+  mapped_reads: number of aligned reads after applying filters for mapping quality, base quality, alignment fraction, and percent identity
 
 Additional information for species can be found in the reference database:
  %s/pan_genomes/%s

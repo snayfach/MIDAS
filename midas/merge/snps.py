@@ -387,6 +387,62 @@ def merge_sharded_tables(species, args):
 			for line in infiles[thread][ftype]:
 				outfiles[ftype].write(line)
 
+def write_snps_readme(args, sp):
+	outfile = open('%s/%s/readme.txt' % (args['outdir'], sp.id), 'w')
+	outfile.write("""
+Description of output files and file formats from 'merge_midas.py snps'
+
+Output files
+############
+snps_freq.txt
+  frequency of minor allele per genomic site and per sample
+  see: snps_info.txt for major, minor, and reference alleles
+snps_depth.txt
+  number of reads mapped to genomic site per sample
+  only accounts for reads matching either major or minor allele
+snps_info.txt  
+  metadata for genomic site
+  see below for more information
+snps_summary.txt
+  alignment summary statistics per sample
+  see below for more information
+snps_log.txt
+  log file containing parameters used
+
+Output formats
+############
+snps_freq.txt and snps_depth.txt
+  tab-delimited matrix files
+  field names are sample ids
+  row names are genome site ids
+  genomic sites have the format: ref_id|ref_pos (eg: NC_ATTCG|1 corresponds to position 1 on contig NC_ATTCG)
+snps_summary.txt
+  sample_id: sample identifier
+  genome_length: number of base pairs in representative genome
+  covered_bases: number of reference sites with at least 1 mapped read
+  fraction_covered: proportion of reference sites with at least 1 mapped read
+  mean_coverage: average read-depth across reference sites with at least 1 mapped read
+  aligned_reads: number of reads that aligned to representative genome
+  mapped_reads: number of aligned reads after applying filters for mapping quality, base quality, alignment fraction, and percent identity
+snps_info.txt
+  site_id: genomic site_id, format=ref_id|ref_pos
+  ref_id: scaffold/contig identifier
+  ref_pos: position of site on ref_id
+  ref_allele: allele in reference genome
+  major_allele: most common allele in metagenomes
+  minor_allele: second most common allele in metagenomes
+  count_samples: number of metagenomes where site_id was found
+  count_atcg: counts of all 4 alleles (A,T,C,G) in pooled metagenomes
+  snp_type: site is [MONO,BI,TRI,QUAD]-allelic
+  site_type: NC (non-coding), 1D, 2D, 3D, 4D (degeneracy)
+  amino_acid_atcg: amino acids encoded by 4 possible alleles
+  gene_id: gene that intersects site
+
+Additional information for species can be found in the reference database:
+ %s/rep_genomes/%s
+""" % (args['db'], sp.id) )
+	outfile.close()
+	
 def run_pipeline(args):
 	
 	print("Identifying species and samples")
@@ -420,7 +476,7 @@ def run_pipeline(args):
 		merge_sharded_tables(species, args)
 
 		print("    finishing")
-		merge.write_snps_readme(args, species)
+		write_snps_readme(args, species)
 		species.write_sample_info(dtype='snps', outdir=args['outdir'])
 		shutil.rmtree(species.tempdir)
 
