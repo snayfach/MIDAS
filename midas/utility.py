@@ -56,7 +56,7 @@ def batch_samples(samples, threads):
 	if len(batch) > 0: batches.append(batch)
 	return batches
 
-def parallel(function, list, threads):
+def parallel_old(function, list, threads):
 	""" Run function using multiple threads """
 	from multiprocessing import Process
 	from time import sleep
@@ -77,6 +77,34 @@ def parallel(function, list, threads):
 		for index, process in enumerate(processes):
 			if process.is_alive(): indexes.append(index)
 		processes = [processes[i] for i in indexes]
+
+def parallel(function, argument_list, threads):
+	""" Based on: https://gist.github.com/admackin/003dd646e5fadee8b8d6 """
+	import multiprocessing as mp
+	import signal
+	import time
+	
+	def init_worker():
+		signal.signal(signal.SIGINT, signal.SIG_IGN)
+	
+	pool = mp.Pool(int(threads), init_worker)
+	
+	try:
+		results = []
+		for arguments in argument_list:
+			p = pool.apply_async(function, args=arguments)
+			results.append(p)
+		pool.close()
+		
+		while True:
+			if all(r.ready() for r in results):
+				return [r.get() for r in results]
+			time.sleep(1)
+
+	except KeyboardInterrupt:
+		pool.terminate()
+		pool.join()
+		sys.exit("\nKeyboardInterrupt")
 
 def add_executables(args):
 	""" Identify relative file and directory paths """
