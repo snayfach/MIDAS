@@ -228,7 +228,7 @@ run_midas.py genes /path/to/outdir --species_id Bacteroides_vulgatus_57955 -1 /p
 run_midas.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
 
 4) just quantify genes, keep reads with >=95% alignment identity and reads with an average quality-score >=30:
-run_midas.py snps /path/to/outdir --call_genes --mapid 95 --readq 20
+run_midas.py genes /path/to/outdir --call_genes --mapid 95 --readq 20
 	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
 	parser.add_argument('outdir', type=str,
@@ -401,6 +401,8 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 		default=30, help='Discard bases with quality < BASEQ (30)')
 	snps.add_argument('--readq', type=int, metavar='INT',
 		default=20, help='Discard reads with mean quality < READQ (20)')
+	snps.add_argument('--aln_cov', type=float, metavar='FLOAT',
+		default=0.75, help='Discard reads with alignment coverage < ALN_COV (0.75)')
 	snps.add_argument('--trim', metavar='INT', type=int, default=0,
 		help='Trim N base-pairs from 3\'/right end of read (0)')
 	snps.add_argument('--discard', default=False, action='store_true',
@@ -454,6 +456,7 @@ def print_snp_arguments(args):
 		lines.append("  minimum mapping quality score: %s" % args['mapq'])
 		lines.append("  minimum base quality score: %s" % args['baseq'])
 		lines.append("  minimum read quality score: %s" % args['readq'])
+		lines.append("  minimum alignment coverage of reads: %s" % args['aln_cov'])
 		lines.append("  trim %s base-pairs from 3'/right end of read" % args['trim'])
 		if args['discard']: lines.append("  discard discordant read-pairs")
 		if args['baq']: lines.append("  enable BAQ (per-base alignment quality)")
@@ -606,6 +609,8 @@ Alternatively, you can manually specify one or more species using --species_id\n
 		sys.exit("\nError: MAPQ must be between 0 and 100\n")
 	if args['baseq'] < 0 or args['baseq'] > 100:
 		sys.exit("\nError: BASEQ must be between 0 and 100\n")
+	if args['aln_cov'] < 0 or args['aln_cov'] > 1:
+		sys.exit("\nError: ALN_COV must be between 0 and 1\n")
 
 def write_readme(program, args):
 	outfile = open('%s/%s/readme.txt' % (args['outdir'], program), 'w')
