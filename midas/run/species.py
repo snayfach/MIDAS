@@ -82,7 +82,7 @@ def find_best_hits(args, marker_info):
 		elif best_hits[aln['query']][0]['score'] < aln['score']: # update aln
 			best_hits[aln['query']] = [aln]
 	print("  total alignments: %s" % i)
-	return best_hits.values()
+	return list(best_hits.values())
 
 def assign_unique(args, alns, species_info, marker_info):
 	""" Count the number of uniquely mapped reads to each genome species """
@@ -214,7 +214,7 @@ def select_species(args):
 		for species_id in args['species_id']:
 			species_sets['species_id'].add(species_id)
 	# intersect sets of genome-species
-	my_species = list(set.intersection(*species_sets.values()))
+	my_species = list(set.intersection(*list(species_sets.values())))
 	# optionally remove bad species_ids
 	inpath = '/'.join([args['db'], 'exclude.txt'])
 	if os.path.isfile(inpath):

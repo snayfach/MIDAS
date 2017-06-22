@@ -147,7 +147,7 @@ class GenomicSite:
 					for allele in ['A','T','C','G']: # + strand
 						codon = utility.index_replace(self.ref_codon, allele, self.codon_pos, gene['strand']) # +/- strand
 						self.amino_acids[allele] = utility.translate(codon)
-					unique_aa = set(self.amino_acids.values())
+					unique_aa = set(list(self.amino_acids.values()))
 					degeneracy = 4 - len(unique_aa) + 1
 					self.site_type = '%sD' % degeneracy
 					# AA's identical: degeneracy = 4 - 1 + 1 = 4

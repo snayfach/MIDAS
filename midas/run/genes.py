@@ -209,7 +209,7 @@ def normalize(args, species, genes):
 			species[gene.species_id].markers[gene.marker_id] += gene.depth
 	# compute median marker depth
 	for sp in species.values():
-		sp.marker_coverage = np.median(sp.markers.values())
+		sp.marker_coverage = np.median(list(sp.markers.values()))
 	# normalize genes by median marker depth
 	for gene in genes.values():
 		sp = species[gene.species_id]

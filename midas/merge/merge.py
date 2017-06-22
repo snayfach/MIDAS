@@ -136,7 +136,7 @@ def init_species(samples, args, dtype):
 				continue
 			else:
 				species[species_id].samples.append(sample)
-	return species.values()
+	return list(species.values())
 
 def filter_species(species, args):
 	""" Pick subset of species to analyze """
