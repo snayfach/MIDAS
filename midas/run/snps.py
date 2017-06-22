@@ -102,7 +102,7 @@ def genome_align(args):
 	command += '-x %s ' % '/'.join([args['outdir'], 'snps/temp/genomes']) # index
 	if args['max_reads']: command += '-u %s ' % args['max_reads'] # max num of reads
 	if args['trim']: command += '--trim3 %s ' % args['trim'] # trim 3'
-	command += '--%s ' % args['speed'] # speed/sensitivity
+	command += '--%s-local ' % args['speed'] # speed/sensitivity
 	command += '--threads %s ' % args['threads'] 
 	command += '-f ' if args['file_type'] == 'fasta' else '-q ' # input type
 	if args['m2']: # -1 and -2 contain paired reads
@@ -138,62 +138,60 @@ def index_bam(args):
 	print("  %s Gb maximum memory" % utility.max_mem_usage())
 
 def keep_read(aln):
-	global sp
-	sp.aligned_reads += 1
+	global aln_stats, global_args
+	aln_stats['aligned_reads'] += 1
+	# align and query length
 	align_len = len(aln.query_alignment_sequence)
 	query_len = aln.query_length
-	# min pid
-	if 100*(align_len-dict(aln.tags)['NM'])/float(align_len) < min_pid:
+	# min pid filter
+	if 100*(align_len-dict(aln.tags)['NM'])/float(align_len) < global_args['mapid']:
 		return False
-	# min read quality
-	elif np.mean(aln.query_qualities) < min_readq:
+	# min read quality filter
+	elif np.mean(aln.query_qualities) < global_args['readq']:
 		return False
-	# min map quality
-	elif aln.mapping_quality < min_mapq:
+	# min map quality filter
+	elif aln.mapping_quality < global_args['mapq']:
 		return False
-	# min aln cov
-	elif align_len/float(query_len)  < min_aln_cov:
+	# min aln cov filter
+	elif align_len/float(query_len)  < global_args['aln_cov']:
 		return False
+	# read passes all filters
 	else:
-		sp.mapped_reads += 1
+		aln_stats['mapped_reads'] += 1
 		return True
-
-def pysam_pileup(args, species, contigs):
-	start = time()
-	print("\nCounting alleles")
-	args['log'].write("\nCounting alleles\n")
+	
+def species_pileup(args, species_id, contigs):
 	
 	# Set global variables for read filtering
-	global sp
-	global min_pid
-	min_pid = args['mapid']
-	global min_readq
-	min_readq = args['readq']
-	global min_mapq
-	min_mapq = args['mapq']
-	global min_aln_cov
-	min_aln_cov = 0.70
-	global min_baseq
-	min_baseq = args['baseq']
+	global global_args # need global for keep_read function
+	global_args = args
+
+	# summary stats
+	global aln_stats
+	aln_stats = {'genome_length':0,
+				 'total_depth':0,
+				 'covered_bases':0,
+				 'aligned_reads':0,
+				 'mapped_reads':0}
 	
 	# open outfiles
-	for sp in species.values():
-		sp.out = utility.iopen('/'.join([args['outdir'], 'snps/output/%s.snps.gz' % sp.id]), 'w')
-		header = ['ref_id', 'ref_pos', 'ref_allele', 'depth', 'count_a', 'count_c', 'count_g', 'count_t']
-		sp.out.write('\t'.join(header)+'\n')
-
+	out_path = '%s/snps/output/%s.snps.gz' % (args['outdir'], species_id)
+	out_file = utility.iopen(out_path, 'w')
+	header = ['ref_id', 'ref_pos', 'ref_allele', 'depth', 'count_a', 'count_c', 'count_g', 'count_t']
+	out_file.write('\t'.join(header)+'\n')
+	
 	# compute coverage
 	bampath = '%s/snps/temp/genomes.bam' % args['outdir']
 	with pysam.AlignmentFile(bampath, 'rb') as bamfile:
 		for contig in contigs.values():
-			
-			sp = species[contig.species_id]
-			
+		
+			if contig.species_id != species_id: continue
+						
 			counts = bamfile.count_coverage(
 				contig.id, 
 				start=0, 
 				end=contig.length, 
-				quality_threshold=min_baseq, 
+				quality_threshold=args['baseq'], 
 				read_callback=keep_read)
 				
 			for i in range(0, contig.length):
@@ -205,27 +203,42 @@ def pysam_pileup(args, species, contigs):
 				count_g = counts[2][i]
 				count_t = counts[3][i]
 				row = [contig.id, ref_pos, ref_allele, depth, count_a, count_c, count_g, count_t]
-				sp.out.write('\t'.join([str(_) for _ in row])+'\n')
-				sp.genome_length += 1
-				sp.total_depth += depth
-				if depth > 0: sp.covered_bases += 1
+				out_file.write('\t'.join([str(_) for _ in row])+'\n')
+				aln_stats['genome_length'] += 1
+				aln_stats['total_depth'] += depth
+				if depth > 0: aln_stats['covered_bases'] += 1
+		
+	out_file.close()
+	return (species_id, aln_stats)
+				
 	
-	print("  total aligned reads: %s" % sum([sp.aligned_reads for sp in species.values()]))
-	print("  total mapped reads: %s" % sum([sp.mapped_reads for sp in species.values()]))
+def pysam_pileup(args, species, contigs):
+	start = time()
+	print("\nCounting alleles")
+	args['log'].write("\nCounting alleles\n")
+
+	# run pileups per species in parallel
+	argument_list = []
+	for species_id in species:
+		argument_list.append([args, species_id, contigs])
+	aln_stats = utility.parallel(species_pileup, argument_list, args['threads'])
 	
-	# coverage summary
-	for sp in species.values():
+	# update alignment stats for species objects
+	for species_id, stats in aln_stats:
+		sp = species[species_id]
+		sp.genome_length = stats['genome_length']
+		sp.covered_bases = stats['covered_bases']
+		sp.total_depth = stats['total_depth']
+		sp.aligned_reads = stats['aligned_reads']
+		sp.mapped_reads = stats['mapped_reads']
 		if sp.genome_length > 0:
-			sp.fraction_covered = sp.covered_bases/float(sp.genome_length) 
+			sp.fraction_covered = sp.covered_bases/float(sp.genome_length) 	
 		if sp.covered_bases > 0:
 			sp.mean_coverage = sp.total_depth/float(sp.covered_bases) 
-
-	# close outfiles
-	for sp in species.values():
-		sp.out.close()
-
+		
 	print("  %s minutes" % round((time() - start)/60, 2) )
 	print("  %s Gb maximum memory" % utility.max_mem_usage())
+				
 
 def snps_summary(args, species):
 	""" Get summary of mapping statistics """
