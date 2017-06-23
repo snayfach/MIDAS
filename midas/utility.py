@@ -226,14 +226,21 @@ def read_genes(species_id, db):
 	else:
 		sys.exit("\nError: rep genome for %s not found\n" % species_id)
 	for gene in parse_file(fpath):
-		if 'gene_type' in gene and gene['gene_type'] == 'RNA':
+		if 'gene_type' in gene and gene['gene_type'] != 'CDS':
 			continue
 		else:
 			gene['start'] = int(gene['start'])
 			gene['end'] = int(gene['end'])
 			gene['seq'] = get_gene_seq(gene, genome[gene['scaffold_id']])
 			genes.append(gene)
-	return [genes, 0]
+	
+	# sort genes
+	coords = [[gene['scaffold_id'], gene['start'], -gene['end']] for gene in genes]
+	indexes = sorted(range(len(coords)), key=lambda k: coords[k])
+	sorted_genes = [genes[i] for i in indexes]
+			
+	return {'list':sorted_genes, 'index':0}
+	
 
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """
