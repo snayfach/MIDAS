@@ -102,27 +102,26 @@ class GenomicSite:
 		self.count_samples = sum(pass_qc)
 		self.prevalence = sum(pass_qc)/float(len(pass_qc))
 
-	def flag(self, min_prev=0.0, snp_type='any'):
+	def flag(self, min_prev, snp_types):
 		""" Filter genomic site based on MAF and prevalence """
 		if self.prevalence < min_prev:
 			self.flag = (True, 'min_prev')
-		elif snp_type is not None and self.snp_type in snp_type:
+		elif self.snp_type not in snp_types:
 			self.flag = (True, 'snp_type')
 		else:
 			self.flag = (False, None)
 
 	def annotate(self, genes):
 		""" Annotate variant and reference site """
-		# genes: list of genes, each gene contains info
-		# contig: contig sequence
-		# gene_index: current position in list of genes; global variable
+		# genes = {'list': list of genes, 'index':index position in list}
+		# each element in 'list' is sorted by scaffold_id (asc), start (asc), end (desc)
+		# each element is a dictionary with gene info
 		self.amino_acids = {}
-				
 		while True:
 			# 1. fetch next gene
 			#    if there are no more genes, snp must be non-coding so break
-			if genes[1] < len(genes[0]):
-				gene = genes[0][genes[1]]
+			if genes['index'] < len(genes['list']):
+				gene = genes['list'][genes['index']]
 			else:
 				self.site_type = 'NC'
 				return
@@ -134,7 +133,7 @@ class GenomicSite:
 			# 3. if snp is downstream of next gene, pop gene, check (1) and (2) again
 			if (self.ref_id > gene['scaffold_id'] or
 			   (self.ref_id == gene['scaffold_id'] and self.ref_pos > gene['end'])):
-				genes[1] += 1
+				genes['index'] += 1
 				continue
 			# 4. otherwise, snp must be in gene
 			#    annotate site (1D-4D)
@@ -313,6 +312,7 @@ def build_sharded_tables(species, args, thread, line_from, line_to):
 	infiles = read_count_matrixes(species, args)
 	outfiles = write_merge_midas(species, args, thread)
 	genes = utility.read_genes(species.id, args['db'])
+	
 	line_num = -1
 	while True:
 		# fetch allele counts for next site
@@ -363,7 +363,9 @@ def parallel_build_sharded_tables(species, args):
 		line_from, line_to = line_range
 		arguments=(species, args, thread, line_from, line_to)
 		argument_list.append(arguments)
-
+#
+#	build_sharded_tables(species, args, thread, line_from, line_to)
+#	quit()
 	parallel(build_sharded_tables, argument_list, args['threads'])
 
 def merge_sharded_tables(species, args):
