@@ -183,9 +183,12 @@ def species_pileup(args, species_id, contigs):
 	# compute coverage
 	bampath = '%s/snps/temp/genomes.bam' % args['outdir']
 	with pysam.AlignmentFile(bampath, 'rb') as bamfile:
-		for contig in contigs.values():
+		for contig_id in sorted(list(contigs.keys())):
 		
-			if contig.species_id != species_id: continue
+			contig = contigs[contig_id]
+		
+			if contig.species_id != species_id: 
+				continue
 						
 			counts = bamfile.count_coverage(
 				contig.id, 
