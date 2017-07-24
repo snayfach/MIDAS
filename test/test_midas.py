@@ -129,13 +129,28 @@ class _10_MergeSNPs(unittest.TestCase):
 		err, code = run(command)
 		self.assertTrue(code==0, msg=err)
 
+class _11_BuildDB(unittest.TestCase):
+	""" test merge_midas.py species """
+	def test_class(self):
+		command = 'tar -zxvf genomes.tar.gz'
+		err, code = run(command)
+		command = 'build_midas_db.py genomes genomes.mapfile db --threads 10'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
+
 if __name__ == '__main__':
 	
-	dir_name = os.path.dirname(os.path.abspath(__file__))
-	os.chdir(dir_name)
+	try:
+	
+		dir_name = os.path.dirname(os.path.abspath(__file__))
+		os.chdir(dir_name)
 
-	unittest.main(exit=False)
+		unittest.main(exit=False)
 
-	for dir in ['sample', 'species', 'genes', 'snps']:
-		shutil.rmtree(dir)
-
+		for dir in ['sample', 'species', 'genes', 'snps', 'genomes', 'db']:
+			shutil.rmtree(dir)
+			
+	except:
+		print("")
+		for dir in ['sample', 'species', 'genes', 'snps', 'genomes', 'db']:
+			if os.path.exists(dir): shutil.rmtree(dir)
