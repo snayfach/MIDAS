@@ -14,7 +14,6 @@ def run(command):
 	return(err, process.returncode)
 
 class _01_CheckEnv(unittest.TestCase):
-	""" check environmental variables """
 	def setUp(self):
 		self.path_contents = []
 		for _ in os.environ['PATH'].strip(':').split(':'):
@@ -38,7 +37,6 @@ class _01_CheckEnv(unittest.TestCase):
 			)
 
 class _02_ImportDependencies(unittest.TestCase):
-	""" test that all dependencies can be imported """
 	def setUp(self):
 		self.failures = []
 		try: import numpy
@@ -57,7 +55,6 @@ class _02_ImportDependencies(unittest.TestCase):
 		msg="""\n\nThe following dependencies failed to import: %s.\nMake sure that dependencies have been properly installed""" % str(self.failures))
 
 class _03_CheckVersions(unittest.TestCase):
-	""" check version numbers for dependencies """
 	def setUp(self):
 		self.modules = ['numpy', 'pandas', 'pysam', 'Bio.SeqIO']
 		self.installeds = [module.__version__ for module in map(__import__, self.modules)]
@@ -72,7 +69,6 @@ class _03_CheckVersions(unittest.TestCase):
 			msg="""\n\nImported library '%s %s' is out of date. Required version is >= %s""" % (module, installed, required) )
 
 class _04_HelpText(unittest.TestCase):
-	""" check help text for all scripts """
 	def test_class(self):
 		commands = [
 			'run_midas.py -h',
@@ -88,49 +84,66 @@ class _04_HelpText(unittest.TestCase):
 			self.assertTrue(code==0, msg=err)
 
 class _05_RunSpecies(unittest.TestCase):
-	""" test run_midas.py species """
 	def test_class(self):
 		command = 'run_midas.py species ./sample -1 ./test.fq.gz -n 100'
 		err, code = run(command)
 		self.assertTrue(code==0, msg=err)
 
 class _06_RunGenes(unittest.TestCase):
-	""" test run_midas.py genes """
 	def test_class(self):
 		command = 'run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'
 		err, code = run(command)
 		self.assertTrue(code==0, msg=err)
 		
 class _07_RunSNPs(unittest.TestCase):
-	""" test run_midas.py snps """
 	def test_class(self):
 		command = 'run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'
 		err, code = run(command)
 		self.assertTrue(code==0, msg=err)
 		
 class _08_MergeSpecies(unittest.TestCase):
-	""" test merge_midas.py species """
 	def test_class(self):
 		command = 'merge_midas.py species ./species -i ./sample -t list'
 		err, code = run(command)
 		self.assertTrue(code==0, msg=err)
 
 class _09_MergeGenes(unittest.TestCase):
-	""" test merge_midas.py species """
 	def test_class(self):
 		command = 'merge_midas.py genes ./genes -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --sample_depth 0.0'
 		err, code = run(command)
 		self.assertTrue(code==0, msg=err)
 
 class _10_MergeSNPs(unittest.TestCase):
-	""" test merge_midas.py species """
 	def test_class(self):
-		command = 'merge_midas.py snps ./snps -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --all_samples --max_sites 100'
+		command = 'merge_midas.py snps ./snps -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --all_samples --all_sites --max_sites 10000'
 		err, code = run(command)
 		self.assertTrue(code==0, msg=err)
 
-class _11_BuildDB(unittest.TestCase):
-	""" test merge_midas.py species """
+class _11_SNPdiversity(unittest.TestCase):
+	def test_class(self):
+		command = 'snp_diversity.py snps/Bacteroides_vulgatus_57955'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
+
+class _12_CallConsensus(unittest.TestCase):
+	def test_class(self):
+		command = 'call_consensus.py snps/Bacteroides_vulgatus_57955'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)		
+	
+class _13_CompareGeneContent(unittest.TestCase):
+	def test_class(self):
+		command = 'compare_genes.py genes/Bacteroides_vulgatus_57955'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
+
+class _14_QueryByCompound(unittest.TestCase):
+	def test_class(self):
+		command = 'query_by_compound.py -i sample -t list -c C00312'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
+		
+class _15_BuildDB(unittest.TestCase):
 	def test_class(self):
 		command = 'tar -zxvf genomes.tar.gz'
 		err, code = run(command)
@@ -139,17 +152,12 @@ class _11_BuildDB(unittest.TestCase):
 		self.assertTrue(code==0, msg=err)
 
 if __name__ == '__main__':
-	
 	try:
-	
 		dir_name = os.path.dirname(os.path.abspath(__file__))
 		os.chdir(dir_name)
-
 		unittest.main(exit=False)
-
 		for dir in ['sample', 'species', 'genes', 'snps', 'genomes', 'db']:
 			shutil.rmtree(dir)
-			
 	except:
 		print("")
 		for dir in ['sample', 'species', 'genes', 'snps', 'genomes', 'db']:
