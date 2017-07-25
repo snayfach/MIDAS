@@ -71,10 +71,10 @@ SNP calling options (if using --call_snps):
 
 The output of this script contains the following: 
  
-* **output/**: per-species output files. are tab-delimited and gzip-compressed. named with the convention {SPECIES_ID}.snps.gz  
-* **temp/**: intermediate files. use `--remove_temp` to remove these files   
-* **summary.txt**: tab-delimited file summarizing alignments  
-* **log.txt**: log file containing parameters used    
+* <b>output/</b>: per-species output files. are tab-delimited and gzip-compressed. named with the convention {SPECIES_ID}.snps.gz  
+* <b>temp/</b>: intermediate files. use `--remove_temp` to remove these files   
+* <b>summary.txt</b>: tab-delimited file summarizing alignments  
+* <b>log.txt</b>: log file containing parameters used    
 
 output file format (per species):  
 
@@ -107,4 +107,4 @@ summary.txt file format:
 * Use `-n` and `-t` to increase throughput
 
 ## Next step
-[Merge results across samples] (merge_snvs.md)
+[Merge results across samples](merge_snvs.md)

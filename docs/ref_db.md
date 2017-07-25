@@ -27,7 +27,7 @@ Alternatively, you can manually specify the database location when you run MIDAS
 ex: `run_midas.py species outdir -d midas_db_v1.2 [options]`
 
 ## Build custom database
-Alternatively, you can build a custom database with your own genome sequences [read more] (build_db.md)
+Alternatively, you can build a custom database with your own genome sequences [read more](build_db.md)
 
 ## Description of default database
 
@@ -40,18 +40,18 @@ Each genome-cluster was annotated according to the consensus (i.e., most common)
       
 ### Genomic database construction
 
-**Marker-genes**
+<b>Marker-genes</b>
 
 * Database of universal-single-copy genes (15 gene families) 
 * Metagenomic reads are initially mapped to these genes estimate the relative abundance of all species in the reference database
 
-**Representative genome** 
+<b>Representative genome</b>
 
 * Individual reference genome per species
 * Genome was picked in order to minimize marker-gene distance to other genomes clustered in the same species
 * Metagenomic reads are mapped to the represenative genome to identify single-nucleotide-polymorphisms
 
-**Pan-genome**
+<b>Pan-genome</b>
 
 * The set of non-redundant genes (99% DNA identity) across all genomes within each species
 * Mapping between 99% identity gene clusters and gene clusters at lower % identity clustering thresholds (95, 90, 85, 80, and 75)
@@ -66,4 +66,4 @@ Species-level coverage of the MIDAS reference database was estimated across meta
 <img src="../images/database_coverage.jpg" width="500" align="center"/>  
 
 ## Next step
-[Run MIDAS on an example dataset] (tutorial.md)
+[Run MIDAS on an example dataset](tutorial.md)

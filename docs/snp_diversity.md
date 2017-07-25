@@ -2,14 +2,14 @@
 
 This script will allow you to quantify the genomic diversity of a bacterial population. Diversity can be computed genome-wide, for different classes of genomic sites, or for individual genes. Additionally, diversity can be computed for populations from individual metagenomic samples, or based on data pooled across samples. Finally, there are many options to filter genomic sites.
 
-Before running these scripts, you'll need to have run `merge_midas.py snps` [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
+Before running these scripts, you'll need to have run `merge_midas.py snps` [read more](https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
 
 
-####USAGE:
+#### USAGE:
 
 `snp_diversity.py --indir /path/to/snps/species_id --out /path/to/output [options]`
 
-####INPUT/OUTPUT OPTIONS:
+#### INPUT/OUTPUT OPTIONS:
 
 <b>--indir PATH</b>  
 Path to output from 'merge_midas.py snps' for one species.  
@@ -18,7 +18,7 @@ Directory should be named according to a species_id and contains files 'snps_*.t
 <b>--out PATH</b>  
 Path to output file  
 
-####DIVERSITY OPTIONS:  
+#### DIVERSITY OPTIONS:  
 <b>--genomic_type {'genome-wide', 'per-gene'}</b>  
 Compute diversity for individual genes or genome-wide (genome-wide)  
 	
@@ -33,7 +33,7 @@ Compute diversity using subset of genomic sites sites (ALL)
 ALL=all-sites, NC=non-coding, CDS=coding, XD=X-fold-degenerate-sites  
 
 
-####SAMPLE SELECTION OPTIONS:  
+#### SAMPLE SELECTION OPTIONS:  
 <b>--sample_depth FLOAT</b>  
 Minimum average read depth per sample (0.0)  
 
@@ -56,7 +56,7 @@ Maximum number of samples to process (use all)
 Useful for quick tests  
 
 
-####GENOMIC SITE SELECTION OPTIONS:  
+#### GENOMIC SITE SELECTION OPTIONS:  
 <b>--site_depth INT</b>  
 Minimum number of mapped reads per site per sample (2)  
 
@@ -84,7 +84,7 @@ Useful for quick tests
 <b>--rand_sites FLOAT</b>  
 Randomly select FLOAT proportion of genomic sites that pass quality control  
 
-####READ SELECTION OPTIONS:  
+#### READ SELECTION OPTIONS:  
 <b>--rand_reads INT</b>  
 Randomly select INT reads from each sample for each genomic site  
 

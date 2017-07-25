@@ -24,7 +24,7 @@ https://github.com/snayfach/MIDAS/archive/master.zip
 And unpack the project: `unzip MIDAS-master.zip`  
 
 Or, download a stable release of the source code:  
-[https://github.com/snayfach/MIDAS/releases] (https://github.com/snayfach/MIDAS/releases)  
+[https://github.com/snayfach/MIDAS/releases](https://github.com/snayfach/MIDAS/releases)  
 
 ### Install dependencies
 
@@ -39,10 +39,10 @@ Or, if you have pip installed, you can install these dependencies by running the
 `pip install --user numpy biopython pysam pandas` to install locally  
 
 If you run into problems, check out these additional instructions:  
-[Installing MIDAS on Mac OS X 10.11 and later] (https://github.com/snayfach/MIDAS/issues/31)  
-[Installing on CentOS/Ubuntu] (install_other.md)
+[Installing MIDAS on Mac OS X 10.11 and later](https://github.com/snayfach/MIDAS/issues/31)  
+[Installing on CentOS/Ubuntu](install_other.md)
 
-If you still have installation issues, please open a new [issue] (https://github.com/snayfach/MIDAS/issues) on GitHub
+If you still have installation issues, please open a new [issue](https://github.com/snayfach/MIDAS/issues) on GitHub
 
 ### Update your environmental variables
 
@@ -54,14 +54,14 @@ This will enable you to run MIDAS scripts:
 Be sure to replace '/path/to' with the appropriate path on your system  
 Add these commands to your .bash_profile to avoid entering the commands in the future  
 
-To learn how to download the default MIDAS database, click [here] (ref_db.md)  
-To learn how to build your own MIDAS database, click [here] (build_db.md)   
+To learn how to download the default MIDAS database, click [here](ref_db.md)  
+To learn how to build your own MIDAS database, click [here](build_db.md)   
 
 ### Testing
 
 Run the following command to test MIDAS:  
 `cd /path/to/MIDAS/test`  
-`python test_midas.py`
+`test_midas.py -vf`
 
 This will take a few minutes to complete
 
@@ -73,9 +73,9 @@ To update MIDAS, move to installation directory and pull the latest version:
 `git pull` 
 
 Or, download the latest stable release of the source code:  
-[https://github.com/snayfach/MIDAS/releases] (https://github.com/snayfach/MIDAS/releases)  
+[https://github.com/snayfach/MIDAS/releases](https://github.com/snayfach/MIDAS/releases)  
  
 To be notified of these changes, click the "Watch" button in the upper right corner of the page  
 
 ## Next step
-[Download the reference database] (ref_db.md)
+[Download the reference database](ref_db.md)

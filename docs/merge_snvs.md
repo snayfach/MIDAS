@@ -64,13 +64,13 @@ Site filters (select subset of genomic sites from INPUT):
 ## Outputs
 This module generates the following output files: 
 
-* **snps_ref_freq.txt**: reference allele frequency matrix (sites x samples). each value is the proportion of reads that matched the reference allele for a sample at a genomic site
-* **snps_alt_allele.txt**: alternate allele matrix (sites x samples). each value is the alternate allele observed for a sample at a genomic site
-* **snps_depth.txt**: site depth matrix (sites x samples). each value is the total number of reads observed for a sample at a genomic site
-* **snps_info.txt**: detailed information for each genomic site included in output
-* **snps_summary.txt**: alignment summary statistics for all samples
+* <b>snps_ref_freq.txt</b>: reference allele frequency matrix (sites x samples). each value is the proportion of reads that matched the reference allele for a sample at a genomic site
+* <b>snps_alt_allele.txt</b>: alternate allele matrix (sites x samples). each value is the alternate allele observed for a sample at a genomic site
+* <b>snps_depth.txt</b>: site depth matrix (sites x samples). each value is the total number of reads observed for a sample at a genomic site
+* <b>snps_info.txt</b>: detailed information for each genomic site included in output
+* <b>snps_summary.txt</b>: alignment summary statistics for all samples
 
-**snps_info.txt** output format:
+<b>snps_info.txt</b> output format:
 
 * site_id: identifier of genomic site
 * mean_freq: average frequency of reference allele across samples       
@@ -83,7 +83,7 @@ This module generates the following output files:
 * amino_acids: amino acid for each possible allele
 * snps: indicates whether an allele is synonymous (SYN) or non-synonymous (NS)
 
-**snps_summary.txt** output format:
+<b>snps_summary.txt</b> output format:
 
 * sample_id: sample identifier     
 * genome_length: length of reference genome used for read-mapping  

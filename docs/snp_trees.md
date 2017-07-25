@@ -4,11 +4,11 @@ This script will allow you to build strain-level phylogenetic trees using consen
 
 The core-genome of a species is identified directly from the data by looking for genomic sites in the representative genome that have high coverage across multiple metagenomes.  
 
-Before running these scripts, you'll need to have run `merge_midas.py snps` [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
+Before running these scripts, you'll need to have run `merge_midas.py snps` [read more](https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
 
 ### Step 1. Call consensus alleles
 
-####Command usage:  
+#### Command usage:  
 
 ``` 
 call_consensus.py --indir <PATH> --out <PATH> [options]
@@ -18,7 +18,7 @@ call_consensus.py --indir <PATH> --out <PATH> [options]
   --out PATH            path to output file
 ```
 
-####Options for selecting samples:
+#### Options for selecting samples:
 
 ```
   --sample_depth FLOAT  minimum average read depth per sample (0.0)  
@@ -32,7 +32,7 @@ call_consensus.py --indir <PATH> --out <PATH> [options]
                         samples will still be subject to other filters  
 ```
 
-####Options for selecting genomic sites:
+#### Options for selecting genomic sites:
 
 ```
   --site_depth INT      minimum number of mapped reads per site (2)
@@ -49,7 +49,7 @@ call_consensus.py --indir <PATH> --out <PATH> [options]
                         useful for quick tests
 ```
 
-####Example command:  
+#### Example command:  
 ```
 call_consensus.py --indir /path/to/snps --out consensus.fa --site_maf 0.01 --site_depth 5 --site_prev 0.90 --sample_depth 10 --sample_cov 0.40 --site_ratio 
 ```
@@ -66,11 +66,11 @@ This command will build a multi-FASTA of core-genome sequences
 Now simply use your favorite tool to build the phylogenetic tree.
 
 Example:  
-Download FastTree [here] (http://www.microbesonline.org/fasttree)  
+Download FastTree [here](http://www.microbesonline.org/fasttree)  
 And, run: `FastTree -gtr -nt < consensus.fa > consensus.tree `
 
 
 ### Step 3. Visualize tree
-From a web-browser: [iTOL] (http://itol.embl.de/)  
-Or, from R: [ape] (https://cran.r-project.org/web/packages/ape)
+From a web-browser: [iTOL](http://itol.embl.de/)  
+Or, from R: [ape](https://cran.r-project.org/web/packages/ape)
 

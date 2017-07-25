@@ -67,18 +67,18 @@ Quantify genes options (if using --call_genes):
 
 The output of this script generates the following files: 
  
-* **output/**: per-species output files. are tab-delimited and gzip-compressed. named with the convention {SPECIES_ID}.genes.gz  
-* **temp/**: intermediate files. use `--remove_temp` to remove these files   
-* **summary.txt**: tab-delimited file summarizing alignments  
-* **log.txt**: log file containing parameters used  
+* <b>output/</b>: per-species output files. are tab-delimited and gzip-compressed. named with the convention {SPECIES_ID}.genes.gz  
+* <b>temp/</b>: intermediate files. use `--remove_temp` to remove these files   
+* <b>summary.txt</b>: tab-delimited file summarizing alignments  
+* <b>log.txt</b>: log file containing parameters used  
 
-**output/** file format (per species):  
+<b>output/</b> file format (per species):  
 
 * gene_id: identifer of gene family (99% identity clustering cutoff); 'peg' and 'rna' indicate coding & non-coding genes respectively  
 * coverage: average read-depth of gene_id (# aligned bp / gene length in bp)  
 * copy_number: estimated copy-number of gene_id in population  (coverage of gene_id / median coverage of 15 universal single copy genes)
 
-**summary.txt** file format:                       
+<b>summary.txt</b> file format:                       
 
 * species_id: species identifer      
 * pangenome_size: total number of gene families (99% identity clustering cutoff) in reference pangenome 
@@ -97,5 +97,5 @@ The output of this script generates the following files:
 * Use `-n` and `-t` to increase throughput
 
 ## Next step
-[Merge results across samples] (merge_cnvs.md)
+[Merge results across samples](merge_cnvs.md)
 

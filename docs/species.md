@@ -74,4 +74,4 @@ output file format:
 * We found that about 1 million reads was sufficient to precisely estimate species relative abundance for a gut community
 
 ## Next step
-[Merge species abundance across samples] (merge_species.md)
+[Merge species abundance across samples](merge_species.md)
