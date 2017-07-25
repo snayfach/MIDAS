@@ -16,28 +16,28 @@ def parse_arguments():
 This script will compare the gene content between all pairs of samples
 Before running this script, you'll need to have run: merge_midas.py genes
 
-Usage: compare_genes.py --indir <PATH> --out <PATH> [options]
+Usage: compare_genes.py indir [options]
 """,
 		epilog="""Examples:
 1) Run with defaults:
-compare_genes.py --indir /path/to/species --out distances.txt
+compare_genes.py /path/to/genes --out distances.txt
 
 2) Run a quick test:
-compare_genes.py --indir /path/to/species --out distances.txt --max_genes 1000 --max_samples 10
+compare_genes.py /path/to/genes --out distances.txt --max_genes 1000 --max_samples 10
 
 3) Use a different distance metric:
-compare_genes.py --indir /path/to/species --out distances.txt --distance manhattan
+compare_genes.py /path/to/genes --out distances.txt --distance manhattan
 
 4) Use a lenient cutoff for determining gene presence absence:
-compare_genes.py --indir /path/to/species --out distances.txt --cutoff 0.10
+compare_genes.py /path/to/genes --out distances.txt --cutoff 0.10
 
 5) Use a strict cutoff for determining gene presence absence:
-compare_genes.py --indir /path/to/species --out distances.txt --cutoff 0.75
+compare_genes.py /path/to/genes --out distances.txt --cutoff 0.75
 """)
-	parser.add_argument('--indir', metavar='PATH', type=str, required=True,
+	parser.add_argument('indir', metavar='PATH', type=str,
 		help="""Path to output from `merge_midas.py genes` for one species
 directory should be named according to a species_id and contains files 'genes_*.txt')""")
-	parser.add_argument('--out', metavar='PATH', type=str, required=True,
+	parser.add_argument('--out', metavar='PATH', type=str, default="/dev/stdout",
 		help="""Path to output file""")
 	parser.add_argument('--max_genes', metavar='INT', type=int,
 		help="""Maximum number of genes to use. Useful for quick tests (use all)""")
@@ -122,8 +122,6 @@ if __name__ == '__main__':
 	for index, pair in enumerate(pairs):
 		
 		sample1, sample2 = pair
-		# compute stats
-		
 		if args['dtype'] == 'presabs':
 			set1 = set(data.index[data[sample1]==1]); count1 = len(set1)
 			set2 = set(data.index[data[sample2]==1]); count2 = len(set2)
@@ -138,10 +136,8 @@ if __name__ == '__main__':
 		if args['distance'] == 'jaccard':
 			distance = 1-(float(count_both)/count_either) if count_either > 0 else 0
 		elif args['distance'] == 'euclidean':
-			print 1
 			distance = compute_euclidian(data, sample1, sample2)
 		else:
-			print 2
 			distance = compute_manhattan(data, sample1, sample2)
 		
 		# write stats

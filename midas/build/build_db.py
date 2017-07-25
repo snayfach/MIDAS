@@ -25,7 +25,7 @@ class Genome:
 	def init_files(self):
 		if not os.path.isdir(self.dir):
 			sys.exit("\nError: genome directory '%s' does not exist" % (self.dir))
-		for type in ['fna', 'ffn', 'faa']:
+		for type in ['fna', 'ffn', 'faa', 'genes']:
 			inpath = '%s/%s.%s' % (self.dir, self.id, type)
 			if os.path.isfile(inpath):
 				self.files[type] = inpath
@@ -33,9 +33,10 @@ class Genome:
 				error = ""
 				error += "\nError: could not locate input file '%s/%s.%s'\n" % (self.dir, self.id, type)
 				error += "\nYour genome should contain the following files:\n"
-				error += "  %s/%s.fna (FASTA of genome sequence)\n" % (self.dir, self.id)
-				error += "  %s/%s.ffn (FASTA of gene sequences)\n" % (self.dir, self.id)
-				error += "  %s/%s.faa (FASTA of protein sequences)\n" % (self.dir, self.id)
+				error += "  %s/%s.fna   (FASTA of genome sequence)\n" % (self.dir, self.id)
+				error += "  %s/%s.ffn   (FASTA of gene sequences)\n" % (self.dir, self.id)
+				error += "  %s/%s.faa   (FASTA of protein sequences)\n" % (self.dir, self.id)
+				error += "  %s/%s.genes (Genomic coordinates of genes on genome)\n" % (self.dir, self.id)
 				sys.exit(error)
 
 class Gene:
@@ -54,7 +55,7 @@ class Pangenome:
 		self.dir = '%s/pan_genomes/%s' % (outdir, sp.id)
 		self.tmp = '%s/temp' % self.dir
 		self.species = sp
-		self.genomes = sp.genomes.values()
+		self.genomes = list(sp.genomes.values())
 		self.stats = {}
 		self.stats['genomes'] = len(self.genomes)
 		self.count_genes = 0
@@ -243,10 +244,10 @@ def read_species(args):
 		# make sure at least 1 rep genome/species
 		if sp.rep_genome is None:
 			sp.rep_genome = sp.genomes.keys()[0]
-	return species.values()
+	return list(species.values())
 
 def read_genomes(species):
-	genomes = sum([sp.genomes.values() for sp in species], [])
+	genomes = sum([list(sp.genomes.values()) for sp in species], [])
 	return genomes
 
 def build_repgenome_db(args, genomes, species):
@@ -254,7 +255,8 @@ def build_repgenome_db(args, genomes, species):
 		print("%s" % sp.id)
 		outdir = '%s/rep_genomes/%s' % (args['outdir'], sp.id)
 		if not os.path.isdir(outdir): os.makedirs(outdir)
-		build_features_file(sp, fpath='%s/genome.features' % outdir)
+		shutil.copy(sp.genomes[sp.rep_genome].files['genes'], '%s/genome.features' % outdir)
+		#build_features_file(sp, fpath='%s/genome.features' % outdir)
 		shutil.copy(sp.genomes[sp.rep_genome].files['fna'], '%s/genome.fna' % outdir)
 		
 def find_gene(gene, contigs):
@@ -276,17 +278,19 @@ def build_features_file(sp, fpath):
 	with open(sp.genomes[sp.rep_genome].files['fna']) as f:
 		for contig in Bio.SeqIO.parse(f, 'fasta'):
 			contigs.append([contig.id, str(contig.seq).upper()])
-
+	
 	features = []
 	with open(sp.genomes[sp.rep_genome].files['ffn']) as f:
 		for gene in Bio.SeqIO.parse(f, 'fasta'):
 			contig, start, end, strand = find_gene(gene.seq, contigs)
 			features.append([gene.id, contig, start, end, strand])
-			while True:
-				if contig != contigs[0][0]:
-					contigs = contigs[1:]
-				else:
-					break
+			# prune list of contigs to increase speed
+			# genes must be in sorted order
+#			while True:
+#				if contig != contigs[0][0]:
+#					contigs = contigs[1:]
+#				else:
+#					break
 					
 	with open(fpath, 'w') as f:
 		f.write('\t'.join(['gene_id', 'scaffold_id', 'start', 'end', 'strand'])+'\n')
@@ -410,7 +414,7 @@ class MarkerGenes:
 				hits[r['target']] = r
 			elif r['evalue'] < hits[r['target']]['evalue']:
 				hits[r['target']] = r
-		return hits.values()
+		return list(hits.values())
 
 	def hsblastn_index(self, fasta):
 		command = "hs-blastn index %s " % fasta

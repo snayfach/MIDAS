@@ -226,7 +226,7 @@ By default, the MIDAS_DB environmental variable is used""")
 		help="""Include all samples in output""")
 		
 	snps = parser.add_argument_group("Site filters (select subset of genomic sites from INPUT)")
-	snps.add_argument('--snp_type', choices=['any', 'mono', 'bi', 'tri', 'quad'], nargs='+', default=['bi'], metavar="",
+	snps.add_argument('--snp_type', choices=['any','mono', 'bi', 'tri', 'quad'], nargs='+', default=['bi'], metavar="",
 		help="""Specify one or more of the following:
   mono: keep sites with 1 allele > ALLELE_FREQ
   bi: keep sites with 2 alleles > ALLELE_FREQ (default)
@@ -263,7 +263,7 @@ def add_snp_presets(args):
 		args['fract_cov'] = 0.0
 	if args['all_sites']:
 		args['site_prev'] = 0.0
-		args['snp_type'] = None
+		args['snp_type'] = ['any']
 	if args['all_snps']:
 		args['site_prev'] = 0.0
 		args['snp_type'] = ['bi']
@@ -271,7 +271,7 @@ def add_snp_presets(args):
 		args['site_depth'] = 1
 		args['site_ratio'] = 2.0
 		args['site_prev'] = 0.95
-		args['snp_type'] = None
+		args['snp_type'] = ['any']
 	if args['core_snps']:
 		args['site_depth'] = 1
 		args['site_ratio'] = 2.0

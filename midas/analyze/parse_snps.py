@@ -14,6 +14,7 @@ class Sample:
 		self.info = info
 		self.mean_depth = float(self.info['mean_coverage'])
 		self.fract_cov = float(self.info['fraction_covered'])
+		self.consensus = "" # consensus nucleotide sequence
 
 	def filter(self, mean_depth, fract_cov):
 		if self.fract_cov < fract_cov:
@@ -59,18 +60,21 @@ class GenomicSite:
 	def __init__(self, species, samples):
 		try:
 			# fetch site info
-			info = next(species.files['info'])
-			self.id = info['site_id']
-			self.ref_allele = info['ref_allele']
-			self.minor_allele = info['minor_allele']
-			self.major_allele = info['major_allele']
-			self.gene_id = info['gene_id']
-			self.site_type = info['site_type']
+			self.info = next(species.files['info'])
+			self.id = self.info['site_id']
+			self.ref_allele = self.info['ref_allele']
+			self.minor_allele = self.info['minor_allele']
+			self.major_allele = self.info['major_allele']
+			self.gene_id = self.info['gene_id']
+			self.locus_type = self.info['locus_type']
+			self.site_type = self.info['site_type']
 						
 			# copy samples
 			self.samples = samples
 			
 			# fetch site data from freq and depth matrixes
+			#	self.samples[sample.id].freq
+			#	self.samples[sample.id].depth
 			self.fetch_row(species)
 
 		except StopIteration:
@@ -85,28 +89,46 @@ class GenomicSite:
 			self.samples[sample.id].freq = float(freqs[sample.index])
 			self.samples[sample.id].depth = int(depths[sample.index])
 				
-	def flag_samples(self, site_depth, site_ratio):
+	def flag_samples(self, site_depth, site_ratio, allele_support):
 		""" Filter samples at site based on coverage
-			Set flag: sample.keep = [True/False] """
+			Sets flag: sample.keep = [True/False] 
+		
+			site_depth: minimum per-sample site depth
+			site_ratio: maximum per-sample ratio of site depth to genome depth; used to filter sites with abnormal depth 
+			allele_support: minimum fraction of reads supporting consensus allele
+		"""
 		for sample in self.samples.values():
-			if (sample.depth >= site_depth and
-					sample.depth/sample.mean_depth <= site_ratio):
-				sample.keep = True
-			else:
+			sample.flags = []
+			sample.keep = True
+			if sample.depth < site_depth:
+				 sample.keep = False
+				 sample.flags.append('site-depth')
+			if sample.depth/sample.mean_depth > site_ratio:
 				sample.keep = False
+				sample.flags.append('depth-ratio')
+			if max(sample.freq, 1-sample.freq) < allele_support:
+				sample.keep = False
+				sample.flags.append('allele-support')
 
-	def filter(self, site_prev=None, site_maf=None, site_type=None):
+	def filter(self, site_prev=None, site_maf=None, locus_type=None, site_type=None):
 		""" determine if site passes quality control """
+		self.flags = []
+		self.keep = True
 		if self.ref_allele not in ['A','T','C','G']:
+			self.flags.append('ref-allele')
 			self.keep = False
 		if site_prev and self.prevalence < max(1e-6, site_prev):
+			self.flags.append('site-prev')
 			self.keep = False
-		elif site_maf and self.pooled_maf < site_maf:
+		if site_maf and self.pooled_maf < site_maf:
+			self.flags.append('site-maf')
 			self.keep = False
-		elif site_type and self.site_type not in site_type:
+		if locus_type and self.locus_type != locus_type:
+			self.flags.append('locus-type')
 			self.keep = False
-		else:
-			self.keep = True
+		if site_type and self.site_type != site_type:
+			self.flags.append('site-type')
+			self.keep = False
 
 	def compute_prevalence(self):
 		self.count_samples = sum([1 for s in self.samples.values() if s.keep])
@@ -139,7 +161,22 @@ class GenomicSite:
 				alleles = np.random.choice([1]*count_minor+[0]*count_major, rand_reads, replace=replace_reads)
 				sample.freq = np.mean(alleles)
 			index += 1
-
+			
+	def call_consensus(self):
+		""" call consensus allele at each position """
+		for sample in self.samples.values():
+			sample.freq = round(sample.freq)
+			
+	def fetch_consensus(self, sample):
+		if not sample.keep:
+			return '-'
+		elif sample.depth == 0:
+			return '-'
+		elif sample.freq >= 0.5:
+			return self.minor_allele
+		else:
+			return self.major_allele
+			
 def fetch_samples(species, mean_depth=0, fract_cov=0, max_samples=float('inf'),
                   keep_samples=None, exclude_samples=None, rand_samples=None):
 	""" Select samples from input
@@ -179,7 +216,6 @@ def fetch_samples(species, mean_depth=0, fract_cov=0, max_samples=float('inf'),
 			if id not in ids:
 				del samples[id]
 	return samples
-
 
 def fetch_sites(species, samples):
 	""" yield genomic sites from species across samples """

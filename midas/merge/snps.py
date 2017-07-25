@@ -29,10 +29,11 @@ class GenomicSite:
 		self.pooled_depth = sum(self.pooled_counts)
 		self.major_allele = None
 		self.minor_allele = None
-		self.snp_type = None
+		self.snp_type = None # mono, bi, tri, quad
 					
 		# site annotations
-		self.site_type = None
+		self.locus_type = None # CDS, tRNA, rRNA, IGR
+		self.site_type = None # 1D, 2D, 3D, 4D
 		self.gene_id = None
 		self.amino_acids = None
 		self.ref_codon = None
@@ -106,7 +107,8 @@ class GenomicSite:
 		""" Filter genomic site based on MAF and prevalence """
 		if self.prevalence < min_prev:
 			self.flag = (True, 'min_prev')
-		elif self.snp_type not in snp_types:
+		elif ('any' not in snp_types and 
+				self.snp_type not in snp_types):
 			self.flag = (True, 'snp_type')
 		else:
 			self.flag = (False, None)
@@ -116,47 +118,55 @@ class GenomicSite:
 		# genes = {'list': list of genes, 'index':index position in list}
 		# each element in 'list' is sorted by scaffold_id (asc), start (asc), end (desc)
 		# each element is a dictionary with gene info
-		self.amino_acids = {}
 		while True:
 			# 1. fetch next gene
-			#    if there are no more genes, snp must be non-coding so break
+			#    if there are no more genes, snp must be intergenic so break
 			if genes['index'] < len(genes['list']):
 				gene = genes['list'][genes['index']]
 			else:
-				self.site_type = 'NC'
+				self.locus_type = 'IGR'
 				return
-			# 2. if snp is upstream of next gene, snp must be non-coding so break
+			# 2. if snp is upstream of next gene, snp must be intergenic so break
 			if (self.ref_id < gene['scaffold_id'] or
 			   (self.ref_id == gene['scaffold_id'] and self.ref_pos < gene['start'])):
-				self.site_type = 'NC'
+				self.locus_type = 'IGR'
 				return
 			# 3. if snp is downstream of next gene, pop gene, check (1) and (2) again
 			if (self.ref_id > gene['scaffold_id'] or
 			   (self.ref_id == gene['scaffold_id'] and self.ref_pos > gene['end'])):
 				genes['index'] += 1
 				continue
-			# 4. otherwise, snp must be in gene
-			#    annotate site (1D-4D)
-			else:
+			# 4. snp in coding gene: annotate (1D-4D)
+			elif gene['gene_type'] == 'CDS':
+				self.locus_type = gene['gene_type']
 				self.gene_id = gene['gene_id']
+				if len(gene['seq']) % 3 != 0: # gene must by divisible by 3 to id codons
+					return
 				self.ref_codon, self.codon_pos = self.fetch_ref_codon(gene)
-				if not all([_ in ['A','T','C','G'] for _ in self.ref_codon]): # check for invalid bases in codon
-					self.site_type = 'NA'
-				else:
-					for allele in ['A','T','C','G']: # + strand
-						codon = utility.index_replace(self.ref_codon, allele, self.codon_pos, gene['strand']) # +/- strand
-						self.amino_acids[allele] = utility.translate(codon)
-					unique_aa = set(list(self.amino_acids.values()))
-					degeneracy = 4 - len(unique_aa) + 1
-					self.site_type = '%sD' % degeneracy
-					# AA's identical: degeneracy = 4 - 1 + 1 = 4
-					# AA's all different, degeneracy = 4 - 4 + 1 = 1
+				if not all([_ in ['A','T','C','G'] for _ in self.ref_codon]): # codon can't contain weird characters
+					return
+				self.amino_acids = []
+				for allele in ['A','C','G','T']: # + strand
+					codon = utility.index_replace(self.ref_codon, allele, self.codon_pos, gene['strand']) # +/- strand
+					amino_acid = utility.translate(codon)
+					self.amino_acids.append(amino_acid)
+				unique_aa = set(self.amino_acids)
+				degeneracy = 4 - len(unique_aa) + 1
+				self.site_type = '%sD' % degeneracy
+				self.amino_acids = ','.join(self.amino_acids)
+				# AA's identical: degeneracy = 4 - 1 + 1 = 4
+				# AA's all different, degeneracy = 4 - 4 + 1 = 1
+				return
+			# 5. snp in non-coding gene
+			else:
+				self.locus_type = gene['gene_type']
+				self.gene_id = gene['gene_id']
 				return
 
 	def fetch_ref_codon(self, gene):
 		""" Fetch codon within gene for given site """
 		# position of site in gene
-		gene_pos = self.ref_pos-gene['start'] if gene['strand']=='+' else gene['end']-self.ref_pos
+		gene_pos = self.ref_pos - gene['start'] if gene['strand'] == '+' else gene['end'] - self.ref_pos
 		# position of site in codon
 		codon_pos = gene_pos % 3
 		# gene sequence (oriented start to stop)
@@ -171,15 +181,17 @@ class GenomicSite:
 				self.ref_id,
 				str(self.ref_pos),
 				self.ref_allele,
-				replace_none(self.major_allele),
-				replace_none(self.minor_allele),
+				self.major_allele,
+				self.minor_allele,
 				str(self.count_samples),
 				count_a, count_c, count_g, count_t,
-				replace_none(self.snp_type).upper(),
+				self.locus_type,
+				self.gene_id,
+				self.snp_type,
 				self.site_type,
-				str(self.amino_acids),
-				replace_none(self.gene_id)]
-		info = '\t'.join(info)+'\n'
+				self.amino_acids,
+				]
+		info = '\t'.join([replace_none(_) for _ in info])+'\n'
 		files['info'].write(info)
 		# snps_freq
 		freq = self.id + '\t' + '\t'.join(['{0:.3g}'.format(freq) for freq in self.sample_mafs])+'\n'
@@ -300,10 +312,12 @@ def write_merge_midas(species, args, thread=None):
 				   'count_c',
 				   'count_g',
 				   'count_t',
-				   'snp_type', 
+				   'locus_type',
+				   'gene_id',
+				   'snp_type',
 				   'site_type',
-				   'amino_acids',
-				   'gene_id']
+				   'amino_acids'
+				   ]
 	files['info'].write('\t'.join(info_fields)+'\n')
 	return files
 
@@ -315,17 +329,20 @@ def build_sharded_tables(species, args, thread, line_from, line_to):
 	
 	line_num = -1
 	while True:
+				
 		# fetch allele counts for next site
 		try:
 			lines = [next(file) for file in infiles]
 		except StopIteration:
 			break
+		
 		# control which lines are processed
 		line_num += 1
 		if line_num < line_from:
 			continue
 		elif line_num >= line_to:
 			break
+		
 		# initialize GenomicSite
 		values = sum([line.rstrip().split()[1:] for line in lines], [lines[0].split()[0]])
 		site_id = line_num+1
@@ -334,12 +351,14 @@ def build_sharded_tables(species, args, thread, line_from, line_to):
 		site.compute_per_sample_mafs()
 		site.compute_prevalence(species.sample_depth, args['site_depth'], args['site_ratio'])
 		site.flag(args['site_prev'], args['snp_type'])
+		
 		# decide what to do with site
 		if site.flag[0] is True:
 			continue
 		else:
 			site.annotate(genes)
 			site.write(outfiles)
+	
 	# finish up
 	for file in infiles: file.close()
 	for file in outfiles.values(): file.close()
@@ -363,9 +382,7 @@ def parallel_build_sharded_tables(species, args):
 		line_from, line_to = line_range
 		arguments=(species, args, thread, line_from, line_to)
 		argument_list.append(arguments)
-#
-#	build_sharded_tables(species, args, thread, line_from, line_to)
-#	quit()
+	
 	parallel(build_sharded_tables, argument_list, args['threads'])
 
 def merge_sharded_tables(species, args):
@@ -398,7 +415,9 @@ Output files
 ############
 snps_freq.txt
   frequency of minor allele per genomic site and per sample
-  see: snps_info.txt for major, minor, and reference alleles
+  a value of 1.0 indicates that all reads matched the minor allele for site-sample
+  the major (most common) and minor allele (2nd most common) are determined from pooled reads across ALL samples
+  see: snps_info.txt for details on the major, minor, and reference alleles
 snps_depth.txt
   number of reads mapped to genomic site per sample
   only accounts for reads matching either major or minor allele
@@ -417,28 +436,32 @@ snps_freq.txt and snps_depth.txt
   tab-delimited matrix files
   field names are sample ids
   row names are genome site ids
-  genomic sites have the format: ref_id|ref_pos (eg: NC_ATTCG|1 corresponds to position 1 on contig NC_ATTCG)
+  see: snps_info.txt for details on each genomic site
 snps_summary.txt
   sample_id: sample identifier
   genome_length: number of base pairs in representative genome
   covered_bases: number of reference sites with at least 1 mapped read
   fraction_covered: proportion of reference sites with at least 1 mapped read
   mean_coverage: average read-depth across reference sites with at least 1 mapped read
-  aligned_reads: number of reads that aligned to representative genome
-  mapped_reads: number of aligned reads after applying filters for mapping quality, base quality, alignment fraction, and percent identity
+  aligned_reads: number of reads that aligned BEFORE quality filtering
+  mapped_reads: number of reads that aligned AFTER quality filtering
 snps_info.txt
-  site_id: genomic site_id, format=ref_id|ref_pos
-  ref_id: scaffold/contig identifier
+  site_id: incrementing integer field
+  ref_id: identifier of scaffold in representative genome
   ref_pos: position of site on ref_id
   ref_allele: allele in reference genome
   major_allele: most common allele in metagenomes
   minor_allele: second most common allele in metagenomes
   count_samples: number of metagenomes where site_id was found
-  count_atcg: counts of all 4 alleles (A,T,C,G) in pooled metagenomes
-  snp_type: site is [MONO,BI,TRI,QUAD]-allelic
-  site_type: NC (non-coding), 1D, 2D, 3D, 4D (degeneracy)
-  amino_acid_atcg: amino acids encoded by 4 possible alleles
-  gene_id: gene that intersects site
+  count_a: count of A allele in pooled metagenomes
+  count_c: count of C allele in pooled metagenomes
+  count_g: count of G allele in pooled metagenomes
+  count_t: count of T allele in pooled metagenomes
+  locus_type: CDS (site in coding gene), RNA (site in non-coding gene), IGR (site in intergenic region)
+  gene_id: gene identified if locus_type is CDS, or RNA
+  snp_type: indicates the number of alleles observed at site (mono,bi,tri,quad); observed allele are determined by --snp_maf flag  
+  site_type: indicates degeneracy: 1D, 2D, 3D, 4D
+  amino_acids: amino acids encoded by 4 possible alleles
 
 Additional information for species can be found in the reference database:
  %s/rep_genomes/%s

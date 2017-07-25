@@ -6,14 +6,15 @@
 
 import sys, os, itertools
 from operator import itemgetter
-from midas import utility, parse
+from midas import utility
+from midas.analyze import parse_snps
 
 def id_markers(args):
 	""" Pipeline for identifying marker alleles """
 
 	# initialize input data
-	species = parse.Species(args['indir'])
-	samples = parse.fetch_samples(species, keep_samples=args['samples'])
+	species = parse_snps.Species(args['indir'])
+	samples = parse_snps.fetch_samples(species, keep_samples=args['samples'])
 
 	# open output file & write header
 	outfile = open(args['out'], 'w')
@@ -22,11 +23,8 @@ def id_markers(args):
 	
 	# loop over sites & identify markers
 	count_markers = 0
-	sites = parse.fetch_sites(species, samples)
+	sites = parse_snps.fetch_sites(species, samples)
 	for index, site in enumerate(sites):
-
-		# record progress
-		if not index % 100000: print("%s sites processed" % index)
 		
 		# stop early
 		if index >= args['max_sites']: break
@@ -54,22 +52,19 @@ def count_alleles(site, samples, min_freq, min_reads):
 	for sample in site.samples.values():
 		if sample.depth == 0:
 			continue
-		if sample.ref_freq >= min_freq and round(sample.ref_freq * sample.depth) >= min_reads:
-			groups[site.ref_allele].add(sample.id)
-		sample.alt_freq = 1-sample.ref_freq
-		if sample.alt_freq >= min_freq and round(sample.alt_freq * sample.depth) >= min_reads:
-			groups[sample.alt_allele].add(sample.id)
+		if sample.freq >= min_freq and round(sample.freq * sample.depth) >= min_reads:
+			groups[site.minor_allele].add(sample.id)
+		if (1-sample.freq) >= min_freq and round((1-sample.freq) * sample.depth) >= min_reads:
+			groups[site.major_allele].add(sample.id)
 		total.add(sample.id)
 	counts = dict([(allele, len(group)) for allele, group in groups.items()])
 	return counts, len(total)
 
-##
-
 def track_markers(args):
 	# initialize input data
-	species = parse.Species(args['indir'])
+	species = parse_snps.Species(args['indir'])
+	samples = parse_snps.fetch_samples(species)
 	species.paths['markers'] = args['markers']
-	samples = parse.fetch_samples(species)
 
 	# open output file
 	outfile = open(args['out'], 'w')
@@ -98,18 +93,14 @@ def call_markers(species, samples, args):
 		sample.markers = set([])
 
 	# loop over sites
-	sites = parse.fetch_sites(species, samples)
+	sites = parse_snps.fetch_sites(species, samples)
 	for index, site in enumerate(sites):
 		
-		# record progress
-		if not index % 100000: print("%s sites processed" % index)
-
 		# stop early
 		if index >= args['max_sites']: break
 		
 		# skip sites not in marker list
-		if (site.ref_id != marker['ref_id']
-				or site.ref_pos < marker['ref_pos']):
+		if (site.id != marker['site_id']):
 			continue
 			
 		# determine if marker present in each sample
@@ -118,10 +109,10 @@ def call_markers(species, samples, args):
 			# skip samples without marker
 			if sample.depth == 0:
 				continue
-			elif marker['allele'] == site.ref_allele:
-				sample.marker_freq = sample.ref_freq
-			elif marker['allele'] == sample.alt_allele:
-				sample.marker_freq = 1-sample.ref_freq
+			elif marker['allele'] == site.major_allele:
+				sample.marker_freq = 1-sample.freq
+			elif marker['allele'] == site.minor_allele:
+				sample.marker_freq = sample.freq
 			else:
 				continue
 
@@ -139,9 +130,6 @@ def fetch_marker(markers):
 	""" Fetch next marker allele from file """
 	try:
 		marker = next(markers)
-		marker['ref_id'] = marker['site_id'].split('|')[0]
-		marker['ref_pos'] = int(marker['site_id'].split('|')[1])
-		marker['ref_allele'] = marker['site_id'].split('|')[2]
 		return marker
 	except StopIteration:
 		return None

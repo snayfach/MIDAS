@@ -6,7 +6,8 @@
 
 import argparse, sys, os, gzip, numpy as np, random, csv
 from midas.utility import print_copyright
-from midas import utility, parse
+from midas import utility
+from midas.analyze import parse_snps
 
 def parse_arguments():
 	""" Parse command line arguments """
@@ -19,7 +20,7 @@ Build FASTA file of consensus sequences for a species per sample
 Useful for building phylogenetic trees
 Before running this script, you'll need to have run `merge_midas.py snps`
 
-Usage: call_consensus.py --indir <PATH> --out <PATH> [options]
+Usage: call_consensus.py indir [options]
 """,
 		epilog="""
 Examples:
@@ -29,19 +30,19 @@ Examples:
 -only include samples with sufficient data (>=10x mean-depth, >=40% of sites with >=1 mapped read)
 -exclude sites with abnormal depth (>5x mean-depth or <1/5 mean-depth)
 
-call_consensus.py --indir /path/to/snps --out /path/to/seqs --site_maf 0.01 --site_depth 5 --site_prev 0.90 --sample_depth 10 --sample_cov 0.40 --site_ratio 5.0
+call_consensus.py /path/to/snps --out /path/to/seqs --site_maf 0.01 --site_depth 5 --site_prev 0.90 --sample_depth 10 --sample_cov 0.40 --site_ratio 5.0
 
 2) Build multi-FASTA using defaults
-call_consensus.py --indir /path/to/snps --out /path/to/seqs
+call_consensus.py /path/to/snps --out /path/to/seqs
 
 3) Run a quick test
-call_consensus.py --indir /path/to/snps --out /path/to/seqs --max_sites 10000
+call_consensus.py /path/to/snps --out /path/to/output --max_sites 10000
 
 """)
-	parser.add_argument('--indir', metavar='PATH', type=str, required=True,
+	parser.add_argument('indir', metavar='PATH', type=str,
 		help="""path to output from `merge_midas.py snps` for one species
 directory should be named according to a species_id and contains files 'snps_*.txt')""")
-	parser.add_argument('--out', metavar='PATH', type=str, required=True,
+	parser.add_argument('--out', metavar='PATH', type=str, default="/dev/stdout",
 		help="""path to output file""")
 
 	sample = parser.add_argument_group("Sample filters (select subset of samples from INDIR)")
@@ -60,6 +61,8 @@ samples will still be subject to other filters""")
 samples will still be subject to other filters""")
 
 	snps = parser.add_argument_group("Site filters (select subset of genomic sites from INDIR)")
+	snps.add_argument('--site_list', metavar='PATH',type=str,
+		help="""path to list of sites to include; other filters still apply""")
 	snps.add_argument('--site_depth', type=int, default=2, metavar='INT',
 		help="""minimum number of mapped reads per site (2)""")
 	snps.add_argument('--site_prev', type=float, default=0.0, metavar='FLOAT',
@@ -73,7 +76,13 @@ setting this above zero (e.g. 0.01, 0.02, 0.05) will only retain variable sites
 by default invariant sites are also retained.""")
 	snps.add_argument('--site_ratio', type=float, default=float('Inf'), metavar='FLOAT',
 		help="""maximum ratio of site-depth to mean-genome-depth (None)
-a value of 10 will filter genomic sites with 10x high coverage than the genomic background""")
+a value of 10 will filter genomic sites with 10x greater coverage than the genomic background""")
+	snps.add_argument('--allele_support', type=float, default=0.5, metavar='FLOAT',
+		help="minimum fraction of reads supporting consensus allele (0.5)")	
+	snps.add_argument('--locus_type', choices=['CDS', 'RNA', 'IGR'],
+		help="""use genomic sites that intersect: 'CDS': coding genes, 'RNA': rRNA and tRNA genes, 'IGS': intergenic regions""")
+	snps.add_argument('--site_type', choices=['1D','2D','3D','4D'],
+		help="""if locus_type == 'CDS', use genomic sites with specified degeneracy: 4D indicates synonymous and 1D non-synonymous sites""")
 	snps.add_argument('--max_sites', type=int, default=float('Inf'), metavar='INT',
 		help="""maximum number of sites to include in output (use all)
 useful for quick tests""")
@@ -84,7 +93,10 @@ useful for quick tests""")
 
 def print_args(args):
 	lines = []
-	lines.append("===========Parameters===========")
+	
+def print_args(args):
+	lines = []
+	lines.append("Command: %s" % ' '.join(sys.argv))
 	lines.append("Script: call_consensus.py")
 	lines.append("Input directory: %s" % args['indir'])
 	lines.append("Output file: %s" % args['out'])
@@ -95,19 +107,22 @@ def print_args(args):
 	lines.append("  keep_samples: %s" % args['keep_samples'])
 	lines.append("  exclude_samples: %s" % args['exclude_samples'])
 	lines.append("Site filters:")
+	lines.append("  site_list: %s" % args['site_list'])
 	lines.append("  site_depth: %s" % args['site_depth'])
 	lines.append("  site_prev: %s" % args['site_prev'])
 	lines.append("  site_maf: %s" % args['site_maf'])
 	lines.append("  site_ratio: %s" % args['site_ratio'])
+	lines.append("  allele_support: %s" % args['allele_support'])
+	lines.append("  locus_type: %s" % args['locus_type'])
+	lines.append("  site_type: %s" % args['locus_type'])	
 	lines.append("  max_sites: %s" % args['max_sites'])
-	lines.append("================================")
 	sys.stdout.write('\n'.join(lines)+'\n')
 
 def check_args(args):
 	if not os.path.isdir(args['indir']):
 		sys.exit("\nError: Specified input directory '%s' does not exist\n" % args['indir'])
-	if args['site_depth'] < 2:
-		sys.exit("\nError: --site_depth must be >=2 to calculate nucleotide variation\n")
+	if args['site_depth'] < 1:
+		sys.exit("\nError: --site_depth must be >=1\n")
 	if args['max_sites'] < 1:
 		sys.exit("\nError: --max_sites must be >= 1 to calculate nucleotide variation\n")
 	if args['max_samples'] < 1:
@@ -125,27 +140,16 @@ def check_args(args):
 	if not 0 <= args['fract_cov'] <= 1:
 		sys.exit("\nError: --fract_cov must be between 0 and 1\n")
 
-def init_sequences(samples):
-	for sample in samples.values():
-		sample.seq = ""
-
-def call_consensus(site, sample):
-	if not sample.keep:
-		return '-' # this could be a parameter
-	if sample.depth == 0:
-		return '-'
-	elif sample.ref_freq >= 0.5:
-		return site.ref_allele
-	else:
-		return sample.alt_allele
-
 def percent_missing(seq):
-	return round(100*seq.count('-')/float(len(seq)),2)
+	if len(seq) > 0:
+		return round(100*seq.count('-')/float(len(seq)),2)
+	else:
+		return 'NA'
 
 def sequence_description(sample):
 	desc = {}
-	desc['length'] = len(sample.seq)
-	desc['percent_missing'] = percent_missing(sample.seq)
+	desc['length'] = len(sample.consensus)
+	desc['percent_missing'] = percent_missing(sample.consensus)
 	desc['mean_depth'] = round(sample.mean_depth, 2)
 	return desc
 
@@ -156,9 +160,17 @@ def write_consensus(args, samples):
 		desc = sequence_description(sample)
 		outfile.write('>'+sample.id+'\t')
 		outfile.write(' '.join(['%s=%s' % (key, value) for key, value in desc.items()])+'\n')
-		outfile.write(sample.seq+'\n')
+		outfile.write(sample.consensus+'\n')
 	outfile.close()
 
+def format_site_type(site_type):
+	if site_type == 'ALL':
+		return ['NC','1D','2D','3D','4D']
+	elif site_type == 'CDS':
+		return ['1D','2D','3D','4D']
+	else:
+		return [args['site_type']]
+		
 if __name__ == '__main__':
 	
 	# setup args
@@ -167,37 +179,43 @@ if __name__ == '__main__':
 	print_copyright()
 	print_args(args)
 	
-	# init species, samples, sequences
-	species = parse.Species(args['indir'])
-	samples = parse.fetch_samples(
-					species,
-				    args['sample_depth'],
-					args['fract_cov'],
-					args['max_samples'],
-					args['keep_samples'],
-					args['exclude_samples'])
-	init_sequences(samples)
+	# init species, samples, sequences, site list
+	species = parse_snps.Species(args['indir'])
+	samples = parse_snps.fetch_samples(species, args['sample_depth'], args['fract_cov'], args['max_samples'])
+	if args['site_list']: 
+		site_list = set([_.rstrip() for _ in open(args['site_list'])])
 	
 	# loop over genomic sites
-	sites = parse.fetch_sites(species, samples)
+	sites = parse_snps.fetch_sites(species, samples)
+	retained_sites = 0
 	for index, site in enumerate(sites):
-
+	
 		# stop early
-		if index >= args['max_sites']: break
+		if retained_sites >= args['max_sites']: break
 			
-		# filter low quality samples at site
-		site.filter_samples(site_depth=args['site_depth'], site_ratio=args['site_ratio'])
-
-		# compute site summary stats
-		site.summary_stats()
+		# prune low quality samples for site:
+		#   site.samples['sample'].keep = [True|False]
+		site.flag_samples(args['site_depth'], args['site_ratio'], args['allele_support'])
 		
-		# filter site
-		site.filter_site(site_prev=args['site_prev'], site_maf=args['site_maf'])
+		# compute site summary stats
+		#   site.prevalence
+		#   site.pooled_maf
+		site.summary_stats(weight=False)
+		
+		# filter genomic site
+		#   site.keep = [True|False]
+		if not args['site_list']:
+			site.filter(args['site_prev'], args['site_maf'], args['locus_type'], args['site_type']) 
+		elif site.id in site_list:
+			site.keep = True
+		else:
+			site.keep = False
 		
 		# store consensus
 		if site.keep:
+			retained_sites += 1		
 			for sample in site.samples.values():
-				samples[sample.id].seq += call_consensus(site, sample)
+				samples[sample.id].consensus += site.fetch_consensus(sample)
 
 	# write consensus
 	write_consensus(args, samples)
