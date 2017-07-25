@@ -57,8 +57,7 @@ The file should be tab-delimited file with a header and 3 fields:
 * species_id (CHAR): : species identifier for genome_id
 * rep_genome (0 or 1): indicator if genome_id should be used for SNP calling
 
-<b>outdir PATH</b>  
-Directory to store MIDAS database
+<b>outdir:</b> Directory to store MIDAS database
 
 For example input files, see:`/path/to/MIDAS/test/genomes.tar.gz` and `/path/to/MIDAS/test/genomes.mapfile` 
 

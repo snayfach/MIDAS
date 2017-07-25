@@ -66,24 +66,24 @@ Site filters (select subset of genomic sites from INDIR):
 ```
   
 ### Examples:
-1) Quantify within-sample heterogenity genome-wide
+1) Quantify within-sample heterogenity genome-wide   
 `snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type per-sample --out /path/to/output`
 
-2) Quantify between-sample heterogenity genome-wide
+2) Quantify between-sample heterogenity genome-wide  
 `snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type pooled-sample --out /path/to/output`
 
-3) Quantify between-sample heterogenity per-gene
+3) Quantify between-sample heterogenity per-gene 
 `snp_diversity.py /path/to/snps --genomic_type per-gene --sample_type pooled-samples --out /path/to/output`
 
-4) Use downsampling to control the read-depth at each genomic site
+4) Use downsampling to control the read-depth at each genomic site  
 `snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type per-sample --out /path/to/output`
 
-5) Only quantify diversity at non-synonymous sites
+5) Only quantify diversity at non-synonymous sites  
 `snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type pooled-samples --site_type 4D --locus_type CDS --out /path/to/output`
-
-6) Quantify SNPs using a different definition of a polymorphism
+ 
+6) Quantify SNPs using a different definition of a polymorphism  
 `snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type per-sample --snp_maf 0.05 --out /path/to/output`
 
-7) Run a quick test
+7) Run a quick test  
 `snp_diversity.py /path/to/snps --max_sites 10000  --out /path/to/output`
 

@@ -54,7 +54,7 @@ Site filters (select subset of genomic sites from INDIR):
                         useful for quick tests
 ```
 
-#### Examples  
+### Examples  
 1) Build multi-FASTA of core-genome sequences (recommended)
 -core-genome sites defined as >=5 reads in >=90% of samples
 -use only variable positions (>=1% minor allele frequency across samples)
@@ -63,10 +63,10 @@ Site filters (select subset of genomic sites from INDIR):
 
 `call_consensus.py /path/to/snps --out /path/to/seqs --site_maf 0.01 --site_depth 5 --site_prev 0.90 --sample_depth 10 --sample_cov 0.40 --site_ratio 5.0`
 
-2) Build multi-FASTA using defaults
+2) Build multi-FASTA using defaults 
 `call_consensus.py /path/to/snps --out /path/to/seqs`
 
-3) Run a quick test
+3) Run a quick test 
 `call_consensus.py /path/to/snps --out /path/to/output --max_sites 10000`
 
 

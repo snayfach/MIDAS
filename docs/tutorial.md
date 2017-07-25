@@ -44,7 +44,7 @@ Running MIDAS can be conceptually broken down in three steps:
 
 <b> 3. Analyze results:</b> 
 
-* A few scripts are provided for downstream analysis, which are listed on the [Table of Contents] (https://github.com/snayfach/MIDAS/blob/dev/README.md)
+* A few scripts are provided for downstream analysis, which are listed on the [Table of Contents](https://github.com/snayfach/MIDAS/blob/dev/README.md)
 * Otherwise, the output files can be analyzed and visualized using your favorite tools
 
 ### 1. Run MIDAS per-sample
