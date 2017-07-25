@@ -5,8 +5,8 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
 ## Table of Contents
 1. Getting started
  * [How it works](docs/overview.md)  
- * [Step-by-step tutorial](docs/tutorial.md)  
  * [Install or update software](docs/install.md)  
+ * [Step-by-step tutorial](docs/tutorial.md)  
  * [Mailing list](https://groups.google.com/forum/#!forum/midas-user-group)  
 2. Reference databse 
  * [Download default database](docs/ref_db.md)  
@@ -20,8 +20,8 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
  * [Merge gene content](docs/merge_cnvs.md)
  * [Merge SNPs](docs/merge_snvs.md)
 6. Example scripts for analyzing gene content and SNPs:
- * [Strain tracking](docs/strain_tracking.md)  
- * [Population diversity](docs/snp_diversity.md)  
- * [Core-genome phylogenetic trees](docs/snp_trees.md)   
+ * [Core-genome phylogenetic trees](docs/snp_trees.md)
+ * [Population diversity](docs/snp_diversity.md)
+ * [Strain tracking](docs/strain_tracking.md)      
  * [Gene content dynamics](docs/compare_genes.md)
 7. [Citing](docs/citing.md)

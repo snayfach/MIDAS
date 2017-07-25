@@ -19,9 +19,7 @@ Clone the latest version from GitHub (recommended):
 `git clone https://github.com/snayfach/MIDAS`  
 This makes it easy to update the software in the future using `git pull` as bugs are fixed and features are added
 
-Or, download the latest source code:   
-https://github.com/snayfach/MIDAS/archive/master.zip  
-And unpack the project: `unzip MIDAS-master.zip`  
+Or, download the latest [source code](https://github.com/snayfach/MIDAS/archive/master.zip), and unpack the project: `unzip MIDAS-master.zip`  
 
 Or, download a stable release of the source code:  
 [https://github.com/snayfach/MIDAS/releases](https://github.com/snayfach/MIDAS/releases)  
@@ -75,7 +73,7 @@ To update MIDAS, move to installation directory and pull the latest version:
 Or, download the latest stable release of the source code:  
 [https://github.com/snayfach/MIDAS/releases](https://github.com/snayfach/MIDAS/releases)  
  
-To be notified of these changes, click the "Watch" button in the upper right corner of the page  
+To be notified of these changes, click the "Watch" button in the upper right corner of the page, or sign up for the [mailing list](https://groups.google.com/forum/#!forum/midas-user-group) 
 
 ## Next step
-[Download the reference database](ref_db.md)
+[Step-by-step tutorial](docs/tutorial.md)
