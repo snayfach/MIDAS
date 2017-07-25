@@ -7,23 +7,23 @@ MIDAS is written in Python and runs on Linux and OSX
 
 Download the software:  
 `git clone https://github.com/snayfach/MIDAS`  
-[read more...] (install.md)
+[read more...](install.md)
 
 Install python dependencies as needed:  
 `python MIDAS/setup.py install`  
-[read more...] (install.md)
+[read more...](install.md)
 
 Download & unpack reference database:  
-[http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz](http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz)  
+[http://lighthouse.ucsf.edu/MIDAS/midas\_db_v1.2.tar.gz](http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz)  
 `tar -zxvf midas_db_v1.2.tar.gz`  
-[read more...] (ref_db.md)
+[read more...](ref_db.md)
 
 Update your environment:  
 `export PYTHONPATH=$PYTHONPATH:MIDAS`  
 `export PATH=$PATH:MIDAS/scripts`   
 `export MIDAS_DB=midas_db_v1.2`  
 
-Optionally, download & unpack example dataset:  
+Download & unpack example dataset:  
 [http://lighthouse.ucsf.edu/MIDAS/example.tar.gz](http://lighthouse.ucsf.edu/MIDAS/example.tar.gz)  
 `tar -zxvf example.tar.gz`
 
@@ -31,18 +31,23 @@ Optionally, download & unpack example dataset:
 ## Run MIDAS
 
 Running MIDAS can be conceptually broken down in three steps:  
-1) run MIDAS per sample: `run_midas.py [species, genes, snps]`  
-* run_midas.py species should be run prior to genes or snps  
-* run_midas.py genes and snps are independent of eachother and do not need to both be run  
 
-2) merge results across samples: `merge_midas.py [species, genes, snps]`  
-* creates output files that can facilitate comparative analysis across samples and species/genes/snps  
+<b> 1. Run MIDAS per sample:</b>  `run_midas.py [species, genes, snps]`  
 
-3) analyze results: `gene_diversity.py, snp_sharing.py, etc.`  
-* these are the scripts currently in `/path/to/MIDAS/scripts/analysis`  
-* at the moment they experimental but will be available directly on `/path/to/MIDAS/scripts` in the next update
+* `run_midas.py species` should be run prior to `genes` or `snps`  
+* If you know what species you're interested in, you can skip `run_midas.py species` and specify them using the `--species_id` flag with `run_midas.py genes` and `snps`
+* `run_midas.py genes` and `snps` are independent of eachother and do not need to both be run  
 
-###Run MIDAS per-sample
+<b> 2. Merge results across samples:</b> `merge_midas.py [species, genes, snps]`  
+
+* Creates output matrices that can facilitate comparative analysis across samples and species/genes/snps  
+
+<b> 3. Analyze results:</b> 
+
+* A few scripts are provided for downstream analysis, which are listed on the [Table of Contents](https://github.com/snayfach/MIDAS/blob/dev/README.md)
+* Otherwise, the output files can be analyzed and visualized using your favorite tools
+
+### 1. Run MIDAS per-sample
 
 First, create a new directory to store per-sample outputs:  
 `mkdir midas_output`  
@@ -56,37 +61,41 @@ You can use the `-h` flag to get more info on any of the commands:
 `run_midas.py genes -h`  
 `run_midas.py snps -h`   
 
-#### 1) Profile species abundances
+#### A) [Profile species abundances](species.md)
 `run_midas.py species midas_output/sample_1 -1 example/sample_1.fq.gz`  
 `run_midas.py species midas_output/sample_2 -1 example/sample_2.fq.gz`
 
-* This enables automatically profiling strain-level variation of all species in downstream modules. 
-* [read more...] (species.md)
+* Output files contain estimated species abundances for individual samples
+* This enables automatically profiling strain-level variation of all species in downstream modules 
+* This step can be skipped by directly specifying species ids (`--species_id`) when running `run_midas.py genes` or `snps`
+* Description of output files can be found in `midas_output/<sample_id>/species/readme.txt`
 
-#### 2) Profile strain-level gene content of abundant species  
+#### B) [Profile strain-level gene content of abundant species](cnvs.md) 
 `run_midas.py genes midas_output/sample_1 -1 example/sample_1.fq.gz`  
 `run_midas.py genes midas_output/sample_2 -1 example/sample_2.fq.gz` 
 
-* Requires that you've already run (1)
-* Output files contain estimated pan-genome gene copy numbers for all abundant species 
-* [read more...] (cnvs.md)
+* Output files contain predicted gene +/- and estimated gene copy # for all abundant species in individual samples
+* Requires output from (1-A) unless you directly specify species using `--species_id` 
+* Description of output files can be found in `midas_output/<sample_id>/genes/readme.txt`
 
-#### 3) Profile strain-level nucleotide variants of abundant species
+#### C) [Profile strain-level nucleotide variants of abundant species](snvs.md)
 `run_midas.py snps midas_output/sample_1 -1 example/sample_1.fq.gz`  
 `run_midas.py snps midas_output/sample_2 -1 example/sample_2.fq.gz` 
 
-* Requires that you've already run (1)  
-* Output files contain genome-wide nucleotide variation statistics for all abundant species 
-* [read more...] (snvs.md)
+* Output files contain genome-wide nucleotide variation statistics for all abundant species in individual samples
+* Requires output from (1-A) unless you directly specify species using `--species_id`  
+* Description of output files can be found in `midas_output/<sample_id>/snps/readme.txt`
 
 
-###Merge MIDAS results across samples
+### 2. Merge MIDAS results across samples
 
 The basic command usage of merge scripts is:  
  `merge_midas.py {species, genes, snps} outdir -i input -t intype [options]`
 
-* `-i` indicates the sample directories output by run_midas.py  
+* `-i` indicates the sample directories output by `run_midas.py`
 * `-t` indicates the input type
+* The output of merge commands are matrix files which facilitate comparative, quantitative analyses
+* The merge command is necessary in order to perform pooled-sample, core-genome SNP calling
 
 You can use the `-h` flag to get more info on any of the commands:  
 `merge_midas.py -h`  
@@ -95,58 +104,22 @@ You can use the `-h` flag to get more info on any of the commands:
 `merge_midas.py snps -h`   
 
 
-#### 1) Merge species abundance across samples 
+#### A) [Merge species abundance across samples](merge_species.md)
 
-`merge_midas.py species merged_species -i midas_out/sample_1,midas_out/sample_2 -t list`     
+`merge_midas.py species merged_species -i midas_output/sample_1,midas_output/sample_2 -t list`     
 
-The results will be in the folder named `merged_species`, and it will contain four files:  
-```
-count_reads.txt  
-coverage.txt  
-relative_abundance.txt  
-species_prevalence.txt  
-```
-Those files can be looked at with your favorite spreadsheet or text editor for more careful analysis.
+* Requires that you've already run (1-A)  
+* Description of output files can be found in `merged_species/readme.txt`
 
-* [read more...] (merge_species.md)
+#### B) [Merge strain-level pan-genome results across samples](merge_cnvs.md)
+`merge_midas.py genes -i midas_output/sample_1,midas_output/sample_2 -t list`  
 
-#### 2) Merge strain-level pan-genome results across samples 
-`merge_midas.py genes merged_genes -i midas_out/sample_1,midas_out/sample_2 -t list`  
+* Requires that you've already run (1-B)  
+* Description of output files can be found in `merged_genes/<species_id>/readme.txt`
 
-The results will be in a folder named `merged_genes`, which will contain a sub-folder for each species that satisfies the coverage criterion for inclusion.
+#### C) [Merge strain-level nucleotide variant results across samples](merge_snps.md)  
+`merge_midas.py snps ./merged_snps -i midas_output/sample_1,midas_output/sample_2 -t list`    
 
-You can look into the folder with the output:
-`ls merged_genes`
-and it should contain a folder named `Bacteroides_vulgatus_57955`.
-When looking at that folder, `ls merged_genes/Bacteroides_vulgatus_57955`, it should contain:  
-```
-genes_copynum.txt
-genes_depth.txt
-genes_info.txt
-genes_presabs.txt
-genes_summary.txt
-```
-Those files can be looked at with your favorite spreadsheet or text editor for more careful analysis.
-
-* [read more...] (merge_cnvs.md)
-
-#### 3) Merge strain-level nucleotide variant results across samples  
-`merge_midas.py snps ./merged_snps -i midas_out/sample_1,midas_out/sample_2 -t list`    
-
-The results will be in a folder named `./merged_snps`, which will contain a sub-folder for each species that satisfies the coverage criterion for inclusion.
-For these example files, the screen should show:
-
-You can look into the folder with the output:
-`ls merged_snps`
-and it should contain a folder named `Bacteroides_vulgatus_57955`.
-When looking at that folder, `ls merged_snps/Bacteroides_vulgatus_57955` , it should contain:  
-```
-snps_alt_allele.txt  
-snps_depth.txt  
-snps_info.txt  
-snps_ref_freq.txt  
-snps_summary.txt
-```
-Those files can be looked at with your favorite spreadsheet or text editor for more careful analysis.
-
-* [read more...] (merge_snvs.md)
+* This command performs pooled-sample, core-genome SNP calling
+* Requires that you've already run (1-C)  
+* Description of output files can be found in `merged_snps/<species_id>/readme.txt`

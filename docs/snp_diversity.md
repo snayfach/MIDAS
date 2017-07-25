@@ -2,93 +2,88 @@
 
 This script will allow you to quantify the genomic diversity of a bacterial population. Diversity can be computed genome-wide, for different classes of genomic sites, or for individual genes. Additionally, diversity can be computed for populations from individual metagenomic samples, or based on data pooled across samples. Finally, there are many options to filter genomic sites.
 
-Before running these scripts, you'll need to have run `merge_midas.py snps` [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
+Before running these scripts, you'll need to have run `merge_midas.py snps` [read more](https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
 
 
-####USAGE:
+### Usage
 
-`snp_diversity.py --indir /path/to/snps/species_id --out /path/to/output [options]`
+```
+Usage: snp_diversity.py indir [options]
 
-####INPUT/OUTPUT OPTIONS:
+positional arguments:
+  PATH                  path to output from `merge_midas.py snps` for one species
+                        directory should be named according to a species_id and contains files 'snps_*.txt')
 
-<b>--indir PATH</b>  
-Path to output from 'merge_midas.py snps' for one species.  
-Directory should be named according to a species_id and contains files 'snps_*.txt'
+optional arguments:
+  -h, --help            show this help message and exit
+  --out PATH            path to output file (/dev/stdout)
 
-<b>--out PATH</b>  
-Path to output file  
+Diversity options:
+  --genomic_type {genome-wide,per-gene}
+                        compute diversity for individual genes or genome-wide (genome-wide)
+  --sample_type {per-sample,pooled-samples}
+                        compute diversity for individual samples or for pooled reads across samples (per-sample)
+  --weight_by_depth     weight data from samples by sequencing depth when --sample_type=pooled-samples
+  --rand_reads INT      randomly select N reads from each sample for each genomic site
+  --replace_reads       reads drawn with replacement
+  --rand_samples INT    randomly select N samples from each genomic site
+  --rand_sites FLOAT    randomly select X proportion of high-quality genomic sites
+  --snp_maf FLOAT       minor allele frequency cutoff for determining if a site is a SNP (0.01)
+  --consensus           call consensus alleles prior to calling SNPs
 
-####DIVERSITY OPTIONS:  
-<b>--genomic_type {'genome-wide', 'per-gene'}</b>  
-Compute diversity for individual genes or genome-wide (genome-wide)  
-	
-<b>--sample_type {'pooled-samples', 'per-sample'}</b>  
-Compute diversity for individual samples or for pooled data across samples (per-sample)  
+Sample filters (select subset of samples from INDIR):
+  --sample_depth FLOAT  minimum average read depth per sample (0.0)
+  --sample_cov FLOAT    fraction of reference sites covered by at least 1 read (0.0)
+  --max_samples INT     maximum number of samples to process.
+                        useful for quick tests (use all)
+  --keep_samples STR    comma-separated list of samples to use for computing diversity metrics.
+                        samples will still be subject to other filters
+  --exclude_samples STR
+                        comma-separated list of samples to exclude from computing diversity metrics.
+                        samples will still be subject to other filters
 
-<b>--weight_by_depth</b>  
-If --sample_type=pooled-samples, weight samples by their mean read depth for the species  
+Site filters (select subset of genomic sites from INDIR):
+  --site_list PATH      path to file containing newline-delimited list of genomic sites to include.
+                        other filters will still apply
+  --site_depth INT      minimum number of mapped reads per site (2)
+  --site_prev FLOAT     site has at least <site_depth> coverage in at least <site_prev> proportion of samples (0.0)
+                        a value of 1.0 will select sites that have sufficent coverage in all samples.
+                        a value of 0.0 will select all sites, including those with low coverage in many samples
+                        NAs recorded for included sites with less than <site_depth> in a sample
+  --site_maf FLOAT      minimum average-minor-allele-frequency of site across samples (0.0)
+                        setting this above zero (e.g. 0.01, 0.02, 0.05) will only retain variable sites
+                        by default invariant sites are also retained.
+  --site_ratio FLOAT    maximum ratio of site-depth to mean-genome-depth (None)
+                        a value of 10 will filter genomic sites with 10x greater coverage than the genomic background
+  --allele_support FLOAT
+                        minimum fraction of reads supporting consensus allele (0.50)
+  --locus_type {CDS,RNA,IGR}
+                        use genomic sites that intersect: 'CDS': coding genes, 'RNA': rRNA and tRNA genes, 'IGS': intergenic regions
+  --site_type {1D,2D,3D,4D}
+                        if locus_type == 'CDS', use genomic sites with specified degeneracy: 4D indicates synonymous and 1D non-synonymous sites
+  --max_sites INT       maximum number of sites to include in output (use all)
+                        useful for quick tests
+```
+  
+### Examples:
+1) Quantify within-sample heterogenity genome-wide   
+`snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type per-sample --out /path/to/output`
 
-<b>--site_type {'ALL','NC','CDS','1D','2D','3D','4D'}</b>  
-Compute diversity using subset of genomic sites sites (ALL)  
-ALL=all-sites, NC=non-coding, CDS=coding, XD=X-fold-degenerate-sites  
+2) Quantify between-sample heterogenity genome-wide  
+`snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type pooled-sample --out /path/to/output`
 
+3) Quantify between-sample heterogenity per-gene 
+`snp_diversity.py /path/to/snps --genomic_type per-gene --sample_type pooled-samples --out /path/to/output`
 
-####SAMPLE SELECTION OPTIONS:  
-<b>--sample_depth FLOAT</b>  
-Minimum average read depth per sample (0.0)  
+4) Use downsampling to control the read-depth at each genomic site  
+`snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type per-sample --out /path/to/output`
 
-<b>--sample_cov FLOAT</b>
-Minimum proportion of genomic sites covered by at least 1 read per sample (0.0)
+5) Only quantify diversity at non-synonymous sites  
+`snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type pooled-samples --site_type 4D --locus_type CDS --out /path/to/output`
+ 
+6) Quantify SNPs using a different definition of a polymorphism  
+`snp_diversity.py /path/to/snps --genomic_type genome-wide --sample_type per-sample --snp_maf 0.05 --out /path/to/output`
 
-<b>--rand_samples INT</b>  
-Randomly select INT samples that pass quality control (None)
-
-<b>--keep_samples STR</b>  
-Comma-separated list of sample identifiers to use for computing diversity metrics (None)  
-Samples are still be subject to other filters  
-
-<b>--exclude_samples STR</b>  
-Comma-separated list of sample identifiers to exclude from computing diversity metrics (None)   
-Samples are still be subject to other filters  
-
-<b>--max_samples INT</b>
-Maximum number of samples to process (use all)  
-Useful for quick tests  
-
-
-####GENOMIC SITE SELECTION OPTIONS:  
-<b>--site_depth INT</b>  
-Minimum number of mapped reads per site per sample (2)  
-
-<b>--site_prev FLOAT</b>  
-Minimum proportion of samples with least --site_depth at site (0.0)  
-
-<b>--site_maf FLOAT</b>  
-Minimum minor allele frequency of site across samples (0.0)  
-
-<b>--site_ratio FLOAT</b>  
-Maximum ratio of site-depth to the mean-genome-depth (Inf)  
-
-<b>--site_freq FLOAT</b>  
-Minimum combined frequency of reference allele and major alternate allele across samples (0.0)  
-Most mapped reads should match the reference allele or major alternate allele.  
-Set this value to exclude sites with multiple alternate alleles.  
-For example, --site_freq=0.95 excludes these sites:  
-  A(ref)=0.80, T(alt1)=0.10, C(alt2)=0.05, G(alt3)=0.05 (Freq_A + Freq_T = 0.90 < 0.95)  
-  A(ref)=0.00, C(alt1)=0.80, G(alt2)=0.20, T(alt3)=0.00 (Freq_A + Freq_C = 0.80 < 0.95)  
-
-<b>--max_sites INT</b>  
-Maximum number of genomic sites to process (use all)  
-Useful for quick tests  
-
-<b>--rand_sites FLOAT</b>  
-Randomly select FLOAT proportion of genomic sites that pass quality control  
-
-####READ SELECTION OPTIONS:  
-<b>--rand_reads INT</b>  
-Randomly select INT reads from each sample for each genomic site  
-
-<b>--replace_reads</b>  
-If using --rand_reads, reads are randomly sampled with replacement  
-
+7) Run a quick test  
+`snp_diversity.py /path/to/snps --max_sites 10000  --out /path/to/output`
 

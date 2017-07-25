@@ -4,9 +4,9 @@
 # Copyright (C) 2015 Stephen Nayfach
 # Freely distributed under the GNU General Public License (GPLv3)
 
-import io, os, stat, sys, resource, gzip, platform, subprocess, bz2
+import io, os, stat, sys, resource, gzip, platform, subprocess, bz2, Bio.SeqIO
 
-__version__ = '1.2.1'
+__version__ = '1.3.0'
 
 def which(program):
 	""" Mimics unix 'which' function """
@@ -38,13 +38,13 @@ def print_copyright(log=None):
 def batch_samples(samples, threads):
 	""" Split up samples into batches
 		assert: batch_size * threads < max_open
-		assert: batch_size uses all threads
+		assert: len(batches) == threads
 	"""
 	import resource
 	import math
 	max_open = int(0.8 * resource.getrlimit(resource.RLIMIT_NOFILE)[0]) # max open files on system
 	max_size = math.floor(max_open/threads) # max batch size to avoid exceeding max_open
-	min_size = math.ceil(len(samples)/threads) # min batch size to use all threads
+	min_size = math.ceil(len(samples)/float(threads)) # min batch size to use all threads
 	size = min(min_size, max_size)
 	batches = []
 	batch = []
@@ -56,7 +56,7 @@ def batch_samples(samples, threads):
 	if len(batch) > 0: batches.append(batch)
 	return batches
 
-def parallel(function, list, threads):
+def parallel_old(function, list, threads):
 	""" Run function using multiple threads """
 	from multiprocessing import Process
 	from time import sleep
@@ -78,27 +78,50 @@ def parallel(function, list, threads):
 			if process.is_alive(): indexes.append(index)
 		processes = [processes[i] for i in indexes]
 
+def parallel(function, argument_list, threads):
+	""" Based on: https://gist.github.com/admackin/003dd646e5fadee8b8d6 """
+	import multiprocessing as mp
+	import signal
+	import time
+	
+	def init_worker():
+		signal.signal(signal.SIGINT, signal.SIG_IGN)
+	
+	pool = mp.Pool(int(threads), init_worker)
+	
+	try:
+		results = []
+		for arguments in argument_list:
+			p = pool.apply_async(function, args=arguments)
+			results.append(p)
+		pool.close()
+		
+		while True:
+			if all(r.ready() for r in results):
+				return [r.get() for r in results]
+			time.sleep(1)
+
+	except KeyboardInterrupt:
+		pool.terminate()
+		pool.join()
+		sys.exit("\nKeyboardInterrupt")
+
 def add_executables(args):
 	""" Identify relative file and directory paths """
 	src_dir = os.path.dirname(os.path.abspath(__file__))
 	main_dir = os.path.dirname(src_dir)
-	args['stream_bam'] = '/'.join([src_dir, 'run', 'stream_bam.py'])
 	args['stream_seqs'] = '/'.join([src_dir, 'run', 'stream_seqs.py'])
 	args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
 	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
 	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools', 'stream_bam']:
+	
+	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools']:
 		if not os.path.isfile(args[arg]):
 			sys.exit("\nError: File not found: %s\n" % args[arg])
 	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
-		if not is_executable(args[arg]):
-			sys.exit("\nError:File not executable: %s\n" % args[arg])
-
-def is_executable(f):
-	""" Check if file is executable by all """
-	st = os.stat(f)
-	return bool(st.st_mode & stat.S_IXOTH)
+		if not os.access(args[arg], os.X_OK):
+			sys.exit("\nError: File not executable: %s\n" % args[arg])
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
@@ -190,3 +213,93 @@ def check_bamfile(args, bampath):
 	if err.decode('ascii') != '': # need to use decode to convert to characters for python3
 		err_message = "\nWarning, bamfile may be corrupt: %s\nSamtools reported this error: %s\n" % (bampath, err.rstrip())
 		sys.exit(err_message)
+
+def read_genes(species_id, db):
+	""" Read in gene coordinates from features file """
+	genome = read_genome(db, species_id)
+	genes = []
+	basename = '%s/rep_genomes/%s/genome.features' % (db, species_id)
+	if os.path.exists(basename):
+		fpath = basename
+	elif os.path.exists(basename+'.gz'):
+		fpath = basename+'.gz'
+	else:
+		sys.exit("\nError: rep genome for %s not found\n" % species_id)
+	for gene in parse_file(fpath):
+		if 'gene_type' in gene and gene['gene_type'] != 'CDS':
+			continue
+		else:
+			gene['start'] = int(gene['start'])
+			gene['end'] = int(gene['end'])
+			gene['seq'] = get_gene_seq(gene, genome[gene['scaffold_id']])
+			genes.append(gene)
+	
+	# sort genes
+	coords = [[gene['scaffold_id'], gene['start'], -gene['end']] for gene in genes]
+	indexes = sorted(range(len(coords)), key=lambda k: coords[k])
+	sorted_genes = [genes[i] for i in indexes]
+			
+	return {'list':sorted_genes, 'index':0}
+	
+
+def read_genome(db, species_id):
+	""" Read in representative genome from reference database """
+	basename = '%s/rep_genomes/%s/genome.fna' % (db, species_id)
+	if os.path.exists(basename):
+		fpath = basename
+	elif os.path.exists(basename+'.gz'):
+		fpath = basename+'.gz'
+	else:
+		sys.exit("\nError: rep genome for %s not found\n" % species_id)
+	infile = iopen(fpath)
+	genome = {}
+	for r in Bio.SeqIO.parse(infile, 'fasta'):
+		genome[r.id] = r.seq.upper()
+	infile.close()
+	return genome
+
+def get_gene_seq(gene, genome):
+	""" Fetch nucleotide sequence of gene from genome """
+	seq = genome[gene['start']-1:gene['end']] # 2x check this works for + and - genes
+	if gene['strand'] == '-':
+		return(rev_comp(seq))
+	else:
+		return(seq)
+
+def complement(base):
+	""" Complement nucleotide """
+	d = {'A':'T', 'T':'A', 'G':'C', 'C':'G'}
+	if base in d: return d[base]
+	else: return base
+
+def rev_comp(seq):
+	""" Reverse complement sequence """
+	return(''.join([complement(base) for base in list(seq[::-1])]))
+
+def translate(codon):
+	""" Translate individual codon """
+	codontable = {
+	'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M',
+	'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
+	'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K',
+	'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
+	'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L',
+	'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
+	'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q',
+	'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R',
+	'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V',
+	'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A',
+	'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E',
+	'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
+	'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S',
+	'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
+	'TAC':'Y', 'TAT':'Y', 'TAA':'_', 'TAG':'_',
+	'TGC':'C', 'TGT':'C', 'TGA':'_', 'TGG':'W',
+	}
+	return codontable[str(codon)]
+
+def index_replace(codon, allele, pos, strand):
+	""" Replace character at index i in string x with y"""
+	bases = list(codon)
+	bases[pos] = allele if strand == '+' else complement(allele)
+	return(''.join(bases))

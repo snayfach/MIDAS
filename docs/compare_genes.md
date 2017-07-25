@@ -3,10 +3,10 @@
 These scripts will allow you to compare the gene content of a species between all pairs of metagenomic samples. 
 
 Before running these scripts, you'll need to have run:   
-`merge_midas.py genes` [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
+`merge_midas.py genes` [read more](https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
 
 
-####Command usage:
+#### Command usage:
 
 ``` 
 compare_genes.py --indir <PATH> --out <PATH> [options]
@@ -16,7 +16,7 @@ compare_genes.py --indir <PATH> --out <PATH> [options]
   --out PATH            Path to output file
 ```
 
-####Options:
+#### Options:
 
 ```
   --max_genes INT       Maximum number of genes to use. Useful for quick tests (use all)
@@ -29,7 +29,7 @@ compare_genes.py --indir <PATH> --out <PATH> [options]
 
 ```
 
-####Examples:  
+#### Examples:  
 1) Run with defaults:  
 `compare_genes.py --indir /path/to/species --out distances.txt`
 
@@ -45,7 +45,7 @@ compare_genes.py --indir <PATH> --out <PATH> [options]
 5) Use a strict cutoff for determining gene presence absence:  
 `compare_genes.py --indir /path/to/species --out distances.txt --cutoff 0.75`
 
-####Output format:  
+#### Output format:  
   sample1: first sample identifier  
   sample2: second sample identifier  
   count1: number of present genes in sample1

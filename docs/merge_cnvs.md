@@ -64,15 +64,17 @@ Examples:
 `merge_midas.py genes /path/to/outdir -i /path/to/samples -t dir --max_species 1 --max_samples 10`
 
 
-## Outputs
+## Output files
 The output of this script generates the following files: 
 
-* **genes_copy_number.txt**: gene copy-number matrix (columns are samples, rows are gene families)
-* **genes_presence_absence.txt**: gene presence-absence (0/1) matrix (columns are samples, rows are gene families). genes with copy-number >= `MIN_COPY` are called as present and genes below `MIN_COPY` are called as absent
-* **genes_coverage.txt**: gene coverage (i.e. read depth) matrix (columns are samples, rows are gene families)
-* **genes_summary.txt**: alignment summary statistics of genes across samples
+* <b>genes_copy\_number.txt</b>: gene copy-number matrix (columns are samples, rows are gene families)  
+* <b>genes_presence\_absence.txt</b>: gene presence-absence (0/1) matrix (columns are samples, rows are gene families). genes with copy-number >= `MIN_COPY` are called as present and genes below `MIN_COPY` are called as absent
+* <b>genes_coverage.txt</b>: gene coverage (i.e. read depth) matrix (columns are samples, rows are gene families)
+* <b>genes_summary.txt</b>: alignment summary statistics of genes across samples
 
-**genes_summary.txt** output format:
+## Output formats
+
+<b>genes_summary.txt</b>:
 
 * sample_id: sample identifier      
 * pangenome_size: total number of gene families (99% identity clustering cutoff) in reference pangenome 

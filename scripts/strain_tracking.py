@@ -48,10 +48,10 @@ Usage: strain_tracking.py id_markers [options]
 	epilog="""
 Examples:
 1) Identify marker alleles for one species
-strain_tracking.py id_markers --indir merged_snps/species_id --out species.markers --max_samples 1
+strain_tracking.py id_markers --indir merged_snps/species_id --out markers.txt --max_samples 1
 
 2) Run a quick test
-strain_tracking.py id_markers --indir merged_snps/species_id --out species.markers --max_sites 10000
+strain_tracking.py id_markers --indir merged_snps/species_id --out markers.txt --max_sites 10000
 
 Output fields:
   site_id: site identifier (format: ref_id|ref_pos|ref_allele)
@@ -96,11 +96,11 @@ Usage: strain_tracking.py track_markers [options]
 """,
 	epilog="""
 Examples:
-1) Track marker alleles for species_id 57955
-strain_tracking.py track_markers --indir merged_snps/57955 --markers 57955.markers --out 57955.marker_sharing
+1) Track marker alleles for one species
+strain_tracking.py track_markers --indir merged_snps/species_id --markers markers.txt --out allele_sharing.txt
 
 2) Run a quick test for species_id 57955
-strain_tracking.py track_markers --indir merged_snps/57955 --markers 57955.markers --out 57955.marker_sharing --max_sites 1000
+strain_tracking.py track_markers --indir merged_snps/species_id --markers markers.txt --out allele_sharing.txt --max_sites 1000
 
 Output fields:
   sample1: identifier for sample 1

@@ -3,7 +3,7 @@
 These scripts will allow you to identify rare SNPs that discriminate individual strains and to track these SNPs between hosts to elucidate transmission patterns.   
 
 Before running these scripts, you'll need to have run:  
-`merge_midas.py snps` [read more] (https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
+`merge_midas.py snps` [read more](https://github.com/snayfach/MIDAS/blob/master/docs/merge_snvs.md).
 
 
 ### Step 1: identify rare SNPs that disriminate individual strains of a particular species
@@ -13,11 +13,11 @@ Before running these scripts, you'll need to have run:
  * Identify SNPs (particular nucleotide at a genomic site) that rarely occur across samples
  * Because these SNPs are rare, they serve as good markers of individual strains 
 
-####Command usage:
+#### Command usage:
 
 `strain_tracking.py id_markers --indir <PATH> --out <PATH> [options]`
 
-####Options:
+#### Options:
 
 <b>--samples STR </b>  
 Comma-separated list of samples to use for training  
@@ -37,7 +37,7 @@ Setting this to 1 (default) will pick alleles found in exactly 1 sample
 Maximum number of genomic sites to process (use all)  
 Useful for quick tests
       
-####Examples:
+#### Examples:
 1) Use a subset of sample in SNP matrix for training
 `strain_tracking.py id_markers --indir merged_snps/species_id --out species.markers --samples sample1,sample2,sample3`
 
@@ -53,11 +53,11 @@ Useful for quick tests
  * Quantify the number and fraction of marker SNPs that are shared between all pairs of metagenomic samples
  * Based on a sharing cutoff (e.g. 5%), determine if a strain is shared or not
 
-####Command usage:
+#### Command usage:
 
 `strain_tracking.py track_markers --indir /path/to/snps/species_id --out species_id.marker_sharing --markers species_id.markers [options]`
 
-####Options:
+#### Options:
                       
 <b>--min_freq FLOAT </b>   
  Minimum allele frequency (proportion of reads) per site for SNP calling (0.10) 

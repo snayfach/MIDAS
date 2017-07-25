@@ -48,6 +48,7 @@ def main():
 	for inpath in args['input']:
 		infile = utility.iopen(inpath)
 		for name, seq, qual in readfq(infile):
+			id = name.split()[0]
 			seq_len = len(seq)
 			if args['read_length']: # trim/filter reads
 				if seq_len < args['read_length']:
@@ -55,7 +56,7 @@ def main():
 				else:
 					seq = seq[0:args['read_length']]
 					seq_len = len(seq)
-			sys.stdout.write('>%s_%s\n%s\n' % (name, seq_len, seq))
+			sys.stdout.write('>%s_%s\n%s\n' % (id, seq_len, seq))
 			reads += 1
 			bp += seq_len
 			if reads == args['max_reads']:

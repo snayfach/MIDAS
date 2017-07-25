@@ -24,15 +24,7 @@ Each subdirectory should be named according to a genome_id
 Each subdirectory should contain (replace genome_id):
   genome_id.fna: Genomic DNA sequence in FASTA format
   genome_id.ffn: Gene DNA sequences in FASTA format
-  genome_id.features: Genomic coordinates of genes. 
-    sorted by: scaffold_id, start
-    tab-delimited with a header and fields:
-    gene_id (CHAR)
-    scaffold_id (CHAR)
-    start (INT)
-    end (INT)
-    strand (+/-)
-    gene_type (CDS/RNA)
+  genome_id.faa: Translated genes in FASTA format
 """)
 	parser.add_argument('mapfile', type=str,
 		help="""Path to mapping file that specifies which genomes belonging to the same species.
@@ -61,7 +53,7 @@ def check_args(args):
 		sys.exit("\nError: could not locate directory specified by --genomes: %s\n" % args['indir'])
 	if not os.path.isfile(args['mapfile']):
 		sys.exit("\nError: could not locate file specified by --mapping: %s\n" % args['mapfile'])
-	for program in ['hmmsearch', 'usearch']:
+	for program in ['hmmsearch', 'vsearch']:
 		if not utility.which(program):
 			error = "\nError: program '%s' not found in your PATH" % program
 			error += "\nMake sure that you've installed the program and added it's location to your PATH\n"

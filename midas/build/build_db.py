@@ -25,7 +25,7 @@ class Genome:
 	def init_files(self):
 		if not os.path.isdir(self.dir):
 			sys.exit("\nError: genome directory '%s' does not exist" % (self.dir))
-		for type in ['fna', 'ffn', 'faa', 'features']:
+		for type in ['fna', 'ffn', 'faa', 'genes']:
 			inpath = '%s/%s.%s' % (self.dir, self.id, type)
 			if os.path.isfile(inpath):
 				self.files[type] = inpath
@@ -33,17 +33,11 @@ class Genome:
 				error = ""
 				error += "\nError: could not locate input file '%s/%s.%s'\n" % (self.dir, self.id, type)
 				error += "\nYour genome should contain the following files:\n"
-				error += "  %s/%s.fna (FASTA of genome sequence)\n" % (self.dir, self.id)
-				error += "  %s/%s.ffn (FASTA of gene sequences)\n" % (self.dir, self.id)
-				error += "  %s/%s.faa (FASTA of protein sequences)\n" % (self.dir, self.id)
-				error += "  %s/%s.features (Genomic coordinates of genes)\n" % (self.dir, self.id)
+				error += "  %s/%s.fna   (FASTA of genome sequence)\n" % (self.dir, self.id)
+				error += "  %s/%s.ffn   (FASTA of gene sequences)\n" % (self.dir, self.id)
+				error += "  %s/%s.faa   (FASTA of protein sequences)\n" % (self.dir, self.id)
+				error += "  %s/%s.genes (Genomic coordinates of genes on genome)\n" % (self.dir, self.id)
 				sys.exit(error)
-		file = open(self.files['features'])
-		header = next(file).rstrip('\n').split('\t')
-		for field in ['gene_id', 'scaffold_id', 'start', 'end', 'strand', 'gene_type']:
-			if field not in header:
-				sys.exit("\nError: missing required field '%s' in file '%s'\n" % (field, self.files['features']))
-		file.close()
 
 class Gene:
 	def __init__(self, id):
@@ -61,7 +55,7 @@ class Pangenome:
 		self.dir = '%s/pan_genomes/%s' % (outdir, sp.id)
 		self.tmp = '%s/temp' % self.dir
 		self.species = sp
-		self.genomes = sp.genomes.values()
+		self.genomes = list(sp.genomes.values())
 		self.stats = {}
 		self.stats['genomes'] = len(self.genomes)
 		self.count_genes = 0
@@ -198,7 +192,7 @@ gene_info.txt
 
 	def uclust(self, genes, pid, centroids, clusters, threads):
 		""" Run UCLUST from shell with specified arguments """
-		command = "usearch "
+		command = "vsearch "
 		command += "-cluster_fast %s " % genes
 		command += "-id %s " % pid
 		command += "-centroids %s " % centroids
@@ -217,6 +211,7 @@ def parse_mapping_file(args):
 		if field not in ['genome_id', 'species_id', 'rep_genome']:
 			sys.exit("Error: mapping file '%s' has unknown field labeled '%s'" % (args['mapfile'], field))
 	for line in infile:
+		if len(line.rstrip()) == 0: continue
 		values = line.rstrip('\n').split('\t')
 		record = dict([(f,v) for f,v in zip(fields, values)])
 		if len(values) < len(fields):
@@ -249,10 +244,10 @@ def read_species(args):
 		# make sure at least 1 rep genome/species
 		if sp.rep_genome is None:
 			sp.rep_genome = sp.genomes.keys()[0]
-	return species.values()
+	return list(species.values())
 
 def read_genomes(species):
-	genomes = sum([sp.genomes.values() for sp in species], [])
+	genomes = sum([list(sp.genomes.values()) for sp in species], [])
 	return genomes
 
 def build_repgenome_db(args, genomes, species):
@@ -260,10 +255,48 @@ def build_repgenome_db(args, genomes, species):
 		print("%s" % sp.id)
 		outdir = '%s/rep_genomes/%s' % (args['outdir'], sp.id)
 		if not os.path.isdir(outdir): os.makedirs(outdir)
-		for ext in ['fna', 'features']:
-			inpath = sp.genomes[sp.rep_genome].files[ext]
-			outpath = '%s/genome.%s' % (outdir, ext)
-			shutil.copy(inpath, outpath)
+		shutil.copy(sp.genomes[sp.rep_genome].files['genes'], '%s/genome.features' % outdir)
+		#build_features_file(sp, fpath='%s/genome.features' % outdir)
+		shutil.copy(sp.genomes[sp.rep_genome].files['fna'], '%s/genome.fna' % outdir)
+		
+def find_gene(gene, contigs):
+	fwd_gene = str(gene).upper()
+	rev_gene = str(gene.reverse_complement()).upper()	
+	for id, contig in contigs:
+		for seq, strand in [(fwd_gene, '+'), (rev_gene, '-')]:
+			try: 
+				start = contig.index(seq) + 1
+				end = start + len(seq) - 1
+				return (id, start, end, strand)
+			except:
+				continue
+	sys.exit("Gene not found")
+				
+def build_features_file(sp, fpath):
+	
+	contigs = [] 
+	with open(sp.genomes[sp.rep_genome].files['fna']) as f:
+		for contig in Bio.SeqIO.parse(f, 'fasta'):
+			contigs.append([contig.id, str(contig.seq).upper()])
+	
+	features = []
+	with open(sp.genomes[sp.rep_genome].files['ffn']) as f:
+		for gene in Bio.SeqIO.parse(f, 'fasta'):
+			contig, start, end, strand = find_gene(gene.seq, contigs)
+			features.append([gene.id, contig, start, end, strand])
+			# prune list of contigs to increase speed
+			# genes must be in sorted order
+#			while True:
+#				if contig != contigs[0][0]:
+#					contigs = contigs[1:]
+#				else:
+#					break
+					
+	with open(fpath, 'w') as f:
+		f.write('\t'.join(['gene_id', 'scaffold_id', 'start', 'end', 'strand'])+'\n')
+		for r in features:
+			f.write('\t'.join([str(_) for _ in r])+'\n')
+		
 
 def build_pangenome_db(args, species):
 	for sp in species:
@@ -287,6 +320,16 @@ def write_species_info(args, species):
 	for sp in species:
 		values = [str(_) for _ in [sp.id, sp.rep_genome, sp.ngenomes]]
 		outfile.write('\t'.join(values)+'\n')
+		
+def write_genome_info(args, species):
+	outfile = utility.iopen('%s/genome_info.txt' % args['outdir'], 'w')
+	header = ['genome_id', 'species_id', 'rep_genome']
+	outfile.write('\t'.join(header)+'\n')
+	for sp in species:
+		for genome_id in sp.genomes:
+			rep_genome = '1' if genome_id == sp.rep_genome else '0'
+			values = [genome_id, sp.id, rep_genome]
+			outfile.write('\t'.join(values)+'\n')
 
 def compress(outdir):
 	for module in ['pan_genomes', 'rep_genomes']:
@@ -371,7 +414,7 @@ class MarkerGenes:
 				hits[r['target']] = r
 			elif r['evalue'] < hits[r['target']]['evalue']:
 				hits[r['target']] = r
-		return hits.values()
+		return list(hits.values())
 
 	def hsblastn_index(self, fasta):
 		command = "hs-blastn index %s " % fasta
@@ -418,10 +461,11 @@ class MarkerGenes:
 
 def run_pipeline(args):
 		
-	print("Reading species info")
+	print("Reading species & genome info")
 	species = read_species(args)
-	genomes = read_genomes(species)
 	write_species_info(args, species)
+	genomes = read_genomes(species)
+	write_genome_info(args, species)
 	
 	print("\nBuilding pangenome database")
 	build_pangenome_db(args, species)

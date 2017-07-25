@@ -4,16 +4,16 @@ import unittest
 import shutil
 import os
 import subprocess
+import sys
 from distutils.version import StrictVersion
 
 def run(command):
 	""" run shell command & return unix exit code """
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	out, err = process.communicate()
-	return(process.returncode)
+	return(err, process.returncode)
 
-class CheckEnv(unittest.TestCase):
-	""" check environmental variables """
+class _01_CheckEnv(unittest.TestCase):
 	def setUp(self):
 		self.path_contents = []
 		for _ in os.environ['PATH'].strip(':').split(':'):
@@ -22,7 +22,7 @@ class CheckEnv(unittest.TestCase):
 		for _ in os.environ['PYTHONPATH'].strip(':').split(':'):
 			if os.path.isdir(_): self.python_contents += os.listdir(_)
 		
-	def test_dependencies(self):
+	def test_class(self):
 		self.assertTrue(
 			'run_midas.py' in self.path_contents,
 			msg="""\n\n'run_midas.py' not found in PATH environmental variable.\nMake sure '/path/to/MIDAS/scripts' has been added to your PATH:\nexport PATH=$PATH:/path/to/MIDAS/scripts"""
@@ -36,8 +36,7 @@ class CheckEnv(unittest.TestCase):
 			msg="""\n\n'MIDAS_DB' environmental variable not set.\nSet this variable and rerun the test:\nexport MIDAS_DB=/path/to/midas_db_v1.1"""
 			)
 
-class ImportDependencies(unittest.TestCase):
-	""" test that all dependencies can be imported """
+class _02_ImportDependencies(unittest.TestCase):
 	def setUp(self):
 		self.failures = []
 		try: import numpy
@@ -51,18 +50,17 @@ class ImportDependencies(unittest.TestCase):
 		try: import Bio.SeqIO
 		except Exception: self.failures.append('Bio.SeqIO')
 		
-	def test_dependencies(self):
+	def test_class(self):
 		self.assertTrue(len(self.failures)==0,
 		msg="""\n\nThe following dependencies failed to import: %s.\nMake sure that dependencies have been properly installed""" % str(self.failures))
 
-class CheckVersions(unittest.TestCase):
-	""" check version numbers for dependencies """
+class _03_CheckVersions(unittest.TestCase):
 	def setUp(self):
 		self.modules = ['numpy', 'pandas', 'pysam', 'Bio.SeqIO']
 		self.installeds = [module.__version__ for module in map(__import__, self.modules)]
 		self.requireds = ['1.7.0', '0.17.1', '0.8.1', '1.6.2']
 		
-	def test_dependencies(self):
+	def test_class(self):
 		for module, installed, required in zip(self.modules, self.installeds, self.requireds):
 			if len(installed.split('.')) > 3:
 				installed = '.'.join(installed.split('.')[0:3])
@@ -70,10 +68,9 @@ class CheckVersions(unittest.TestCase):
 				StrictVersion(installed) >= StrictVersion(required),
 			msg="""\n\nImported library '%s %s' is out of date. Required version is >= %s""" % (module, installed, required) )
 
-class HelpText(unittest.TestCase):
-	""" check help text for all scripts """
-	def setUp(self):
-		self.scripts = [
+class _04_HelpText(unittest.TestCase):
+	def test_class(self):
+		commands = [
 			'run_midas.py -h',
 			'run_midas.py species -h',
 			'run_midas.py genes -h',
@@ -82,65 +79,86 @@ class HelpText(unittest.TestCase):
 			'merge_midas.py species -h',
 			'merge_midas.py genes -h',
 			'merge_midas.py snps -h']
-		self.exit_codes = [run(_) for _ in self.scripts]
-	def test_help_text(self):
-		error = "\n\nFailed to run MIDAS.\nMake sure you've appended /path/to/MIDAS/scripts to your PATH and /path/to/MIDAS to your PYTHONPATH variables"
-		self.assertTrue(all([_ == 0 for _ in self.exit_codes]), msg=error)
+		for cmd in commands:
+			err, code = run(cmd)
+			self.assertTrue(code==0, msg=err)
 
-class RunSpecies(unittest.TestCase):
-	""" test run_midas.py species """
-	def setUp(self):
-		self.command = 'run_midas.py species ./sample -1 ./test.fq.gz -n 100'
-	def test_help_text(self):
-		error = "\n\nFailed to execute the command: %s " % self.command
-		self.assertTrue(run(self.command)==0, msg=error)
+class _05_RunSpecies(unittest.TestCase):
+	def test_class(self):
+		command = 'run_midas.py species ./sample -1 ./test.fq.gz -n 100'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
 
-class RunGenes(unittest.TestCase):
-	""" test run_midas.py genes """
-	def setUp(self):
-		self.command = 'run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'
-	def test_help_text(self):
-		error = "\n\nFailed to execute the command: %s " % self.command
-		self.assertTrue(run(self.command)==0, msg=error)
+class _06_RunGenes(unittest.TestCase):
+	def test_class(self):
+		command = 'run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
+		
+class _07_RunSNPs(unittest.TestCase):
+	def test_class(self):
+		command = 'run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
+		
+class _08_MergeSpecies(unittest.TestCase):
+	def test_class(self):
+		command = 'merge_midas.py species ./species -i ./sample -t list'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
 
-class RunSNPs(unittest.TestCase):
-	""" test run_midas.py snps """
-	def setUp(self):
-		self.command = 'run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'
-	def test_help_text(self):
-		error = "\n\nFailed to execute the command: %s " % self.command
-		self.assertTrue(run(self.command)==0, msg=error)
+class _09_MergeGenes(unittest.TestCase):
+	def test_class(self):
+		command = 'merge_midas.py genes ./genes -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --sample_depth 0.0'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
 
-class MergeSpecies(unittest.TestCase):
-	""" test merge_midas.py species """
-	def setUp(self):
-		self.retcodes = []
-		self.retcodes.append(run('run_midas.py species ./sample -1 ./test.fq.gz -n 100'))
-		self.retcodes.append(run('merge_midas.py species ./species -i ./sample -t list'))
-	def test_help_text(self):
-		error = "\n\nFailed to execute the command: merge_midas.py species "
-		self.assertTrue(sum(self.retcodes)==0, msg=error)
+class _10_MergeSNPs(unittest.TestCase):
+	def test_class(self):
+		command = 'merge_midas.py snps ./snps -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --all_samples --all_sites --max_sites 10000'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
 
-class MergeGenes(unittest.TestCase):
-	""" test merge_midas.py species """
-	def setUp(self):
-		self.retcodes = []
-		self.retcodes.append(run('run_midas.py genes ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'))
-		self.retcodes.append(run('merge_midas.py genes ./genes -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --sample_depth 0.0'))
-	def test_help_text(self):
-		error = "\n\nFailed to execute the command: merge_midas.py genes "
-		self.assertTrue(sum(self.retcodes)==0, msg=error)
+class _11_SNPdiversity(unittest.TestCase):
+	def test_class(self):
+		command = 'snp_diversity.py snps/Bacteroides_vulgatus_57955'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
 
-class MergeSNPs(unittest.TestCase):
-	""" test merge_midas.py species """
-	def setUp(self):
-		self.retcodes = []
-		self.retcodes.append(run('run_midas.py snps ./sample -1 ./test.fq.gz -n 100 --species_id Bacteroides_vulgatus_57955'))
-		self.retcodes.append(run('merge_midas.py snps ./snps -i ./sample -t list --species_id Bacteroides_vulgatus_57955 --sample_depth 0.0 --max_sites 100 --fract_cov 0.0'))
-	def test_help_text(self):
-		error = "\n\nFailed to execute the command: merge_midas.py snps "
-		self.assertTrue(sum(self.retcodes)==0, msg=error)
+class _12_CallConsensus(unittest.TestCase):
+	def test_class(self):
+		command = 'call_consensus.py snps/Bacteroides_vulgatus_57955'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)		
+	
+class _13_CompareGeneContent(unittest.TestCase):
+	def test_class(self):
+		command = 'compare_genes.py genes/Bacteroides_vulgatus_57955'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
+
+class _14_QueryByCompound(unittest.TestCase):
+	def test_class(self):
+		command = 'query_by_compound.py -i sample -t list -c C00312'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
+		
+class _15_BuildDB(unittest.TestCase):
+	def test_class(self):
+		command = 'tar -zxvf genomes.tar.gz'
+		err, code = run(command)
+		command = 'build_midas_db.py genomes genomes.mapfile db --threads 10'
+		err, code = run(command)
+		self.assertTrue(code==0, msg=err)
 
 if __name__ == '__main__':
-	unittest.main()
-	shutil.rmtree('test')
+	try:
+		dir_name = os.path.dirname(os.path.abspath(__file__))
+		os.chdir(dir_name)
+		unittest.main(exit=False)
+		for dir in ['sample', 'species', 'genes', 'snps', 'genomes', 'db']:
+			shutil.rmtree(dir)
+	except:
+		print("")
+		for dir in ['sample', 'species', 'genes', 'snps', 'genomes', 'db']:
+			if os.path.exists(dir): shutil.rmtree(dir)
