@@ -61,7 +61,7 @@ Run the following command to test MIDAS:
 `cd /path/to/MIDAS/test`  
 `test_midas.py -vf`
 
-This will take a few minutes to complete
+This will take a few minutes to complete. If you don't have VSEARCH and HMMER installed, the last test (for building a custom database) will fail. This is OK and will not affect the rest of the program.  
 
 ### Update MIDAS  
 MIDAS changes over time as new features are added and bugs are fixed  
