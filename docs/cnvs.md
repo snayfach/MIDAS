@@ -41,6 +41,7 @@ Read alignment options (if using --align):
   --interleaved         FASTA/FASTQ file in -1 are paired and contain forward AND reverse reads
   -s {very-fast,fast,sensitive,very-sensitive}
                         Alignment speed/sensitivity (very-sensitive)
+  -m {local,global}     Global/local read alignment (local)
   -n MAX_READS          # reads to use from input file(s) (use all)
   -t THREADS            Number of threads to use (1)
 

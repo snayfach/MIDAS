@@ -120,7 +120,8 @@ def pangenome_align(args):
 	command += '-x %s ' % '/'.join([args['outdir'], 'genes/temp/pangenomes']) # index
 	if args['max_reads']: command += '-u %s ' % args['max_reads'] # max num of reads
 	if args['trim']: command += '--trim3 %s ' % args['trim'] # trim 3'
-	command += '--%s-local ' % args['speed'] #   speed/sensitivity
+	command += '--%s' % args['speed'] # alignment speed
+	command += '-local ' if args['mode'] == 'local' else ' ' # global/local alignment
 	command += '--threads %s ' % args['threads'] #   threads
 	command += '-f ' if args['file_type'] == 'fasta' else '-q ' # input type
 	if args['m2']: # -1 and -2 contain paired reads
