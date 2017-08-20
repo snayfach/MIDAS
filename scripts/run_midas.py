@@ -210,7 +210,7 @@ Description: Map metagenomic reads to bacterial pangenomes and quantify these ge
 
 The pipeline can be broken down into the following steps:
   1) build a database of pangenomes for abundance bacterial species
-  2) map high-quality metagenomic reads to the database
+  2) use local alignment to map high-quality metagenomic reads to the database
   3) use mapped reads to quantify pangenome genes
 
 After completion, use 'merge_midas.py genes' to generate pangenome matrixes
@@ -224,10 +224,13 @@ run_midas.py genes /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2
 2) run entire pipeline for a specific species:
 run_midas.py genes /path/to/outdir --species_id Bacteroides_vulgatus_57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
-3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
+3) use global read alignment (default is local alignment with 75% minimum alignment coverage):
+run_midas.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -m global
+
+4) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
 run_midas.py genes /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
 
-4) just quantify genes, keep reads with >=95% alignment identity and reads with an average quality-score >=30:
+5) just quantify genes, keep reads with >=95% alignment identity and reads with an average quality-score >=30:
 run_midas.py genes /path/to/outdir --call_genes --mapid 95 --readq 20
 	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
@@ -263,6 +266,9 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 	align.add_argument('-s', type=str, dest='speed', default='very-sensitive',
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Alignment speed/sensitivity (very-sensitive)')
+	align.add_argument('-m', type=str, dest='mode', default='local',
+		choices=['local', 'global'],
+		help='Global/local read alignment (local)')
 	align.add_argument('-n', type=int, dest='max_reads',
 		help='# reads to use from input file(s) (use all)')
 	align.add_argument('-t', dest='threads', default=1,
@@ -315,6 +321,7 @@ def print_gene_arguments(args):
 		else:
 			lines.append("  input reads (unpaired): %s" % args['m1'])
 		lines.append("  alignment speed/sensitivity: %s" % args['speed'])
+		lines.append("  alignment mode: %s" % args['mode'])
 		lines.append("  number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
 		lines.append("  number of threads for database search: %s" % args['threads'])
 	if args['cov']:
@@ -337,7 +344,7 @@ Description: Map metagenomic reads to a bacterial genome database and quantify n
 
 The pipeline can be broken down into the following steps:
   1) build a database of genome sequences for abundant bacterial species (1 representative genome/species)
-  2) map high-quality reads to the database
+  2) use global alignment to map high-quality reads to the database
   3) generate pileups and count variants at each genomic site
 
 After completion, use 'merge_midas.py snps' to perform multisample SNP calling
@@ -351,10 +358,13 @@ run_midas.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.
 2) run entire pipeline for a specific species:
 run_midas.py snps /path/to/outdir --species_id Bacteroides_vulgatus_57955 -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz
 
-3) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
+3) use local read alignment and discard alignments that cover reads by < 75% (default is global alignment):
+run_midas.py snps /path/to/outdir -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -m local --aln_cov 0.75
+
+4) just align reads, use faster alignment, only use the first 10M reads, use 4 CPUs:
 run_midas.py snps /path/to/outdir --align -1 /path/to/reads_1.fq.gz -2 /path/to/reads_2.fq.gz -s very-fast -n 10000000 -t 4
 
-4) just count variants, keep reads with >=95% alignment identity and keep bases with quality-scores >=35:
+5) just count variants, keep reads with >=95% alignment identity and keep bases with quality-scores >=35:
 run_midas.py snps /path/to/outdir --pileup --mapid 95 --baseq 35
 	""")
 	parser.add_argument('program', help=argparse.SUPPRESS)
@@ -391,7 +401,11 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 		choices=['very-fast', 'fast', 'sensitive', 'very-sensitive'],
 		help='Bowtie2 alignment speed/sensitivity (very-sensitive)')
 	align.add_argument('-n', type=int, dest='max_reads', help='# reads to use from input file(s) (use all)')
-	align.add_argument('-t', dest='threads', default=1, help='Number of threads to use (1)')
+	align.add_argument('-m', type=str, dest='mode', default='global',
+		choices=['local', 'global'],
+		help='Global/local read alignment (global)')
+	align.add_argument('-t', dest='threads', default=1, 
+		help='Number of threads to use (1)')
 	snps = parser.add_argument_group('Pileup options (if using --pileup)')
 	snps.add_argument('--mapid', type=float, metavar='FLOAT',
 		default=94.0, help='Discard reads with alignment identity < MAPID (94.0)')
@@ -448,6 +462,7 @@ def print_snp_arguments(args):
 		else:
 			lines.append("  input reads (unpaired): %s" % args['m1'])
 		lines.append("  alignment speed/sensitivity: %s" % args['speed'])
+		lines.append("  alignment mode: %s" % args['mode'])
 		lines.append("  number of reads to use from input: %s" % (args['max_reads'] if args['max_reads'] else 'use all'))
 		lines.append("  number of threads for database search: %s" % args['threads'])
 	if args['call']:
