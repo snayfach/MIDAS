@@ -63,6 +63,10 @@ Run the following command to test MIDAS:
 
 This will take a few minutes to complete. If you don't have VSEARCH and HMMER installed, the last test (for building a custom database) will fail. This is OK and will not affect the rest of the program.  
 
+If you do want to test the database building module, you'll need to add HMMER and VSEARCH installation directories to your PATH:  
+`export PATH=$PATH:/vsearch/installation/directory`  
+`export PATH=$PATH:/hmmer/installation/directory`
+
 ### Update MIDAS  
 MIDAS changes over time as new features are added and bugs are fixed  
 
