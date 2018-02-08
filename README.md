@@ -7,7 +7,7 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
  * [How it works](docs/overview.md)  
  * [Install or update software](docs/install.md)  
  * [Step-by-step tutorial](docs/tutorial.md)  
- * [Mailing list](https://groups.google.com/forum/#!forum/midas-user-group)  
+ * [Docker-image](https://github.com/FredHutch/docker-midas)  
 2. Reference databse 
  * [Download default database](docs/ref_db.md)  
  * [Build your own custom database](docs/build_db.md)
