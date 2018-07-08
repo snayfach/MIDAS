@@ -9,9 +9,9 @@ Before running these scripts, you'll need to have run:
 ### Step 1: identify rare SNPs that disriminate individual strains of a particular species
 
  * Scan across the entire genome of a patricular species
- * At each genomic site, compute the presence-absence of the four nucleotides across metagenomic samples
- * Identify SNPs (particular nucleotide at a genomic site) that rarely occur across samples
- * Because these SNPs are rare, they serve as good markers of individual strains 
+ * At each genomic site, compute the presence-absence of the four nucleotides across metagenomic samples from unrelated individuals
+ * Identify SNPs (particular nucleotide at a genomic site) that rarely occur in different unrelated samples
+ * Because these SNPs are rarely found in different individuals, they serve as good markers of host-specific strains 
 
 #### Command usage:
 
@@ -21,10 +21,11 @@ Before running these scripts, you'll need to have run:
 
 <b>--samples STR </b>  
 Comma-separated list of samples to use for training  
+Useful for specifying the subset of samples from unrelated subjects in SNP matrix  
 By default, all samples are used
     
 <b>--min_freq FLOAT </b>   
- Minimum allele frequency (proportion of reads) per site for SNP calling (0.10)  
+Minimum allele frequency (proportion of reads) per site for SNP calling (0.10)  
   
 <b>--min_reads INT </b>     
 Minimum number of reads supporting allele per site for SNP calling (3)  
@@ -49,9 +50,10 @@ Useful for quick tests
 
       
 ### Step 2: track rare SNPs between samples and determine transmission 
- * Compute the presence of marker SNPs (identified in Step 1) across metagenomic samples
+ * Compute the presence of marker SNPs (identified in Step 1) across all metagenomic samples, including from related individuals
  * Quantify the number and fraction of marker SNPs that are shared between all pairs of metagenomic samples
- * Based on a sharing cutoff (e.g. 5%), determine if a strain is shared or not
+ * Based on a SNP sharing cutoff (e.g. 5%), determine if a strain is shared or not
+ * Because these SNPs are rarely found in unrelated individuals (Step 1), their presence in multiple samples is strong evidence of strain sharing/transmission
 
 #### Command usage:
 
