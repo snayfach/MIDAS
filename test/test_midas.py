@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from distutils.version import StrictVersion
+from multiprocessing import cpu_count
 
 def run(command):
 	""" run shell command & return unix exit code """
@@ -147,7 +148,7 @@ class _15_BuildDB(unittest.TestCase):
 	def test_class(self):
 		command = 'tar -zxvf genomes.tar.gz'
 		err, code = run(command)
-		command = 'build_midas_db.py genomes genomes.mapfile db --threads 10'
+		command = 'build_midas_db.py genomes genomes.mapfile db --threads ' + str(cpu_count())
 		err, code = run(command)
 		self.assertTrue(code==0, msg=err)
 
