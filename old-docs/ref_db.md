@@ -1,3 +1,6 @@
+## CAUTION:  This verbatim copy of the original [MIDAS tool](https://github.com/snayfach/MIDAS) documentation is OUT OF DATE for the MIDAS-IGGdb update, and only included as a temporary reference during construction of MIDAS-IGGdb.
+
+
 # MIDAS reference database
 Description of how the MIDAS database was constructed, how the species groups compare to annotated Latin names, how well the database works in different types of environments, and how to download it.
 

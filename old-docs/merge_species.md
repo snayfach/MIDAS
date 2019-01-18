@@ -1,3 +1,7 @@
+## CAUTION:  This verbatim copy of the original [MIDAS tool](https://github.com/snayfach/MIDAS) documentation is OUT OF DATE for the MIDAS-IGGdb update, and only included as a temporary reference during construction of MIDAS-IGGdb.
+
+
+
 ## Overview
 Merge species abundance files across samples
 As input, the script takes a list of sample directories. As output, matrix files are produced with relative abundance matrix, marker gene read-depth, counts of reads mapped to marker genes, and and table of species prevalence.

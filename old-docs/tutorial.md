@@ -1,3 +1,6 @@
+## CAUTION:  This verbatim copy of the original [MIDAS tool](https://github.com/snayfach/MIDAS) documentation is OUT OF DATE for the MIDAS-IGGdb update, and only included as a temporary reference during construction of MIDAS-IGGdb.
+
+
 # Tutorial
 
 This step-by-step tutorial will walk you through downloading, installing, and running MIDAS

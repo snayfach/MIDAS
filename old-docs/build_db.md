@@ -1,3 +1,7 @@
+## CAUTION:  This verbatim copy of the original [MIDAS tool](https://github.com/snayfach/MIDAS) documentation
+is OUT OF DATE for the MIDAS-IGGdb update, and only included as a temporary reference during
+construction of MIDAS-IGGdb.
+
 # Build custom MIDAS database
 
 This script will allow you to build a MIDAS database using your own genomes or metagenomic assemblies for one or more species. 

@@ -1,3 +1,6 @@
+## CAUTION:  This verbatim copy of the original [MIDAS tool](https://github.com/snayfach/MIDAS) documentation is OUT OF DATE for the MIDAS-IGGdb update, and only included as a temporary reference during construction of MIDAS-IGGdb.
+
+
 ## Gene Content Dynamics
 
 These scripts will allow you to compare the gene content of a species between all pairs of metagenomic samples. 

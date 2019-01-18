@@ -1,3 +1,7 @@
+## CAUTION:  This verbatim copy of the original [MIDAS tool](https://github.com/snayfach/MIDAS) documentation is OUT OF DATE for the MIDAS-IGGdb update, and only included as a temporary reference during construction of MIDAS-IGGdb.
+
+
+
 ## Overview
 Description: perform pooled-sample core-genome SNP calling. For each species, this script will pool data across multiple samples. Based on this pooled data, it will identify core genomic sites present in most samples. Next it will determine if any of these core-sites are bi-allelic SNPs (i.e. there are two alleles at >5% frequency). Take a close look at the options; there are different ways of doing this step.
 

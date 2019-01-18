@@ -1,3 +1,6 @@
+## CAUTION:  This verbatim copy of the original [MIDAS tool](https://github.com/snayfach/MIDAS) documentation is OUT OF DATE for the MIDAS-IGGdb update, and only included as a temporary reference during construction of MIDAS-IGGdb.
+
+
 ## Single-nucleotide-polymorphism prediction
 This script will map metagenomic reads to bacterial reference genomes and quantify nucleotide variation along the entire genome (i.e. the read depth and observed alleles at each position). After running this script for multiple samples, you can perform pooled-sample, core-genome SNP calling [read more](merge_snvs.md). You can either target one or more specific species (`--species_id`), or provide this script a species abundance file  
 
