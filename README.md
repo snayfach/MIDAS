@@ -15,4 +15,4 @@ maintained in this repo while it is under construction.
 In total, this IGGdb update represents 206,581 genomes fromm PATRIC, IMG, and
 the Human Gut MAG dataset clustered to 23,790 species at 95% identity.  All
 data required to construct the new MIDAS-IGGdb database is currently cached
-on the CZ Biohub S3 under [s3://microbiome-bdimitrov/IGGdb](http://microbiome-bdimitrov.s3.amazonaws.com/IGGdb/README.TXT).  See the README in that folder for mode information.
+on the CZ Biohub S3 under [s3://microbiome-bdimitrov/IGGdb](http://microbiome-bdimitrov.s3.amazonaws.com/IGGdb/README.TXT).  
