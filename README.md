@@ -2,10 +2,11 @@
 
 The MIDAS-IGGdb tool under construction in this repo is based on the
 original [MIDAS tool](https://github.com/snayfach/MIDAS) with modifications
-that integrate all 23,790 species from [IGGdb](https://github.com/snayfach/IGGdb).
+that integrate all 23,790 species from [IGGdb](https://github.com/snayfach/IGGdb),
+which are derived by clustering a total of 206,581 genomes from
+PATRIC, IMG, and the Human Gut MAG dataset to 95% identity.
 
-The 23,790 IGG species are derived by clustering a total of 206,581 genomes from
-PATRIC, IMG, and the Human Gut MAG dataset to 95% identity.  In contrast, the original
+In contrast, the original
 MIDAS db version 1.2 represents only 30,000 genomes clustered to 5,926 species
 at 99% identity.
 
@@ -19,7 +20,7 @@ To support the larger database, the original MIDAS `run_species` command
 is being deprecated in favor of the new [IGGSearch tool](https://github.com/snayfach/IGGsearch).
 
 
-# Building the MIDAS-IGG database
+# Building the MIDAS-IGGdb database
 
 To accommodate the vast increase in source data and support its further enrichment
 for SNP calling, we've created a MIDAS-IGG tool called `SMELTER` that supercedes
