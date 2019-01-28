@@ -62,7 +62,7 @@ class Pangenome:
 		self.count_genes = 0
 		try: os.makedirs(self.tmp)
 		except: pass
-	
+
 	def store_genes(self):
 		""" Store genes from all genomes """
 		self.genes = {}
@@ -90,25 +90,24 @@ Summary Statistics
 
 Genomes: %(genomes)s
 Genes: %(genes)s
-Gene clusters (99%% identity): %(centroids_99)s
 Gene clusters (95%% identity): %(centroids_95)s
 Gene clusters (90%% identity): %(centroids_90)s
 Gene clusters (85%% identity): %(centroids_85)s
 Gene clusters (80%% identity): %(centroids_80)s
 Gene clusters (75%% identity): %(centroids_75)s
-		
+
 Output files
 ############
 genes.ffn
   all genes from specified genomes
-  
+
 centroids.ffn
-  gene sequences from 99%% identity gene clusters
+  gene sequences from 95%% identity gene clusters
   used for recruiting metagenomic reads
-  
+
 gene_info.txt
   information for all genes from genes.ffn
-  the fields centroid_{99,95,90,95,80,75} indicate mappings between gene_id and gene clusters
+  the fields centroid_{95,90,95,80,75} indicate mappings between gene_id and gene clusters
 """ % self.stats)
 		file.close()
 
@@ -120,18 +119,12 @@ gene_info.txt
 		file.close()
 
 	def cluster_genes(self, threads):
-		""" Cluster genes at 99% ID; Clustering centroids at lower %ID cutoffs """
-		self.uclust(
-			genes='%s/genes.ffn' % self.dir,
-			pid=0.99,
-			centroids='%s/centroids.99.ffn' % self.tmp,
-			clusters='%s/uclust.99.txt' % self.tmp,
-			threads=threads)
-		self.store_gene_info(pid=99)
-		shutil.copy('%s/centroids.99.ffn' % self.tmp, '%s/centroids.ffn' % self.dir)
-		for pid in [95, 90, 85, 80, 75]:
+		""" Given 95% ID clusters, re-clustering centroids at lower %ID cutoffs """
+		self.store_gene_info(pid=95)  # TODO: Get input in place
+		shutil.copy('%s/centroids.95.ffn' % self.tmp, '%s/centroids.ffn' % self.dir)
+		for pid in [90, 85, 80, 75]:
 			self.uclust(
-				genes='%s/centroids.99.ffn' % self.tmp,
+				genes='%s/centroids.95.ffn' % self.tmp,
 				pid=pid/100.0,
 				centroids='%s/centroids.%s.ffn' % (self.tmp, pid),
 				clusters='%s/uclust.%s.txt' % (self.tmp, pid),
@@ -152,16 +145,15 @@ gene_info.txt
 				self.stats['centroids_%s' % pid] += 1
 			else:
 				continue
-			
+
 	def store_cluster_membership(self):
-		""" Map gene to 99% ID centroids at each clustering %ID cutoff """
+		""" Map gene to 95% ID centroids at each clustering %ID cutoff """
 		for gene in self.genes.values():
-			gene.centroid_99 = gene.centroid_id[99]
-			gene.centroid_95 = self.genes[gene.centroid_99].centroid_id[95]
-			gene.centroid_90 = self.genes[gene.centroid_99].centroid_id[90]
-			gene.centroid_85 = self.genes[gene.centroid_99].centroid_id[85]
-			gene.centroid_80 = self.genes[gene.centroid_99].centroid_id[80]
-			gene.centroid_75 = self.genes[gene.centroid_99].centroid_id[75]
+			gene.centroid_95 = gene.centroid_id[95]
+			gene.centroid_90 = self.genes[gene.centroid_95].centroid_id[90]
+			gene.centroid_85 = self.genes[gene.centroid_95].centroid_id[85]
+			gene.centroid_80 = self.genes[gene.centroid_95].centroid_id[80]
+			gene.centroid_75 = self.genes[gene.centroid_95].centroid_id[75]
 
 	def write_gene_info(self):
 		""" Record gene info in gene_info.txt """
@@ -258,27 +250,27 @@ def build_repgenome_db(args, genomes, species):
 		shutil.copy(sp.genomes[sp.rep_genome].files['genes'], '%s/genome.features' % outdir)
 		#build_features_file(sp, fpath='%s/genome.features' % outdir)
 		shutil.copy(sp.genomes[sp.rep_genome].files['fna'], '%s/genome.fna' % outdir)
-		
+
 def find_gene(gene, contigs):
 	fwd_gene = str(gene).upper()
-	rev_gene = str(gene.reverse_complement()).upper()	
+	rev_gene = str(gene.reverse_complement()).upper()
 	for id, contig in contigs:
 		for seq, strand in [(fwd_gene, '+'), (rev_gene, '-')]:
-			try: 
+			try:
 				start = contig.index(seq) + 1
 				end = start + len(seq) - 1
 				return (id, start, end, strand)
 			except:
 				continue
 	sys.exit("Gene not found")
-				
+
 def build_features_file(sp, fpath):
-	
-	contigs = [] 
+
+	contigs = []
 	with open(sp.genomes[sp.rep_genome].files['fna']) as f:
 		for contig in Bio.SeqIO.parse(f, 'fasta'):
 			contigs.append([contig.id, str(contig.seq).upper()])
-	
+
 	features = []
 	with open(sp.genomes[sp.rep_genome].files['ffn']) as f:
 		for gene in Bio.SeqIO.parse(f, 'fasta'):
@@ -291,12 +283,12 @@ def build_features_file(sp, fpath):
 #					contigs = contigs[1:]
 #				else:
 #					break
-					
+
 	with open(fpath, 'w') as f:
 		f.write('\t'.join(['gene_id', 'scaffold_id', 'start', 'end', 'strand'])+'\n')
 		for r in features:
 			f.write('\t'.join([str(_) for _ in r])+'\n')
-		
+
 
 def build_pangenome_db(args, species):
 	for sp in species:
@@ -320,7 +312,7 @@ def write_species_info(args, species):
 	for sp in species:
 		values = [str(_) for _ in [sp.id, sp.rep_genome, sp.ngenomes]]
 		outfile.write('\t'.join(values)+'\n')
-		
+
 def write_genome_info(args, species):
 	outfile = utility.iopen('%s/genome_info.txt' % args['outdir'], 'w')
 	header = ['genome_id', 'species_id', 'rep_genome']
@@ -420,7 +412,7 @@ class MarkerGenes:
 		command = "hs-blastn index %s " % fasta
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env={'PATH':sys.path})
 		utility.check_exit_code(process, command)
-	
+
 	def parse_fasta(self, p_in):
 		""" Return lookup of seq_id to sequence for PATRIC genes """
 		seqs = {}
@@ -435,7 +427,7 @@ class MarkerGenes:
 		command += " %s/phyeco.fa " % self.dir
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		utility.check_exit_code(process, command)
-	
+
 	def build_mapping_cutoffs(self):
 		cutoffs = {
 			'B000032':95.50,
@@ -460,16 +452,16 @@ class MarkerGenes:
 		outfile.close()
 
 def run_pipeline(args):
-		
+
 	print("Reading species & genome info")
 	species = read_species(args)
 	write_species_info(args, species)
 	genomes = read_genomes(species)
 	write_genome_info(args, species)
-	
+
 	print("\nBuilding pangenome database")
 	build_pangenome_db(args, species)
-				
+
 	print("\nBuilding representative genome database")
 	build_repgenome_db(args, genomes, species)
 
@@ -480,7 +472,3 @@ def run_pipeline(args):
 	if args['compress']:
 		print("Compressing data\n")
 		compress(args['outdir'])
-
-
-
-
