@@ -34,8 +34,6 @@ SMELTER supports the following workflows.
 
 ## Building GMAP/GSNAP index for haplotype encrichment
 ```
-cd /path/to/fast-scratch-space
-/path/to/MIDAS-IGG/smelter/main.py build_gsnap_index_into outdir from /path/to/IGGdb/v1.0.0/metadata/species_info.tsv
-mv outdir /path/to/IGGdb/v1.0.0/gsnap_repgenome_index
+/path/to/MIDAS-IGG/smelter/main.py build_gsnap_index /path/to/fast-scratch-space/outdir /path/to/IGGdb/v1.0.0/metadata/species_info.tsv
+mv /path/to/fast-scratch-space/outdir /path/to/IGGdb/v1.0.0/gsnap_index
 ```
-
