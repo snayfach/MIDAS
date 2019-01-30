@@ -16,12 +16,26 @@ import sys
 assert sys.version_info >= (3, 6), "Please run this script with Python version >= 3.6."
 
 
+import os
 from os.path import dirname, basename, abspath, isdir
 import traceback
 import json
 import random
 import time
 from utilities import tsprint, backtick, makedirs, tsv_rows, parse_table, ProgressTracker
+
+
+def repgenome_for(filename,
+                  ORIGINS=["patric", "hgm", "img"], # pylint: disable=dangerous-default-value
+                  EXTENSIONS=["fna"]): # pylint: disable=dangerous-default-value
+    """Deconstructs a repgenome filename into constituent elements, which can be used to look up information in IGGdb species_info"""
+    rg = {}
+    rg['id'], rg['origin'], rg['extension'] = filename.rsplit('.', 2)
+    assert rg['extension'] in EXTENSIONS
+    assert rg['origin'] in ORIGINS
+    rg['id.origin'] = rg['id'] + '.' + rg['origin']
+    rg['id.origin.extension'] = rg['id.origin'] + '.' + rg['extension']
+    return rg
 
 
 def smelt(argv):
@@ -31,15 +45,24 @@ def smelt(argv):
         ' '.join(argv)
     )
     _, subcmd, outdir, iggtoc = argv
-    assert subcmd.replace("-", "_").lower() == "build_gsnap_index"
+    subcmd = subcmd.replace("-", "_").lower()
+    SUBCOMMANDS = {
+        f"build_gsnap_{gdim}_index": gdim
+        for gdim in ["pangenomes", "repgenomes"]
+    }
+    gdim = SUBCOMMANDS.get(subcmd)
+    try:
+        assert gdim in ["pangenomes", "repgenomes"]
+    except Exception as e:
+        e.help_text = f"Try a supported subcommand instead of {subcmd}."
+        raise
     assert basename(iggtoc) == "species_info.tsv"
     try:
         metadata = dirname(abspath(iggtoc))
         assert basename(metadata) == "metadata"
         iggdb = dirname(metadata)
-        # assert re.match("^v[0-9]+\.[0-9]+\.[0-9]+$", basename(iggdb))
-        pangenomes = f"{iggdb}/pangenomes"
-        assert isdir(pangenomes)
+        assert isdir(f"{iggdb}/pangenomes")
+        assert isdir(f"{iggdb}/repgenomes")
     except Exception as e:
         e.help_text = f"Unexpected directory structure for MIDAS-IGGdb database around {iggtoc}."
         raise
@@ -49,18 +72,59 @@ def smelt(argv):
     random.seed(time.time())
     random_index = random.randrange(0, len(species))
     tsprint(json.dumps(species[random_index], indent=4))
-    tsprint("Now collating fasta for gsnap index construction.")
+    tsprint(f"Now collating fasta for gsnap {gdim} index construction.")
     MAX_FAILURES = 100
     count_successes = 0
     ticker = ProgressTracker(target=len(species))
     failures = []
+    if gdim == "repgenomes":
+        repgenome_references = {}
+        for filename in backtick(f"ls {iggdb}/repgenomes").strip().split("\n"):
+            rg = repgenome_for(filename)
+            repgenome_references[rg['id']] = rg
     for s in species:
-        # Prepend species_alt_id to each header in the species pangenome, and append to all.fa.
         try:
             s_species_alt_id = s['species_alt_id']
-            s_pangenome = f"{pangenomes}/{s_species_alt_id}/centroids.fa"
-            s_tempfile = f"{outdir}/temp_{s_species_alt_id}.fa"
-            s_header_xform = f"sed 's=^>=>{s_species_alt_id}|=' {s_pangenome} > {s_tempfile} && cat {s_tempfile} >> {outdir}/pangenomes.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
+            s_tempfile = f"{outdir}/temp_{gdim}_{s_species_alt_id}.fa"
+            # Note how the header tags we emit below for pangenomes and repgenomes are consistent;
+            # this should enable easy reconciliation of gsnap alignments against the
+            # two separate indexes.
+            if gdim == "pangenomes":
+                #
+                # The header tag we wish to emit would be
+                #
+                #    >4547837|1657.8.patric|rest_of_original_header_from_pangenome_file
+                #
+                # where
+                #
+                #    species_alt_id = 4547837                                # from species_alt_id column in table
+                #    s_rg_id_origin = 1657.8.patric                          # from original header in pangenome file
+                #
+                # As the original header in the pangenome file already begins
+                # with s_rg_id_origin, we just need to prepend species_alt_id.
+                #
+                s_pangenome = f"{iggdb}/pangenomes/{s_species_alt_id}/centroids.fa"
+                s_header_xform = f"sed 's=^>=>{s_species_alt_id}|=' {s_pangenome} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
+            else:
+                assert gdim == "repgenomes"
+                #
+                # The header tag we wish to emit would be
+                #
+                #    >4547837|1657.8.patric|entire_original_header_from_repgenome_file
+                #
+                # where
+                #
+                #    species_alt_id = 4547837                                # species_alt_id column in species_info
+                #    s_rg_id = 1657.8                                        # representative_genome column in species_info
+                #    s_rg_id_origin = 1657.8.patric                          # from file listing in repgenomes dir
+                #    s_rg_id_origin_extension = 1657.8.patric.fna            # from file listing in repgenomes dir
+                #
+                s_rg = repgenome_references[s['representative_genome']]
+                s_rg_id = s_rg['id']
+                s_rg_id_origin = s_rg['id.origin']
+                s_rg_id_origin_extension = s_rg['id.origin.extension']
+                assert s['representative_genome'] == s_rg_id
+                s_header_xform = f"sed 's=^>=>{s_species_alt_id}|{s_rg_id_origin}|=' {iggdb}/repgenomes/{s_rg_id_origin_extension} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
             status = backtick(s_header_xform)
             assert status == "SUCCEEDED"
             count_successes += 1
@@ -72,14 +136,26 @@ def smelt(argv):
                 raise
         finally:
             ticker.advance(1)
-    if failures:
-        failed_species_alt_ids = [s['species_alt_id'] for s in failures]
-        tsprint(f"Ignoring {len(failures)} failed species: {json.dumps(failed_species_alt_ids, indent=4)}")
-        tsprint("For more informaiton on each failed species, see its corresponding temp file.")
-        tsprint(f"Only {count_successes} of {len(species)} species were processed successfully.")
-    else:
+    failed_species_alt_ids = [s['species_alt_id'] for s in failures]
+    if not failures:
         tsprint(f"All {len(species)} species were processed successfully.")
-
+    else:
+        tsprint(f"Collation of {len(failures)} species failed.  Those are missing from the final {gdim}.fa")
+    # Create output file only on success.
+    # Dump stats in json.
+    collation_status = {
+        "comment": f"Collation into {gdim}.fa succeeded on {time.asctime()}.",
+        "successfully_collated_species_count": count_successes,
+        "failed_species_count": len(failures),
+        "total_species_count": len(species),
+        "failed_species_alt_ids": failed_species_alt_ids
+    }
+    collation_status_str = json.dumps(collation_status, indent=4)
+    with open(f"{outdir}/{gdim}_collation_status.json", "w") as pcs:
+        chars_written = pcs.write(collation_status_str)
+        assert chars_written == len(collation_status_str)
+        tsprint(collation_status_str)
+    os.rename(f"{outdir}/temp_{gdim}.fa", f"{outdir}/{gdim}.fa")
 
 def main():
     try:
