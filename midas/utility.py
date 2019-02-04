@@ -78,26 +78,29 @@ def parallel_old(function, list, threads):
 			if process.is_alive(): indexes.append(index)
 		processes = [processes[i] for i in indexes]
 
-def parallel(function, argument_list, threads):
+def parallel(function, argument_list, threads, no_results=False):
 	""" Based on: https://gist.github.com/admackin/003dd646e5fadee8b8d6 """
 	import multiprocessing as mp
 	import signal
 	import time
-	
+
 	def init_worker():
 		signal.signal(signal.SIGINT, signal.SIG_IGN)
-	
+
 	pool = mp.Pool(int(threads), init_worker)
-	
+
 	try:
 		results = []
 		for arguments in argument_list:
 			p = pool.apply_async(function, args=arguments)
 			results.append(p)
 		pool.close()
-		
+
 		while True:
 			if all(r.ready() for r in results):
+				pool.join()
+				if no_results:
+					return
 				return [r.get() for r in results]
 			time.sleep(1)
 
@@ -115,7 +118,7 @@ def add_executables(args):
 	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
 	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-	
+
 	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools']:
 		if not os.path.isfile(args[arg]):
 			sys.exit("\nError: File not found: %s\n" % args[arg])
@@ -180,12 +183,12 @@ def check_database(args):
 		error += "\nTo download the default database, run: MIDAS/scripts/download_ref_db.py"
 		error += "\nTo build a custom database, run: MIDAS/scripts/build_midas_db.py\n"
 		sys.exit(error)
-	for dir in ['marker_genes', 'pan_genomes', 'rep_genomes']:
+	for dir in ['pangenomes', 'repgenomes']:
 		path = '%s/%s' % (args['db'], dir)
 		if not os.path.isdir(path):
 			error = "\nError: Could not locate required database directory: %s\n" % path
 			sys.exit(error)
-	for file in ['species_info.txt']:
+	for file in ['metadata/species_info.tsv']:
 		path = '%s/%s' % (args['db'], file)
 		if not os.path.exists(path):
 			error = "\nError: Could not locate required database file: %s\n" % path
@@ -260,14 +263,14 @@ def read_genes(species_id, db):
 			gene['end'] = int(gene['end'])
 			gene['seq'] = get_gene_seq(gene, genome[gene['scaffold_id']])
 			genes.append(gene)
-	
+
 	# sort genes
 	coords = [[gene['scaffold_id'], gene['start'], -gene['end']] for gene in genes]
 	indexes = sorted(range(len(coords)), key=lambda k: coords[k])
 	sorted_genes = [genes[i] for i in indexes]
-			
+
 	return {'list':sorted_genes, 'index':0}
-	
+
 
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """

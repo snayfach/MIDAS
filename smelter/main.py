@@ -22,20 +22,8 @@ import traceback
 import json
 import random
 import time
-from utilities import tsprint, backtick, makedirs, tsv_rows, parse_table, ProgressTracker
-
-
-def repgenome_for(filename,
-                  ORIGINS=["patric", "hgm", "img"], # pylint: disable=dangerous-default-value
-                  EXTENSIONS=["fna"]): # pylint: disable=dangerous-default-value
-    """Deconstructs a repgenome filename into constituent elements, which can be used to look up information in IGGdb species_info"""
-    rg = {}
-    rg['id'], rg['origin'], rg['extension'] = filename.rsplit('.', 2)
-    assert rg['extension'] in EXTENSIONS
-    assert rg['origin'] in ORIGINS
-    rg['id.origin'] = rg['id'] + '.' + rg['origin']
-    rg['id.origin.extension'] = rg['id.origin'] + '.' + rg['extension']
-    return rg
+from utilities import tsprint, backtick, makedirs, ProgressTracker
+from iggdb import IGGdb
 
 
 def smelt(argv):
@@ -60,29 +48,24 @@ def smelt(argv):
     try:
         metadata = dirname(abspath(iggtoc))
         assert basename(metadata) == "metadata"
-        iggdb = dirname(metadata)
-        assert isdir(f"{iggdb}/pangenomes")
-        assert isdir(f"{iggdb}/repgenomes")
+        iggdb_root = dirname(metadata)
+        assert isdir(f"{iggdb_root}/pangenomes")
+        assert isdir(f"{iggdb_root}/repgenomes")
     except Exception as e:
         e.help_text = f"Unexpected directory structure for MIDAS-IGGdb database around {iggtoc}."
         raise
     makedirs(outdir, exist_ok=False)
-    species = list(parse_table(tsv_rows(iggtoc)))
-    tsprint(f"Found {len(species)} species in {iggtoc}, for example:")
+    iggdb = IGGdb(iggdb_root)
+    tsprint(f"Found {len(iggdb.species)} species in {iggtoc}, for example:")
     random.seed(time.time())
-    random_index = random.randrange(0, len(species))
-    tsprint(json.dumps(species[random_index], indent=4))
+    random_index = random.randrange(0, len(iggdb.species))
+    tsprint(json.dumps(iggdb.species[random_index], indent=4))
     tsprint(f"Now collating fasta for gsnap {gdim} index construction.")
     MAX_FAILURES = 100
     count_successes = 0
-    ticker = ProgressTracker(target=len(species))
+    ticker = ProgressTracker(target=len(iggdb.species))
     failures = []
-    if gdim == "repgenomes":
-        repgenome_references = {}
-        for filename in backtick(f"ls {iggdb}/repgenomes").strip().split("\n"):
-            rg = repgenome_for(filename)
-            repgenome_references[rg['id']] = rg
-    for s in species:
+    for s in iggdb.species:
         try:
             s_species_alt_id = s['species_alt_id']
             s_tempfile = f"{outdir}/temp_{gdim}_{s_species_alt_id}.fa"
@@ -103,7 +86,7 @@ def smelt(argv):
                 # As the original header in the pangenome file already begins
                 # with s_rg_id_origin, we just need to prepend species_alt_id.
                 #
-                s_pangenome = f"{iggdb}/pangenomes/{s_species_alt_id}/centroids.fa"
+                s_pangenome = f"{iggdb_root}/pangenomes/{s_species_alt_id}/centroids.fa"
                 s_header_xform = f"sed 's=^>=>{s_species_alt_id}|=' {s_pangenome} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
             else:
                 assert gdim == "repgenomes"
@@ -115,16 +98,11 @@ def smelt(argv):
                 # where
                 #
                 #    species_alt_id = 4547837                                # species_alt_id column in species_info
-                #    s_rg_id = 1657.8                                        # representative_genome column in species_info
                 #    s_rg_id_origin = 1657.8.patric                          # from file listing in repgenomes dir
-                #    s_rg_id_origin_extension = 1657.8.patric.fna            # from file listing in repgenomes dir
                 #
-                s_rg = repgenome_references[s['representative_genome']]
-                s_rg_id = s_rg['id']
-                s_rg_id_origin = s_rg['id.origin']
-                s_rg_id_origin_extension = s_rg['id.origin.extension']
-                assert s['representative_genome'] == s_rg_id
-                s_header_xform = f"sed 's=^>=>{s_species_alt_id}|{s_rg_id_origin}|=' {iggdb}/repgenomes/{s_rg_id_origin_extension} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
+                s_rg_id_origin = s['representative_genome_with_origin']
+                s_rg_path = s['representative_genome_path']
+                s_header_xform = f"sed 's=^>=>{s_species_alt_id}|{s_rg_id_origin}|=' {s_rg_path} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
             status = backtick(s_header_xform)
             assert status == "SUCCEEDED"
             count_successes += 1
@@ -138,7 +116,7 @@ def smelt(argv):
             ticker.advance(1)
     failed_species_alt_ids = [s['species_alt_id'] for s in failures]
     if not failures:
-        tsprint(f"All {len(species)} species were processed successfully.")
+        tsprint(f"All {len(iggdb.species)} species were processed successfully.")
     else:
         tsprint(f"Collation of {len(failures)} species failed.  Those are missing from the final {gdim}.fa")
     # Create output file only on success.
@@ -147,7 +125,7 @@ def smelt(argv):
         "comment": f"Collation into {gdim}.fa succeeded on {time.asctime()}.",
         "successfully_collated_species_count": count_successes,
         "failed_species_count": len(failures),
-        "total_species_count": len(species),
+        "total_species_count": len(iggdb.species),
         "failed_species_alt_ids": failed_species_alt_ids
     }
     collation_status_str = json.dumps(collation_status, indent=4)

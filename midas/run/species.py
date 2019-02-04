@@ -182,9 +182,9 @@ def read_abundance(inpath):
 	for rec in utility.parse_file(inpath):
 		# format record
 		if 'species_id' in rec: rec['species_id'] = rec['species_id']
-		if 'count_reads' in rec: rec['count_reads'] = int(rec['count_reads'])
-		if 'coverage' in rec: rec['coverage'] = float(rec['coverage'])
-		if 'relative_abundance' in rec: rec['relative_abundance'] = float(rec['relative_abundance'])
+		if 'total_mapped_reads' in rec: rec['count_reads'] = int(rec['total_mapped_reads'])
+		if 'avg_read_depth' in rec: rec['coverage'] = float(rec['avg_read_depth'])
+		if 'species_abund' in rec: rec['relative_abundance'] = float(rec['species_abund'])
 		abun[rec['species_id']] = rec
 	return abun
 
@@ -194,7 +194,7 @@ def select_species(args):
 	species_sets = {}
 	# read in species abundance if necessary
 	if any([args['species_topn'], args['species_cov']]):
-		species_abundance = read_abundance('%s/species/species_profile.txt' % args['outdir'])
+		species_abundance = read_abundance('%s/iggsearch/species_profile.tsv' % args['outdir'])
 		# user specifed a coverage threshold
 		if args['species_cov']:
 			species_sets['species_cov'] = set([])
@@ -227,12 +227,12 @@ def select_species(args):
 	return my_species
 
 def run_pipeline(args):
-	
+
 	""" Run entire pipeline """
 	# read info files
 	species_info = read_annotations(args)
 	marker_info = read_marker_info(args)
-		
+
 	# align reads
 	start = time()
 	print("\nAligning reads to marker-genes database")
@@ -250,7 +250,7 @@ def run_pipeline(args):
 	species_alns = assign_non_unique(args, best_hits, unique_alns, marker_info)
 	print("  %s minutes" % round((time() - start)/60, 2))
 	print("  %s Gb maximum memory" % utility.max_mem_usage())
-	
+
 	# estimate species abundance
 	start = time()
 	print("\nEstimating species abundance")
@@ -259,7 +259,7 @@ def run_pipeline(args):
 	species_abundance = normalize_counts(species_alns, total_gene_length)
 	print("  %s minutes" % round((time() - start)/60, 2) )
 	print("  %s Gb maximum memory" % utility.max_mem_usage())
-	
+
 	# write results
 	write_abundance(args['outdir'], species_abundance, species_info)
 

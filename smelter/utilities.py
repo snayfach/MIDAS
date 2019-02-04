@@ -6,10 +6,11 @@ import sys
 import time
 import threading
 import subprocess
+import multiprocessing
 
 
 # Thread-safe and timestamped prints.
-tslock = threading.RLock()
+tslock = multiprocessing.RLock()
 
 
 def timestamp(t):
