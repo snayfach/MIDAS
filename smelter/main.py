@@ -17,10 +17,8 @@ assert sys.version_info >= (3, 6), "Please run this script with Python version >
 
 
 import os
-from os.path import dirname, basename, abspath, isdir
 import traceback
 import json
-import random
 import time
 from utilities import tsprint, backtick, makedirs, ProgressTracker
 from iggdb import IGGdb
@@ -28,14 +26,12 @@ from iggdb import IGGdb
 
 def smelt(argv):
     cwd = backtick('pwd')
-    tsprint(
-        f"cd {cwd}\n" +
-        ' '.join(argv)
-    )
-    _, subcmd, outdir, iggtoc = argv
+    my_command = f"cd {cwd}; " + ' '.join(argv)
+    tsprint(my_command)
+    _, subcmd, outdir, iggdb_toc = argv
     subcmd = subcmd.replace("-", "_").lower()
     SUBCOMMANDS = {
-        f"build_gsnap_{gdim}_index": gdim
+        f"collate_{gdim}": gdim
         for gdim in ["pangenomes", "repgenomes"]
     }
     gdim = SUBCOMMANDS.get(subcmd)
@@ -44,28 +40,14 @@ def smelt(argv):
     except Exception as e:
         e.help_text = f"Try a supported subcommand instead of {subcmd}."
         raise
-    assert basename(iggtoc) == "species_info.tsv"
-    try:
-        metadata = dirname(abspath(iggtoc))
-        assert basename(metadata) == "metadata"
-        iggdb_root = dirname(metadata)
-        assert isdir(f"{iggdb_root}/pangenomes")
-        assert isdir(f"{iggdb_root}/repgenomes")
-    except Exception as e:
-        e.help_text = f"Unexpected directory structure for MIDAS-IGGdb database around {iggtoc}."
-        raise
     makedirs(outdir, exist_ok=False)
-    iggdb = IGGdb(iggdb_root)
-    tsprint(f"Found {len(iggdb.species)} species in {iggtoc}, for example:")
-    random.seed(time.time())
-    random_index = random.randrange(0, len(iggdb.species))
-    tsprint(json.dumps(iggdb.species[random_index], indent=4))
+    iggdb = IGGdb(iggdb_toc)
     tsprint(f"Now collating fasta for gsnap {gdim} index construction.")
     MAX_FAILURES = 100
     count_successes = 0
-    ticker = ProgressTracker(target=len(iggdb.species))
+    ticker = ProgressTracker(target=len(iggdb.species_info))
     failures = []
-    for s in iggdb.species:
+    for s in iggdb.species_info:
         try:
             s_species_alt_id = s['species_alt_id']
             s_tempfile = f"{outdir}/temp_{gdim}_{s_species_alt_id}.fa"
@@ -80,14 +62,13 @@ def smelt(argv):
                 #
                 # where
                 #
-                #    species_alt_id = 4547837                                # from species_alt_id column in table
-                #    s_rg_id_origin = 1657.8.patric                          # from original header in pangenome file
+                #    species_alt_id = 4547837                  # from species_alt_id column in table
+                #    repgenome_with_origin = 1657.8.patric     # from original header in pangenome file
                 #
                 # As the original header in the pangenome file already begins
                 # with s_rg_id_origin, we just need to prepend species_alt_id.
                 #
-                s_pangenome = f"{iggdb_root}/pangenomes/{s_species_alt_id}/centroids.fa"
-                s_header_xform = f"sed 's=^>=>{s_species_alt_id}|=' {s_pangenome} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
+                s_header_xform = f"sed 's=^>=>{s_species_alt_id}|=' {s['pangenome_path']} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
             else:
                 assert gdim == "repgenomes"
                 #
@@ -97,12 +78,12 @@ def smelt(argv):
                 #
                 # where
                 #
-                #    species_alt_id = 4547837                                # species_alt_id column in species_info
-                #    s_rg_id_origin = 1657.8.patric                          # from file listing in repgenomes dir
+                #    species_alt_id = 4547837                # species_alt_id column in species_info
+                #    repgenome_with_origin = 1657.8.patric   # from file listing in repgenomes dir
                 #
-                s_rg_id_origin = s['representative_genome_with_origin']
-                s_rg_path = s['representative_genome_path']
-                s_header_xform = f"sed 's=^>=>{s_species_alt_id}|{s_rg_id_origin}|=' {s_rg_path} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
+                s_repgenome_with_origin = s['repgenome_with_origin']
+                s_repgenome_path = s['repgenome_path']
+                s_header_xform = f"sed 's=^>=>{s_species_alt_id}|{s_repgenome_with_origin}|=' {s_repgenome_path} > {s_tempfile} && cat {s_tempfile} >> {outdir}/temp_{gdim}.fa && rm {s_tempfile} && echo SUCCEEDED || echo FAILED"
             status = backtick(s_header_xform)
             assert status == "SUCCEEDED"
             count_successes += 1
@@ -116,17 +97,18 @@ def smelt(argv):
             ticker.advance(1)
     failed_species_alt_ids = [s['species_alt_id'] for s in failures]
     if not failures:
-        tsprint(f"All {len(iggdb.species)} species were processed successfully.")
+        tsprint(f"All {len(iggdb.species_info)} species were processed successfully.")
     else:
         tsprint(f"Collation of {len(failures)} species failed.  Those are missing from the final {gdim}.fa")
     # Create output file only on success.
     # Dump stats in json.
     collation_status = {
-        "comment": f"Collation into {gdim}.fa succeeded on {time.asctime()}.",
+        "comment": f"Collation into {gdim}.fa succeeded on {time.asctime()} with command '{my_command}'.",
         "successfully_collated_species_count": count_successes,
         "failed_species_count": len(failures),
-        "total_species_count": len(iggdb.species),
-        "failed_species_alt_ids": failed_species_alt_ids
+        "total_species_count": len(iggdb.species_info),
+        "failed_species_alt_ids": failed_species_alt_ids,
+        "elapsed_time": ticker.t_elapsed
     }
     collation_status_str = json.dumps(collation_status, indent=4)
     with open(f"{outdir}/{gdim}_collation_status.json", "w") as pcs:

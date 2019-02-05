@@ -4,7 +4,6 @@ import os
 from os.path import abspath
 import sys
 import time
-import threading
 import subprocess
 import multiprocessing
 
@@ -89,6 +88,8 @@ class ProgressTracker:  # pylint: disable=too-few-public-methods
         self.current = 0
         self.t_start = time.time()
         self.t_last_print = 0
+        self.t_elapsed = 0
+        self.t_remaining = None
 
     def advance(self, amount):
         PESSIMISM = 1.25
@@ -102,6 +103,8 @@ class ProgressTracker:  # pylint: disable=too-few-public-methods
             t_eta = self.t_start + t_elapsed + t_remaining
             t_eta_str = time.strftime("%H:%M:%S", time.localtime(t_eta))
             tsprint(f"*** {self.current/self.target*100:3.1f} percent done, {t_elapsed/60:3.1f} minutes elapsed, {t_remaining/60:3.1f} minutes remaining, ETA {t_eta_str} ***")
+            self.t_elapsed = t_elapsed
+            self.t_remaining = t_remaining
 
 
 if __name__ == "__main__":

@@ -32,8 +32,14 @@ and open to public download.
 
 SMELTER supports the following workflows.
 
-## Building GMAP/GSNAP index for haplotype encrichment
+## Building GMAP/GSNAP index for haplotype encrichment and/or varint calling
 ```
-/path/to/MIDAS-IGG/smelter/main.py build_gsnap_index /path/to/fast-scratch-space/outdir /path/to/IGGdb/v1.0.0/metadata/species_info.tsv
-mv /path/to/fast-scratch-space/outdir /path/to/IGGdb/v1.0.0/gsnap_index
+/path/to/smelter/main.py collate_repgenomes /fast-scratch-space/new_work_dir /path/to/IGGdb/v1.0.0/metadata/species_info.tsv
+cd /fast-scratch-space/new_work_dir
+nohup time gmap_build -D . -d repgenomes_nt16 -k 16 repgenomes.fa
+rmdir repgenomes_nt16.maps
+mv /fast-scratch-space/new_work_dir /path/to/IGGdb/v1.0.0/gsnap_repgenomes
 ```
+Then repeat for pangenomes instead of repgenomes.
+
+It's totally fine to provide a subset of the entire species_info.tsv file.

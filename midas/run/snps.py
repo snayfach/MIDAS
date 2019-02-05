@@ -283,8 +283,7 @@ def run_pipeline(args):
 	print("\nReading reference data")
 	start = time()
 	if 'db' in args:
-		iggdb = IGGdb(args['db'])
-		args['iggdb'] = iggdb
+		args['iggdb'] = IGGdb(f"{args['db']}/metadata/species_info.tsv")
 	species = initialize_species(args)
 	contigs = initialize_contigs(species)
 	print("  %s minutes" % round((time() - start)/60, 2) )
