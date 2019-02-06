@@ -28,7 +28,7 @@ class Species:
 		self.mean_coverage = 0
 
 	def fetch_paths(self, iggdb):
-		self.paths['fna'] = iggdb.get_species(species_id=self.id)['representative_genome_path']
+		self.paths['fna'] = iggdb.get_species(species_id=self.id)['repgenome_path']
 
 class Contig:
 	""" Base class for contig """
