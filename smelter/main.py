@@ -108,7 +108,7 @@ def smelt(argv):
         "failed_species_count": len(failures),
         "total_species_count": len(iggdb.species_info),
         "failed_species_alt_ids": failed_species_alt_ids,
-        "elapsed_time": ticker.t_elapsed
+        "elapsed_time": time.time() - ticker.t_start
     }
     collation_status_str = json.dumps(collation_status, indent=4)
     with open(f"{outdir}/{gdim}_collation_status.json", "w") as pcs:
