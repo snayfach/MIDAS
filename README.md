@@ -56,5 +56,4 @@ mv /fast-scratch-space/new_work_dir /path/to/IGGdb/v1.0.0/gsnap_repgenomes
 ```
 Then repeat for pangenomes instead of repgenomes.
 
-It's totally fine to provide a subset of the entire species_info.tsv file.
-
+This also works on a subset of the entire species_info.tsv file, e.g. `/path/to/IGGdb/v1.0.0/my_subset_metadata/species_info.tsv`
