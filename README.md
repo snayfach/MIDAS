@@ -27,7 +27,7 @@ Here is how to run the original MIDAS bowtie2 based workflow for counting SNPs, 
 
 2) For any `sample_dir` of your choice, `mkdir -p sample_dir/results/iggsearch`
 
-3) run `iggsearch` as per its own usage instructions, then put its results in `sample_dir/results/iggsearch`
+3) run `iggsearch` as per its own usage instructions, with output dir `sample_dir/results/iggsearch`
 
 4) `/path/to/MIDAS-IGGdb/run.sh snps sample_dir/results -1 sample_dir/*.1.fastq -2 sample_dir/*.2.fastq -t 24` assuming a machine with 24 physical CPU cores.
 
