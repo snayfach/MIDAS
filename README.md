@@ -19,7 +19,7 @@ maintained in this repo while it is under construction.
 To support the larger database, the original MIDAS `run_species` command
 is being deprecated in favor of the new [IGGSearch tool](https://github.com/snayfach/IGGsearch).
 
-# Variant calling
+# Variant calling - single sample
 
 Here is how to run the original MIDAS bowtie2 based workflow for counting SNPs, on the larger IGGdb database.
 
@@ -33,6 +33,19 @@ Here is how to run the original MIDAS bowtie2 based workflow for counting SNPs, 
 
 Results will appear in `sample_dir/results/snps`.
 
+# Variant calling - pooled
+
+After running the single-sample variant calling workflow above for several samples, results can be merged and annotated as follows.
+
+```
+OUTDIR=sample_dir_xyz/..
+cd $OUTDIR
+ls sample_dir_*/results > samples.txt   # list of all samples to run on
+/path/to/MIDAS-IGGdb/run.sh merge snps . -i samples.txt -t file --threads 24
+```
+That's assuming 24 physical cores.
+
+Results will appear in `${OUTDIR}/OTU-*`  (one folder per species present).
 
 # Building the MIDAS-IGGdb database
 
