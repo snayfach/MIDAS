@@ -13,7 +13,7 @@ class Species:
 		self.id = id
 		self.samples = []
 		self.info = species_info[self.id]
-		self.genome_info = genome_info[self.info['rep_genome']]
+		self.genome_info = genome_info[self.info['representative_genome']]
 
 	def fetch_sample_depth(self):
 		self.sample_depth = []
@@ -80,26 +80,18 @@ def init_samples(indirs, data_type):
 		sample = Sample(dir, data_type)
 		if sample.info is None:
 			pass
-			#sys.stderr.write("Warning: missing/incomplete output: %s\n" % dir)
+			sys.stderr.write("Warning: missing/incomplete output: %s\n" % dir)
 		else:
 			samples.append(sample)
 	return samples
 
-def read_species_info(db):
+def read_species_info(iggdb):
 	""" Read species annotations """
-	species_info = {}
-	path = os.path.join(db, 'species_info.txt')
-	for r in csv.DictReader(open(path), delimiter='\t'):
-		species_info[r['species_id']] = r
-	return species_info
+	return iggdb.species
 
-def read_genome_info(db):
+def read_genome_info(iggdb):
 	""" Read genome annotations """
-	genome_info = {}
-	path = os.path.join(db, 'genome_info.txt')
-	for r in csv.DictReader(open(path), delimiter='\t'):
-		genome_info[r['genome_id']] = r
-	return genome_info
+	return iggdb.genomes
 
 def filter_sample_species(sample, species, species_id, args, dtype):
 	""" Determine whether sample-species pair fails filters """
@@ -126,15 +118,13 @@ def sort_species(species):
 def init_species(samples, args, dtype):
 	""" Store high quality sample-species pairs """
 	species = {}
-	species_info = read_species_info(args['db'])
-	genome_info = read_genome_info(args['db'])
+	species_info = read_species_info(args['iggdb'])
+	genome_info = read_genome_info(args['iggdb'])
 	for sample in samples:
 		for species_id in sample.info:
 			if species_id not in species:
 				species[species_id] = Species(species_id, species_info, genome_info)
-			if filter_sample_species(sample, species, species_id, args, dtype):
-				continue
-			else:
+			if not filter_sample_species(sample, species, species_id, args, dtype):
 				species[species_id].samples.append(sample)
 	return list(species.values())
 
@@ -145,14 +135,13 @@ def filter_species(species, args):
 		sp.nsamples = len(sp.samples)
 		if sp.nsamples < int(args['min_samples']):
 			continue
-		elif args['max_species'] and len(keep) >= args['max_species']:
+		if args['max_species'] and len(keep) >= args['max_species']:
 			continue
-		else:
-			sp.fetch_sample_depth()
-			sp.outdir = args['outdir']+'/'+sp.id
-			keep.append(sp)
-			if not os.path.isdir(sp.outdir):
-				os.mkdir(sp.outdir)
+		sp.fetch_sample_depth()
+		sp.outdir = args['outdir']+'/'+sp.id
+		keep.append(sp)
+		if not os.path.isdir(sp.outdir):
+			os.mkdir(sp.outdir)
 	return keep
 
 def select_species(args, dtype):

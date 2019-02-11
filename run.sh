@@ -12,4 +12,9 @@ if [ ! -d ${MIDAS_DB} ]; then
    exit 1
 fi
 
-python3 ${MIDAS}/scripts/run_midas.py $*
+if [ "x$1" = "xmerge" ]; then
+    shift
+    python3 ${MIDAS}/scripts/merge_midas.py $*
+else
+    python3 ${MIDAS}/scripts/run_midas.py $*
+fi

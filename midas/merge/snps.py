@@ -9,6 +9,10 @@ from midas import utility
 from midas.merge import merge
 from time import time
 from operator import itemgetter
+import multiprocessing
+from smelter.iggdb import IGGdb
+from smelter.utilities import tserr
+import traceback
 
 class GenomicSite:
 	def __init__(self, id, values):
@@ -200,35 +204,11 @@ class GenomicSite:
 		depth = self.id + '\t' + '\t'.join([str(depth) for depth in self.sample_depths])+'\n'
 		files['depth'].write(depth)
 
+
 def parallel(function, argument_list, threads):
-	""" Based on: https://gist.github.com/admackin/003dd646e5fadee8b8d6 """
-	import multiprocessing as mp
-	import signal
-	import time
-	
-	def init_worker():
-		signal.signal(signal.SIGINT, signal.SIG_IGN)
+	mp = multiprocessing.Pool(threads)
+	return mp.starmap(function, argument_list)
 
-	pool = mp.Pool(threads, init_worker)
-	
-	try:
-		results = []
-		for arguments in argument_list:
-			p = pool.apply_async(function, args=arguments)
-			results.append(p)
-		pool.close()
-		
-		while True:
-			if all(r.ready() for r in results):
-				for r in results: # catches errors in child process
-					r.get()
-				return
-			time.sleep(1)
-
-	except KeyboardInterrupt:
-		pool.terminate()
-		pool.join()
-		sys.exit("\nKeyboardInterrupt")
 
 def replace_none(input_string, replace_string="NA"):
 	return input_string if input_string is not None else replace_string
@@ -321,11 +301,19 @@ def write_merge_midas(species, args, thread=None):
 	files['info'].write('\t'.join(info_fields)+'\n')
 	return files
 
-def build_sharded_tables(species, args, thread, line_from, line_to):
+def build_sharded_tables(species, args, thread, line_from, line_to, errcnt=multiprocessing.Value('i', 0)):
 	""" Build merged output files for species using every <thread>th site"""
 	infiles = read_count_matrixes(species, args)
 	outfiles = write_merge_midas(species, args, thread)
-	genes = utility.read_genes(species.id, args['db'])
+	try:
+		genes = utility.read_genes(species.id, args['iggdb'])
+	except:
+		genes = None
+		with errcnt.get_lock():
+			errcnt.value += 1
+			if errcnt.value == 1:
+				traceback.print_exc()
+				tserr("Apologies - gene annotations disabled in this run.")
 	
 	line_num = -1
 	while True:
@@ -355,9 +343,9 @@ def build_sharded_tables(species, args, thread, line_from, line_to):
 		# decide what to do with site
 		if site.flag[0] is True:
 			continue
-		else:
+		if genes:
 			site.annotate(genes)
-			site.write(outfiles)
+		site.write(outfiles)
 	
 	# finish up
 	for file in infiles: file.close()
@@ -467,10 +455,50 @@ Additional information for species can be found in the reference database:
  %s/rep_genomes/%s
 """ % (args['db'], sp.id) )
 	outfile.close()
+
+
+def per_species_work(index):
+	global species_list
+	global global_args
+	args = global_args
+	species = species_list[index]
+	print("  %s" % species.id)
+	species.tempdir = '%s/%s/temp' % (args['outdir'], species.id)
+	if not os.path.isdir(species.tempdir): os.mkdir(species.tempdir)
+	species.sample_lists = utility.batch_samples(species.samples, threads=args['threads'])
+	species.num_splits = len(species.sample_lists)
+	
+	print("    merging count data")
+	parallel_build_temp_count_matrixes(species, args)
+
+	print("    calling SNPs")
+	parallel_build_sharded_tables(species, args)
+
+	# this is the slow step, and it is single-threaded
+	# that is why we have to run this function in multiprocessing,
+	# despite the fact the other steps above are "parallel"
+	print("    writing output files")
+	merge_sharded_tables(species, args)
+
+	print("    finishing")
+	write_snps_readme(args, species)
+	species.write_sample_info(dtype='snps', outdir=args['outdir'])
+	shutil.rmtree(species.tempdir)
+
+
+def psw_safe(index, sem):
+	try:
+		per_species_work(index)
+	finally:
+		sem.release()
+
 	
 def run_pipeline(args):
 	
 	print("Identifying species and samples")
+	if 'db' in args:
+		args['iggdb'] = IGGdb(f"{args['db']}/metadata/species_info.tsv")
+	global species_list
 	species_list = merge.select_species(args, dtype='snps')
 	for species in species_list:
 		print("  %s" % species.id)
@@ -483,26 +511,15 @@ def run_pipeline(args):
 		print("    count samples: %s" % len(species.samples))
 	
 	print("\nMerging snps")
-	for species in species_list:
 	
-		print("  %s" % species.id)
-		species.tempdir = '%s/%s/temp' % (args['outdir'], species.id)
-		if not os.path.isdir(species.tempdir): os.mkdir(species.tempdir)
-		species.sample_lists = utility.batch_samples(species.samples, threads=args['threads'])
-		species.num_splits = len(species.sample_lists)
-		
-		print("    merging count data")
-		parallel_build_temp_count_matrixes(species, args)
-
-		print("    calling SNPs")
-		parallel_build_sharded_tables(species, args)
-
-		print("    writing output files")
-		merge_sharded_tables(species, args)
-
-		print("    finishing")
-		write_snps_readme(args, species)
-		species.write_sample_info(dtype='snps', outdir=args['outdir'])
-		shutil.rmtree(species.tempdir)
-
+	global global_args
+	global_args = args
+	sem = multiprocessing.Semaphore(int(args['threads']))
+	procs = []
+	for index in range(0, len(species_list)):
+		sem.acquire()
+		procs.append(multiprocessing.Process(target=psw_safe, args=[index, sem]))
+		procs[-1].start()
+	for p in procs:
+		p.join()
 

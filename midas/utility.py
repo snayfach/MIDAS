@@ -244,9 +244,10 @@ def check_bamfile(args, bampath):
 		err_message = "\nWarning, bamfile may be corrupt: %s\nSamtools reported this error: %s\n" % (bampath, err.rstrip())
 		sys.exit(err_message)
 
-def read_genes(species_id, db):
+def read_genes(species_id, iggdb):
 	""" Read in gene coordinates from features file """
-	genome = read_genome(db, species_id)
+	genome = read_genome(iggdb, species_id)
+	raise Exception("Genome feature files for IGGdb are not yet available.")
 	genes = []
 	basename = '%s/rep_genomes/%s/genome.features' % (db, species_id)
 	if os.path.exists(basename):
@@ -272,15 +273,9 @@ def read_genes(species_id, db):
 	return {'list':sorted_genes, 'index':0}
 
 
-def read_genome(db, species_id):
+def read_genome(iggdb, species_id):
 	""" Read in representative genome from reference database """
-	basename = '%s/rep_genomes/%s/genome.fna' % (db, species_id)
-	if os.path.exists(basename):
-		fpath = basename
-	elif os.path.exists(basename+'.gz'):
-		fpath = basename+'.gz'
-	else:
-		sys.exit("\nError: rep genome for %s not found\n" % species_id)
+	fpath = iggdb.get_species(species_id)['repgenome_path']
 	infile = iopen(fpath)
 	genome = {}
 	for r in Bio.SeqIO.parse(infile, 'fasta'):
