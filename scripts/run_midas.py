@@ -385,9 +385,15 @@ Directory name should correspond to sample identifier""")
 	db.add_argument('-d', type=str, dest='db', default=os.environ['MIDAS_DB'] if 'MIDAS_DB' in os.environ else None,
 		help="""Path to reference database
 By default, the MIDAS_DB environmental variable is used""")
+	db.add_argument('--dbtoc', type=str, dest='dbtoc', default=os.environ['MIDAS_DB_TOC'] if 'MIDAS_DB_TOC' in os.environ else None,
+		help="""Path to reference database species_info.tsv.
+By default, the MIDAS_DB_TOC environmental variable is used.
+By default^2, the path MIDAS_DB_ROOT/metadata/species_info.tsv is used.""")
 	db.add_argument('--species_cov', type=float, dest='species_cov', metavar='FLOAT', help='Include species with >X coverage (3.0)')
 	db.add_argument('--species_topn', type=int, dest='species_topn', metavar='INT', help='Include top N most abundant species')
 	db.add_argument('--species_id', type=str, dest='species_id', metavar='CHAR', help='Include specified species. Separate ids with a comma')
+	db.add_argument('--species_id_file', type=str, dest='species_id_file', metavar='CHAR', help='Include species from specified file, one species per line.')
+	db.add_argument('--all_species_in_db', default=False, action='store_true', dest='all_species_in_db', help='Include every species in DB, regardless of species abundance in sample.')
 	align = parser.add_argument_group('Read alignment options (if using --align)')
 	align.add_argument('-1', type=str, dest='m1', required=True,
 		help="""FASTA/FASTQ file containing 1st mate if using paired-end reads.
@@ -515,10 +521,11 @@ def check_genes(args):
 	# species selection options, but no no profile file
 	profile='%s/species/species_profile.txt' % args['outdir']
 	if not os.path.isfile(profile):
-		if (args['species_topn'] or args['species_cov']) and args['build_db']:
+		if ((args['species_topn'] or args['species_cov']) and not args['all_species_in_db']) and args['build_db']:
 			sys.exit("\nError: Could not find species abundance profile: %s\n\
 To specify species with --species_topn or --species_cov you must have run: run_midas.py species\n\
-Alternatively, you can manually specify one or more species using --species_id\n" % profile)
+Alternatively, you can manually specify one or more species using --species_id, --species_from_file, or\n\
+you may request running on all species regardless of abundance in sample via --all_species_from_db" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
@@ -576,10 +583,11 @@ def check_snps(args):
 	# species selection options, but no no profile file
 	profile='%s/iggsearch/species_profile.tsv' % args['outdir']
 	if not os.path.isfile(profile):
-		if (args['species_topn'] or args['species_cov']) and args['build_db']:
+		if ((args['species_topn'] or args['species_cov']) and not args['all_species_in_db']) and args['build_db']:
 			sys.exit("\nError: Could not find species abundance profile: %s\n\
 To specify species with --species_topn or --species_cov you must have run: run_midas.py species\n\
-Alternatively, you can manually specify one or more species using --species_id\n" % profile)
+Alternatively, you can manually specify one or more species using --species_id, --species_from_file, or\n\
+you may request running on all species regardless of abundance in sample via --all_species_from_db" % profile)
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']

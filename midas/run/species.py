@@ -193,7 +193,7 @@ def select_species(args):
 	import operator
 	species_sets = {}
 	# read in species abundance if necessary
-	if any([args['species_topn'], args['species_cov']]):
+	if any([args['species_topn'], args['species_cov']]) and not args['all_species_in_db']:
 		species_abundance = read_abundance('%s/iggsearch/species_profile.tsv' % args['outdir'])
 		# user specifed a coverage threshold
 		if args['species_cov']:
@@ -213,6 +213,19 @@ def select_species(args):
 		species_sets['species_id'] = set([])
 		for species_id in args['species_id']:
 			species_sets['species_id'].add(species_id)
+	if args['species_id_file']:
+		assert not args['species_id'], "Arguments cannot be used simultaneously: --species_id, --species_id_file"
+		species_sets['species_id'] = set([])
+		with open(args['species_id_file'], "r") as sidf:
+			for line in sidf:
+				if line.strip():
+					species_sets['species_id'].add(line.strip())
+	if args['all_species_in_db']:
+		assert not args['species_id'], "Arguments cannot be used simultaneously: --species_id, --all_species_in_db"
+		assert not args['species_id_file'], "Arguments cannot be used simultaneously: --species_id_file, --all_species_in_db"
+		if args['species_topn'] or args['species_cov']:
+			sys.stderr.write("Argument --all_species_in_db takes precedence over --species_top_n and --species_cov\n")
+		species_sets['all_species_in_db'] = set(args['iggdb'].species.keys())
 	# intersect sets of genome-species
 	my_species = list(set.intersection(*list(species_sets.values())))
 	# optionally remove bad species_ids
