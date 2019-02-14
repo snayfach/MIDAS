@@ -162,10 +162,15 @@ def keep_read_work(aln, my_args, aln_stats):
 		return True
 
 
-def species_pileup(species_id, contigs):
+def species_pileup(species_id):
+
+	# tsprint(f"Working on species {species_id}")
 
 	global global_args
 	args = global_args
+
+	global global_contigs
+	contigs = global_contigs
 
 	# summary stats
 	aln_stats = {'genome_length':0,
@@ -196,11 +201,11 @@ def species_pileup(species_id, contigs):
 			counts = bamfile.count_coverage(
 				contig_id,
 				start=0,
-				end=contig['length'],
+				end=int(contig['length']),
 				quality_threshold=args['baseq'],
 				read_callback=keep_read)
 
-			for i in range(0, contig['length']):
+			for i in range(0, int(contig['length'])):
 				ref_pos = i+1
 				ref_allele = contig['seq'][i]
 				depth = sum([counts[_][i] for _ in range(4)])
@@ -216,7 +221,7 @@ def species_pileup(species_id, contigs):
 
 	out_file.close()
 	tsprint(json.dumps({species_id: aln_stats}, indent=4))
-	return (species_id, aln_stats)
+	return (species_id, {k: str(v) for k, v in aln_stats.items()})
 
 
 def pysam_pileup(args, species, contigs):
@@ -233,19 +238,25 @@ def pysam_pileup(args, species, contigs):
 	# run pileups per species in parallel
 	argument_list = []
 	# We might not need this for contigs.  It was an attempt to eliminate the nonserializable subprocess argument.  Which is args.
-	contigs = { str(c.id): {'species_id': str(c.species_id), 'length': int(c.length), 'seq': [chr for chr in c.seq]} for c in contigs.values() }
+	tsprint("Reading contigs")
+	contigs = { str(c.id): {'species_id': str(c.species_id), 'length': str(c.length), 'seq': "".join(c.seq)} for c in contigs.values() }
 	for species_id in species:
-		argument_list.append([species_id, contigs])
+		argument_list.append([species_id])
+
+	global global_contigs
+	global_contigs = contigs
+	
+	tsprint("Read contigs")
 
 	mp = multiprocessing.Pool(int(args['threads']))
 	# update alignment stats for species objects
 	for species_id, stats in mp.starmap(species_pileup, argument_list):
 		sp = species[species_id]
-		sp.genome_length = stats['genome_length']
-		sp.covered_bases = stats['covered_bases']
-		sp.total_depth = stats['total_depth']
-		sp.aligned_reads = stats['aligned_reads']
-		sp.mapped_reads = stats['mapped_reads']
+		sp.genome_length = int(stats['genome_length'])
+		sp.covered_bases = int(stats['covered_bases'])
+		sp.total_depth = int(stats['total_depth'])
+		sp.aligned_reads = int(stats['aligned_reads'])
+		sp.mapped_reads = int(stats['mapped_reads'])
 		if sp.genome_length > 0:
 			sp.fraction_covered = sp.covered_bases/float(sp.genome_length)
 		if sp.covered_bases > 0:
