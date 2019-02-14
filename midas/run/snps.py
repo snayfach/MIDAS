@@ -188,6 +188,8 @@ def species_pileup(species_id):
 	header = ['ref_id', 'ref_pos', 'ref_allele', 'depth', 'count_a', 'count_c', 'count_g', 'count_t']
 	out_file.write('\t'.join(header)+'\n')
 
+	zero_rows_allowed = not args['sparse']
+
 	# compute coverage
 	bampath = '%s/snps/temp/genomes.bam' % args['outdir']
 	with pysam.AlignmentFile(bampath, 'rb') as bamfile:
@@ -214,7 +216,8 @@ def species_pileup(species_id):
 				count_g = counts[2][i]
 				count_t = counts[3][i]
 				row = [contig_id, ref_pos, ref_allele, depth, count_a, count_c, count_g, count_t]
-				out_file.write('\t'.join([str(_) for _ in row])+'\n')
+				if depth > 0 or zero_rows_allowed:
+					out_file.write('\t'.join([str(_) for _ in row])+'\n')
 				aln_stats['genome_length'] += 1
 				aln_stats['total_depth'] += depth
 				if depth > 0: aln_stats['covered_bases'] += 1

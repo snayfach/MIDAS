@@ -432,6 +432,8 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 		help='Enable BAQ: per-base alignment quality (False)')
 	snps.add_argument('--adjust_mq', default=False, action='store_true',
 		help='Adjust MAPQ (False)')
+	snps.add_argument('--sparse', default=False, action='store_true',
+		help='Omit zero rows from output.')
 	args = vars(parser.parse_args())
 	if args['species_id']: args['species_id'] = args['species_id'].split(',')
 	return args
