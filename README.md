@@ -77,6 +77,8 @@ When using a remote machine, it's best to save the above snippets into script fi
 
 Each stage will emit SUCCESS or FAILURE files as appropriate for every sample.  The pileup for each genome in the specified subset will be in sample_dir/output (for each sample_dir).
 
+TODO:  True batch mode to avoid paying the startup cost per sample.
+
 # Building the MIDAS-IGGdb database
 
 To accommodate the vast increase in source data and support its further enrichment
