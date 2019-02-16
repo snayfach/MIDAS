@@ -42,9 +42,9 @@ ls sample_dir_*/results > samples.txt   # list of all samples to run on
 ```
 Results will appear in `${OUTDIR}/OTU-*`  (one folder per species present).
 
-# --NEW-- Variant calling - batch of samples - fixed subset of species
+# Variant calling - batch of samples - fixed subset of species
 
-This workflow is new in MIDAS-IGGdb.  It builds a bowtie DB for a fixed set of species, then aligns a set of samples against that DB, and counts SNPS in each sample.  Genomic positions with zero mapped reads are omitted from the output.  Tested with 975 species and 40 samples.  Could easily do more.
+*This workflow is new in MIDAS-IGGdb.*  It builds a bowtie DB for a fixed set of species, then aligns a set of samples against that DB, and counts SNPS in each sample.  Genomic positions with zero mapped reads are omitted from the output.  Tested with 975 species and 40 samples.  Could easily do more.
 
 1. Build a bowtie DB using the new `--all_species_in_db` and `--dbtoc` options to specify your desired subset of species.  Use any sample_dir (any actual sample data in that dir will be ignored; the database will be constructed from all species listed in the `dbtoc` argument).
 ```
