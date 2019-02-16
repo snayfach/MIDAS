@@ -15,7 +15,7 @@ maintained in this repo while it is under construction.
 
 # Setup
 
-Download `s3://microbiome-bdimitrov/IGGdb/v1.0.0/{metadata, iggsearch, repgenomes}` and clone `github.com/czbiohub/MIDAS-IGGdb` right next to each other.
+Download `s3://microbiome-bdimitrov/IGGdb/v1.0.0/{metadata, iggsearch, repgenomes}` and clone `github.com/czbiohub/MIDAS-IGGdb` right next to each other.  This lets the `run.sh` script find everything automatically.
 
 # Species abundance estimation
 
