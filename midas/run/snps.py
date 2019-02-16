@@ -38,7 +38,7 @@ class Contig:
 def initialize_species(args):
 	species = {}
 	splist = '%s/snps/species.txt' % args['outdir']
-	if args['build_db']:
+	if args['build_db'] or (args['all_species_in_db'] and not os.path.isfile(splist)):
 		from midas.run.species import select_species
 		with open(splist, 'w') as outfile:
 			for id in select_species(args):
@@ -100,7 +100,10 @@ def genome_align(args):
 	# Bowtie2
 	bam_path = os.path.join(args['outdir'], 'snps/temp/genomes.bam')
 	command = '%s --no-unal ' % args['bowtie2']
-	command += '-x %s ' % '/'.join([args['outdir'], 'snps/temp/genomes']) # index
+	if args['bowtie-db']:
+		command += '-x %s ' % '/'.join([args['bowtie-db'], 'genomes']) # index
+	else:
+		command += '-x %s ' % '/'.join([args['outdir'], 'snps/temp/genomes']) # index
 	if args['max_reads']: command += '-u %s ' % args['max_reads'] # max num of reads
 	if args['trim']: command += '--trim3 %s ' % args['trim'] # trim 3'
 	command += '--%s' % args['speed'] # alignment speed
@@ -132,7 +135,7 @@ def index_bam(args):
 	start = time()
 	print("\nIndexing bamfile")
 	args['log'].write("\nIndexing bamfile\n")
-	command = '%s index %s/snps/temp/genomes.bam' % (args['samtools'], args['outdir'])
+	command = '%s index -@ %d %s/snps/temp/genomes.bam' % (args['samtools'], int(args['threads']), args['outdir'])
 	args['log'].write('command: '+command+'\n')
 	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	utility.check_exit_code(process, command)

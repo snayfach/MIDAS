@@ -413,6 +413,8 @@ Can be gzip'ed (extension: .gz) or bzip2'ed (extension: .bz2)""")
 		help='Global/local read alignment (global)')
 	align.add_argument('-t', dest='threads', default=1,
 		help='Number of threads to use (1)')
+	db.add_argument('--bowtie-db', type=str, dest='bowtie-db', default=None,
+		help="""Path to bowtie db for sample.  By default, outdir/snps/temp.""")
 	snps = parser.add_argument_group('Pileup options (if using --pileup)')
 	snps.add_argument('--mapid', type=float, metavar='FLOAT',
 		default=94.0, help='Discard reads with alignment identity < MAPID (94.0)')
@@ -593,6 +595,7 @@ you may request running on all species regardless of abundance in sample via --a
 	# no database but --align specified
 	if (args['align']
 		and not args['build_db']
+		and not args['bowtie-db']
 		and not os.path.isfile('%s/snps/temp/genomes.fa' % args['outdir'])):
 		error = "\nError: You've specified --align, but no database has been built"
 		error += "\nTry running with --build_db\n"
@@ -608,7 +611,7 @@ you may request running on all species regardless of abundance in sample via --a
 	# no genomes but --call specified
 	if (args['call']
 		and not args['build_db']
-		and not os.path.isfile('%s/snps/temp/genomes.fa' % args['outdir'])
+		and not os.path.isfile('%s/snps/temp/genomes.bam' % args['outdir'])
 		):
 		error = "\nError: You've specified --pileup, but the no genome database was found"
 		error += "\nTry running with --build_db\n"

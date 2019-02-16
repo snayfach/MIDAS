@@ -6,11 +6,11 @@ import os
 
 setup(
 	name = 'MIDAS',
-	version = '1.3.0',
+	version = '0.0.0',
 	description = 'An integrated pipeline and for estimating species and strain-level genomic variation from metagenomic data',
 	license = 'GPL',
-	author = 'Stephen Nayfach',
-	author_email='snayfach@gmail.com',
-	url='https://github.com/snayfach/MIDAS',
+	author = 'Stephen Nayfach - witch changes by Boris Dimitrov',
+	author_email='bdimitrov@chanzuckerberg.com',
+	url='https://github.com/czbiohub/MIDAS-IGGdb',
 	install_requires = ['biopython >= 1.62', 'numpy >= 1.7.0', 'pysam >= 0.8.1', 'pandas >= 0.17.1']
 )
