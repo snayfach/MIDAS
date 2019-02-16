@@ -127,30 +127,8 @@ def add_executables(args):
 		if not os.access(args[arg], os.X_OK):
 			sys.exit("\nError: File not executable: %s\n" % args[arg])
 
-	import subprocess as sp
+	return
 
-	process = sp.Popen("%s view" % args['samtools'], shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-	process.wait()
-	if process.returncode != 0:
-		err = "\nError: could not execute samtools binary: %s\n" % args['samtools']
-		err += "(exited with error code %s)\n" % process.returncode
-		err += "To solve this issue, follow these steps:\n"
-		err += "  1) Download samtools v1.4: https://github.com/samtools/samtools/releases/download/1.4/samtools-1.4.tar.bz2\n"
-		err += "  2) Unpack and compile the software on your system\n"
-		err += "  3) Copy the new samtools binary to: %s\n" % os.path.dirname(args['samtools'])
-		sys.exit(err)
-
-	process = sp.Popen("%s -h" % args['bowtie2'], shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-	process.wait()
-	if process.returncode != 0:
-		err = "\nError: could not execute bowtie2 binary: %s\n" % args['bowtie2']
-		err += "(exited with error code %s)\n" % process.returncode
-		err += "To solve this issue, follow these steps:\n"
-		err += "  1) Go to https://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.3.2\n"
-		err += "  2) Download bowtie2-2.3.2-linux-x86_64.zip\n"
-		err += "  3) Unpack the software on your system\n"
-		err += "  4) Copy the new bowtie2 binaries to: %s\n" % os.path.dirname(args['bowtie2'])
-		sys.exit(err)
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
