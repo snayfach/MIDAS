@@ -56,7 +56,7 @@ Results will appear in `${OUTDIR}/OTU-*`  (one folder per species present).
 mv sample_dir/results/temp /path/to/IGGdb/v1.0.0/gtpro_subset_975_bowtie2_repgenomes
 ```
 
-3. Perform alignment on all samples.
+3. Perform alignment on all samples using the `--bowtie-db` just built.
 ```
 for f in <....list of sample dirs....>; do
     test -e $f/results/snps/temp/genomes.bam && echo "Alignment already completed for $f" && continue
@@ -65,7 +65,7 @@ for f in <....list of sample dirs....>; do
 done
 ```
 
-4. Perform pileup on all samples.
+4. Perform pileup on all samples.  It's faster with the `--sparse` flag.
 ```
 for f in <....list of sample dirs....>; do
     test -e $f/results/snps/summary.txt && echo "Pileup already completed for $f" && continue
