@@ -300,7 +300,7 @@ def run_pipeline(args):
 	print("\nReading reference data")
 	start = time()
 	if 'db' in args:
-		if 'dbtoc' in args:
+		if args.get('dbtoc'):
 			args['iggdb'] = IGGdb(f"{args['dbtoc']}")
 		else:
 			args['iggdb'] = IGGdb(f"{args['db']}/metadata/species_info.tsv")
