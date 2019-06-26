@@ -254,6 +254,8 @@ By default, the MIDAS_DB environmental variable is used""")
 	db.add_argument('--species_cov', type=float, dest='species_cov', metavar='FLOAT', help='Include species with >X coverage (3.0)')
 	db.add_argument('--species_topn', type=int, dest='species_topn', metavar='INT', help='Include top N most abundant species')
 	db.add_argument('--species_id', type=str, dest='species_id', metavar='CHAR', help='Include specified species. Separate ids with a comma')
+	db.add_argument('--species_id_file', type=str, dest='species_id_file', metavar='CHAR', help='Include species from specified file, one species per line.')	
+	db.add_argument('--all_species_in_db', default=False, action='store_true', dest='all_species_in_db', help='Include every species in DB, regardless of species abundance in sample.')
 	align = parser.add_argument_group('Read alignment options (if using --align)')
 	align.add_argument('-1', type=str, dest='m1', required=True,
 		help="""FASTA/FASTQ file containing 1st mate if using paired-end reads.
@@ -523,7 +525,7 @@ def check_genes(args):
 	if not any([args['species_id'], args['species_topn'], args['species_cov']]):
 		args['species_cov'] = 3.0
 	# species selection options, but no no profile file
-	profile='%s/species/species_profile.txt' % args['outdir']
+	profile='%s/iggsearch/species_profile.tsv' % args['outdir']
 	if not os.path.isfile(profile):
 		if ((args['species_topn'] or args['species_cov']) and not args['all_species_in_db']) and args['build_db']:
 			sys.exit("\nError: Could not find species abundance profile: %s\n\
