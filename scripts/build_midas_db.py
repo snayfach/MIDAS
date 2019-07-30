@@ -43,6 +43,9 @@ The file should be tab-delimited file with a header and 3 fields:
 		help="Maximum number of species to process from input (use all).\nUseful for quick tests")
 	parser.add_argument('--max_genomes', type=int, default=float('inf'), metavar='INT',
 		help="Maximum number of genomes to process per species (use all).\nUseful for quick tests")
+	parser.add_argument('--max_length', type=int, default=20000, metavar='INT',
+		help="Maximum gene length to use (20000). \nVery long genes can be problemmatic for VSEARCH")
+
 	args = vars(parser.parse_args())
 	return args
 

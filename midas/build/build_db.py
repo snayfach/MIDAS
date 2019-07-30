@@ -63,13 +63,15 @@ class Pangenome:
 		try: os.makedirs(self.tmp)
 		except: pass
 	
-	def store_genes(self):
+	def store_genes(self, max_length):
 		""" Store genes from all genomes """
 		self.genes = {}
 		self.stats['genes'] = 0
 		for genome in self.genomes:
 			for rec in Bio.SeqIO.parse(genome.files['ffn'], 'fasta'):
 				if str(rec.seq) == '' or str(rec.id) in ['', '|']:
+					continue
+				elif len(str(rec.seq)) >= max_length:
 					continue
 				else:
 					gene = Gene(rec.id)
@@ -303,7 +305,7 @@ def build_pangenome_db(args, species):
 		print("%s" % sp.id)
 		p = Pangenome(sp, outdir=args['outdir'], ext=args['compress'])
 		print("  catting genes")
-		p.store_genes()
+		p.store_genes(args['max_length'])
 		p.write_genes()
 		print("  clustering genes")
 		p.cluster_genes(threads=args['threads'])
