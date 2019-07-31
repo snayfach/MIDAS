@@ -114,30 +114,39 @@ gene_info.txt
 """ % self.stats)
 		file.close()
 
-	def write_genes(self):
+	def write_genes(self, resume):
 		""" Concatenate all genes from pangenome into sequence file """
+		ffn_path = '%s/genes.ffn' % self.dir
+		if os.path.exists(ffn_path) and os.stat(ffn_path).st_size > 0 and resume:
+			return
 		file = utility.iopen('%s/genes.ffn' % self.dir, 'w')
 		for gene in self.genes.values():
 			file.write('>%s\n%s\n' % (gene.id, gene.seq))
 		file.close()
 
-	def cluster_genes(self, threads):
+	def cluster_genes(self, threads, resume):
 		""" Cluster genes at 99% ID; Clustering centroids at lower %ID cutoffs """
-		self.uclust(
-			genes='%s/genes.ffn' % self.dir,
-			pid=0.99,
-			centroids='%s/centroids.99.ffn' % self.tmp,
-			clusters='%s/uclust.99.txt' % self.tmp,
-			threads=threads)
+		
+		ffn_path = '%s/centroids.99.ffn' % self.tmp
+		if not os.path.exists(ffn_path) or os.stat(ffn_path).st_size == 0 or not resume:
+			self.uclust(
+				genes='%s/genes.ffn' % self.dir,
+				pid=0.99,
+				centroids='%s/centroids.99.ffn' % self.tmp,
+				clusters='%s/uclust.99.txt' % self.tmp,
+				threads=threads)
 		self.store_gene_info(pid=99)
 		shutil.copy('%s/centroids.99.ffn' % self.tmp, '%s/centroids.ffn' % self.dir)
+		
 		for pid in [95, 90, 85, 80, 75]:
-			self.uclust(
-				genes='%s/centroids.99.ffn' % self.tmp,
-				pid=pid/100.0,
-				centroids='%s/centroids.%s.ffn' % (self.tmp, pid),
-				clusters='%s/uclust.%s.txt' % (self.tmp, pid),
-				threads=threads)
+			ffn_path = '%s/centroids.%s.ffn' % (self.tmp, pid)
+			if not os.path.exists(ffn_path) or os.stat(ffn_path).st_size == 0 or not resume:
+				self.uclust(
+					genes='%s/centroids.99.ffn' % self.tmp,
+					pid=pid/100.0,
+					centroids='%s/centroids.%s.ffn' % (self.tmp, pid),
+					clusters='%s/uclust.%s.txt' % (self.tmp, pid),
+					threads=threads)
 			self.store_gene_info(pid)
 		self.store_cluster_membership()
 
@@ -304,11 +313,14 @@ def build_pangenome_db(args, species):
 	for sp in species:
 		print("%s" % sp.id)
 		p = Pangenome(sp, outdir=args['outdir'], ext=args['compress'])
+		if os.path.exists('%s/readme.txt' % p.dir) and args['resume']:
+			print("  nothing to do")
+			continue
 		print("  catting genes")
 		p.store_genes(args['max_length'])
-		p.write_genes()
+		p.write_genes(args['resume'])
 		print("  clustering genes")
-		p.cluster_genes(threads=args['threads'])
+		p.cluster_genes(args['threads'], args['resume'])
 		print("  writing gene info")
 		p.write_gene_info()
 		print("  removing temporary files")
@@ -351,10 +363,12 @@ def build_marker_db(args, genomes, species):
 	print("  searching marker gene HMMs vs pangenomes")
 	for sp in species:
 		for genome in sp.genomes.values():
-			marker_genes.hmmsearch(
-				inpath=genome.files['faa'],
-				outpath='%s/%s.hmmsearch' % (marker_genes.tmp, genome.id),
-				threads=args['threads'])
+			hmmpath = '%s/%s.hmmsearch' % (marker_genes.tmp, genome.id)
+			if not os.path.exists(hmmpath) or os.stat(hmmpath).st_size == 0 or not args['resume']:
+				marker_genes.hmmsearch(
+					inpath=genome.files['faa'],
+					outpath=hmmpath,
+					threads=args['threads'])
 			fna = marker_genes.parse_fasta(genome.files['ffn'])
 			for h in marker_genes.find_hits(
 					inpath='%s/%s.hmmsearch' % (marker_genes.tmp, genome.id),
@@ -368,7 +382,7 @@ def build_marker_db(args, genomes, species):
 	marker_genes.info.close()
 	marker_genes.fasta.close()
 	print("  building blast database")
-	marker_genes.build_hsblastn_db(hsblastn=args['hs-blastn'])
+	marker_genes.build_hsblastn_db(args['hs-blastn'], args['resume'])
 	print("  writing mapping cutoffs file")
 	marker_genes.build_mapping_cutoffs()
 	print("  removing temporary files")
@@ -432,7 +446,10 @@ class MarkerGenes:
 		infile.close()
 		return seqs
 
-	def build_hsblastn_db(self, hsblastn):
+	def build_hsblastn_db(self, hsblastn, resume):
+		header = '%s/phyeco.fa.header' % self.dir
+		if os.path.exists(header) and os.stat(header).st_size > 0 and resume:
+			return
 		command = "%s index " % hsblastn
 		command += " %s/phyeco.fa " % self.dir
 		process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

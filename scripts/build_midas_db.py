@@ -45,11 +45,15 @@ The file should be tab-delimited file with a header and 3 fields:
 		help="Maximum number of genomes to process per species (use all).\nUseful for quick tests")
 	parser.add_argument('--max_length', type=int, default=20000, metavar='INT',
 		help="Maximum gene length to use (20000). \nVery long genes can be problemmatic for VSEARCH")
+	parser.add_argument('--resume', action='store_true', default=False,
+		help="Resume database building without starting over from scratch (False)")
 
 	args = vars(parser.parse_args())
 	return args
 
 def check_args(args):
+	if os.path.exists(args['outdir']) and not args['resume']:
+		sys.exit("\nError: output directory already exists; either remove or supply --resume flag")
 	if not os.path.isdir(args['outdir']):
 		os.mkdir(args['outdir'])
 	if not os.path.isdir(args['indir']):
