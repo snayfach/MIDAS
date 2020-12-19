@@ -219,7 +219,8 @@ def pysam_pileup(args, species, contigs):
 	start = time()
 	print("\nCounting alleles")
 	args['log'].write("\nCounting alleles\n")
-        args['log'].close()
+	args['log'].close()
+	args.pop('log', None)
 
 	# run pileups per species in parallel
 	argument_list = []
