@@ -160,9 +160,8 @@ def keep_read(aln):
 	else:
 		aln_stats['mapped_reads'] += 1
 		return True
-	
+        
 def species_pileup(args, species_id, contigs):
-	
 	# Set global variables for read filtering
 	global global_args # need global for keep_read function
 	global_args = args
@@ -170,10 +169,10 @@ def species_pileup(args, species_id, contigs):
 	# summary stats
 	global aln_stats
 	aln_stats = {'genome_length':0,
-				 'total_depth':0,
-				 'covered_bases':0,
-				 'aligned_reads':0,
-				 'mapped_reads':0}
+		     'total_depth':0,
+		     'covered_bases':0,
+		     'aligned_reads':0,
+		     'mapped_reads':0}
 	
 	# open outfiles
 	out_path = '%s/snps/output/%s.snps.gz' % (args['outdir'], species_id)
@@ -220,6 +219,7 @@ def pysam_pileup(args, species, contigs):
 	start = time()
 	print("\nCounting alleles")
 	args['log'].write("\nCounting alleles\n")
+        args['log'].close()
 
 	# run pileups per species in parallel
 	argument_list = []
