@@ -126,7 +126,7 @@ def add_executables(args):
 
 	import subprocess as sp
 
-	process = sp.Popen("%s view" % args['samtools'], shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
+	process = sp.Popen("%s --help" % args['samtools'], shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
 	process.wait()
 	if process.returncode != 0:
 		err = "\nError: could not execute samtools binary: %s\n" % args['samtools']
