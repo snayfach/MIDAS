@@ -6,6 +6,9 @@ MIDAS is an integrated pipeline that leverages >30,000 reference genomes to esti
 * Nucleotide variants in abundant species (e.g. >10x depth)
 * Gene copy number variants in abundant species (e.g. >5x depth)
 
+Note: these are just recommendations and lower cutoffs may work well, depending on the situation.
+For example, [sensitivity for SNP detection](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5088602/figure/NAYFACHGR201863F2/) starts to decline with  <10x coverage, but the false discovery rate remains low even at 1x coverage
+
 ## How it works
   
 <b>Reference database:</b> MIDAS relies on a reference database that contains 31,007 bacterial genomes. These genomes were hierarchically clustered into 5,952 species groups based on the sequence similarity between genomes at 30 universal genes. For each species, we extracted three genomic features: 15 universal-single-copy genes, a representative genome, and a pan-genome [...read more](ref_db.md).
@@ -28,6 +31,7 @@ Before going through the trouble of installing and running the program, it's wor
 3. Strain-level phylogenetic trees are based on consensus alleles. This means that there will be only one leaf per species per sample. These trees are accurate when within-sample intra-species heterogentity is low (i.e. one dominant strain) but may not be accurate when there is a mixture of two or more common strains. You can use SNPs to quantify the level of within-sample heterogeneity.
 4. The pan-genomes of many species are imcomplete. If you're concerned about this, try [building your own reference database](build_db.md).
 5. The default MIDAS database is 17Gb and requires 34Gb of free space to decompress
+6. 10x coverage is not necessarily a limitation! SNPs are called precisely below 10x coverage, but some may not be detected
 
 ## Examples
 <img src="../images/enrichment.jpg" width="600" align="middle"/>  
