@@ -5,11 +5,11 @@ Description of how the MIDAS database was constructed, how the species groups co
 
 #### Step 1. download default database 
 Download the latest version from your browser:   
-[http://lighthouse.ucsf.edu/MIDAS/midas\_db_v1.2.tar.gz](http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz)
+[https://midasdb.pollard.gladstone.org/uhgg/midas\_db_v1.2.tar.gz](https://midasdb.pollard.gladstone.org/uhgg/midas_db_v1.2.tar.gz)
 
 Or, download from the command line:   
-on Unix: `wget http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz`  
-on OSX: `curl http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz > midas_db_v1.2.tar.gz`
+on Unix: `wget https://midasdb.pollard.gladstone.org/uhgg/midas_db_v1.2.tar.gz`  
+on OSX: `curl https://midasdb.pollard.gladstone.org/uhgg/midas_db_v1.2.tar.gz > midas_db_v1.2.tar.gz`
 
 * This may take several minutes to several hours, depending on your internet speed
 * The entire database requires 36 GB of free space to download and decompress
