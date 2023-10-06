@@ -14,7 +14,7 @@ Install python dependencies as needed:
 [read more...](install.md)
 
 Download & unpack reference database:  
-[http://lighthouse.ucsf.edu/MIDAS/midas\_db_v1.2.tar.gz](http://lighthouse.ucsf.edu/MIDAS/midas_db_v1.2.tar.gz)  
+[https://midasdb.pollard.gladstone.org/uhgg/midas\_db_v1.2.tar.gz](https://midasdb.pollard.gladstone.org/uhgg/midas_db_v1.2.tar.gz)  
 `tar -zxvf midas_db_v1.2.tar.gz`  
 [read more...](ref_db.md)
 
@@ -24,7 +24,7 @@ Update your environment:
 `export MIDAS_DB=midas_db_v1.2`  
 
 Download & unpack example dataset:  
-[http://lighthouse.ucsf.edu/MIDAS/example.tar.gz](http://lighthouse.ucsf.edu/MIDAS/example.tar.gz)  
+[https://midasdb.pollard.gladstone.org/uhgg/midas\_db_v1.2.tar.gz](https://midasdb.pollard.gladstone.org/uhgg/midas_db_v1.2.tar.gz)  
 `tar -zxvf example.tar.gz`
 
 
