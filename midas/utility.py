@@ -5,6 +5,7 @@
 # Freely distributed under the GNU General Public License (GPLv3)
 
 import io, os, stat, sys, resource, gzip, platform, bz2, Bio.SeqIO
+from distutils.spawn import find_executable
 
 __version__ = '1.3.0'
 
@@ -106,23 +107,23 @@ def parallel(function, argument_list, threads):
 		pool.join()
 		sys.exit("\nKeyboardInterrupt")
 
+def find_exe(exe, path):
+	""" Finding executable """
+	if find_executable(exe) is None:
+		exe = os.path.join(path, exe)
+		if not os.path.isfile(exe):
+			sys.exit("\nError: File not found: %s\n" % exe)
+		if find_executable(exe) is None:
+			sys.exit("\nError: Executable not found: %s\n" % exe)
+	return exe
+                                
 def add_executables(args):
 	""" Identify relative file and directory paths """
 	src_dir = os.path.dirname(os.path.abspath(__file__))
 	main_dir = os.path.dirname(src_dir)
-	args['stream_seqs'] = '/'.join([src_dir, 'run', 'stream_seqs.py'])
-	args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
-	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
-	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
-	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-	
-	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools']:
-		if not os.path.isfile(args[arg]):
-			sys.exit("\nError: File not found: %s\n" % args[arg])
-
-	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
-		if not os.access(args[arg], os.X_OK):
-			sys.exit("\nError: File not executable: %s\n" % args[arg])
+	args['stream_seqs'] = find_exe('stream_seqs.py', os.path.join(src_dir, 'run'))
+	for exe in ['hs-blastn',  'bowtie2-build', 'bowtie2', 'samtools']:
+		args[exe] = find_exe(exe, os.path.join(main_dir, 'bin', platform.system()))
 
 	import subprocess as sp
 
